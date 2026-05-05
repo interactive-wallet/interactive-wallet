@@ -5,3 +5,9 @@ dist/
 build/
 .vscode/
 .idea/
+
+.AppleDouble
+.LSOverride
+
+~$*
+.~lock.*
