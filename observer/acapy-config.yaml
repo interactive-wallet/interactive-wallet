@@ -1,0 +1,23 @@
+inbound-transport:
+  - [http, 0.0.0.0, 8000]
+outbound-transport: http
+#experimental-didcomm-v2: true
+genesis-url: http://localhost:9000/genesis
+read-only-ledger: true
+
+label: Observer Wallet
+wallet-name: Observer Wallet
+wallet-type: askar
+seed: my_seed_000000000000000000000000
+wallet-key: key
+
+admin-insecure-mode: true
+admin: [0.0.0.0, 8031]
+public-invites: true
+auto-provision: true
+debug-connections: true
+auto-accept-invites: true
+auto-accept-requests: true
+auto-ping-connection: true
+auto-respond-messages: true
+log-level: info
