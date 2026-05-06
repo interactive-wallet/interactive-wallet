@@ -3,10 +3,12 @@ import aiohttp
 import subprocess
 import os
 import sys
+import traceback
 
 # Configuration
 FABER_ADMIN = "http://localhost:8032"
 ALICE_ADMIN = "http://localhost:8033"
+MEDIATOR_ADMIN = "http://localhost:8041"  # New
 GENESIS_URL = "http://localhost:9000/genesis"
 
 async def wait_for_agent(admin_url, name):
@@ -25,8 +27,20 @@ async def wait_for_agent(admin_url, name):
     return False
 
 async def main():
-    print("--- Starting Faber and Alice Agents ---")
+    print("--- Starting Faber, Alice, and Mediator Configuration ---")
     
+    # Check if Mediator is already running (it should be started by the user)
+    if not await wait_for_agent(MEDIATOR_ADMIN, "Mediator"):
+        print("Please start the mediator first with: export PYTHONPATH=$PYTHONPATH:. && ./.venv/bin/aca-py start --arg-file mediator.acapy.yaml")
+        return
+
+    # 0. Get Invitation from Mediator for Alice
+    async with aiohttp.ClientSession() as session:
+        async with session.post(f"{MEDIATOR_ADMIN}/out-of-band/create-invitation", json={"handshake_protocols": ["https://didcomm.org/didexchange/1.0"]}) as resp:
+            mediator_invitation = await resp.json()
+            invitation_url = mediator_invitation["invitation_url"]
+            print(f"Mediator invitation created.")
+
     # Start Faber (Issuer)
     faber_log = open("faber.log", "w")
     faber_proc = subprocess.Popen([
@@ -51,14 +65,13 @@ async def main():
         "--log-level", "info"
     ], stdout=faber_log, stderr=faber_log)
 
-    # Start Alice (Holder)
+    # Start Alice (Holder) - NOW WITH MEDIATOR
     alice_log = open("alice.log", "w")
     alice_proc = subprocess.Popen([
         sys.executable, "-m", "acapy_agent", "start",
         "--label", "Alice.Agent",
         "--inbound-transport", "http", "0.0.0.0", "8023",
         "--outbound-transport", "http",
-        "--endpoint", "http://localhost:8023",
         "--admin", "0.0.0.0", "8033",
         "--admin-insecure-mode",
         "--wallet-type", "askar",
@@ -72,9 +85,9 @@ async def main():
         "--auto-respond-credential-offer",
         "--auto-respond-credential-request",
         "--auto-respond-presentation-request",
+        "--mediator-invitation", invitation_url,
         "--log-level", "info"
     ], stdout=alice_log, stderr=alice_log)
-
 
     try:
         if not await wait_for_agent(FABER_ADMIN, "Faber") or not await wait_for_agent(ALICE_ADMIN, "Alice"):
@@ -83,6 +96,23 @@ async def main():
         async with aiohttp.ClientSession() as session:
             # 1. Establish Connection
             print("\n--- 1. Establishing Connection ---")
+            
+            # --- MEDIATOR REGISTRATION STEP ---
+            for _ in range(5):
+                await asyncio.sleep(1)
+                async with session.get(f"{ALICE_ADMIN}/connections") as resp:
+                    conns = await resp.json()
+                    med_conns = [c for c in conns["results"] if c["state"] == "active"]
+                    if med_conns:
+                        async with session.get(f"{MEDIATOR_ADMIN}/connections") as m_resp:
+                            m_conns = await m_resp.json()
+                            m_conn_id = m_conns["results"][0]["connection_id"]
+                            reg_body = {"connection_id": m_conn_id, "token": "FCM_TOKEN_ALICE_MOBILE"}
+                            await session.post(f"{MEDIATOR_ADMIN}/notifier/register-token", json=reg_body)
+                            print(f"Registered push token for Mediator connection: {m_conn_id}")
+                            break
+            # ----------------------------------
+
             async with session.post(f"{FABER_ADMIN}/out-of-band/create-invitation", json={"handshake_protocols": ["https://didcomm.org/didexchange/1.0"]}) as resp:
                 if resp.status != 200:
                     text = await resp.text()
@@ -117,19 +147,32 @@ async def main():
 
             # 2. Create Schema and Cred Def (Faber writes to Ledger)
             print("\n--- 2. Creating Schema and Cred Def ---")
+            import random
+            schema_suffix = random.randint(1000, 9999)
+            schema_name = f"degree_schema_{schema_suffix}"
+            
             schema_body = {
-                "schema_name": "degree schema",
+                "schema_name": schema_name,
                 "schema_version": "1.0",
                 "attributes": ["name", "date", "degree"]
             }
             async with session.post(f"{FABER_ADMIN}/schemas", json=schema_body) as resp:
+                if resp.status != 200:
+                    text = await resp.text()
+                    print(f"Error creating schema: {resp.status} - {text}")
+                    raise Exception("Faber failed to create schema")
                 schema = await resp.json()
                 schema_id = schema["schema_id"]
 
-            await asyncio.sleep(2) # Wait for ledger propagation
+            print("Waiting for ledger propagation (5s)...")
+            await asyncio.sleep(5) 
 
             cred_def_body = {"schema_id": schema_id}
             async with session.post(f"{FABER_ADMIN}/credential-definitions", json=cred_def_body) as resp:
+                if resp.status != 200:
+                    text = await resp.text()
+                    print(f"Error creating cred def: {resp.status} - {text}")
+                    raise Exception("Faber failed to create cred def")
                 cred_def = await resp.json()
                 cred_def_id = cred_def["credential_definition_id"]
             

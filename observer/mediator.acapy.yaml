@@ -1,0 +1,32 @@
+# Mediator Configuration
+label: Notifier.Mediator
+inbound-transport:
+  - [http, 0.0.0.0, 8040]
+outbound-transport: http
+endpoint: ["http://localhost:8040"]
+
+# Admin API
+admin: [0.0.0.0, 8041]
+admin-insecure-mode: true
+
+# Mediation Configuration
+open-mediation: true
+auto-accept-invites: true
+auto-accept-requests: true
+
+# Wallet & Ledger
+wallet-type: askar
+wallet-name: MediatorWallet
+wallet-key: mediator_secret_key
+seed: mediator_seed_000000000000000001
+genesis-url: http://localhost:9000/genesis
+auto-provision: true
+recreate-wallet: true
+
+# Plugin Configuration
+plugin:
+  - notifier
+
+# Logging
+log-level: info
+debug-connections: true
