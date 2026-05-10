@@ -1,0 +1,7 @@
+allowBuilds:
+  '@2060.io/ffi-napi': true
+  '@2060.io/ref-napi': true
+  '@hyperledger/anoncreds-nodejs': true
+  '@hyperledger/aries-askar-nodejs': true
+  '@sphereon/pex': true
+  es5-ext: true
