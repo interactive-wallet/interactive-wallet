@@ -17,6 +17,9 @@ importers:
       '@credo-ts/core':
         specifier: 0.5.3
         version: 0.5.3(expo@55.0.23)(react-native@0.85.3(@babel/core@7.29.0)(react@19.2.6))(web-streams-polyfill@3.3.3)
+      '@credo-ts/indy-vdr':
+        specifier: 0.5.3
+        version: 0.5.3(@hyperledger/anoncreds-shared@0.4.0)(@hyperledger/indy-vdr-shared@0.3.0)(expo@55.0.23)(react-native@0.85.3(@babel/core@7.29.0)(react@19.2.6))(web-streams-polyfill@3.3.3)
       '@credo-ts/node':
         specifier: 0.5.3
         version: 0.5.3(expo@55.0.23)(react-native@0.85.3(@babel/core@7.29.0)(react@19.2.6))(web-streams-polyfill@3.3.3)
@@ -26,6 +29,9 @@ importers:
       '@hyperledger/aries-askar-nodejs':
         specifier: 0.2.3
         version: 0.2.3
+      '@hyperledger/indy-vdr-nodejs':
+        specifier: ^0.3.0
+        version: 0.3.0
     devDependencies:
       '@types/node':
         specifier: ^20.0.0
@@ -496,6 +502,11 @@ packages:
   '@credo-ts/core@0.5.3':
     resolution: {integrity: sha512-bM9iNhhXWiJ4YdH5uqaIfK3XhZ6GjuzF0AwE1vMy586sZz05J1ZLQvIYzRpm/p3Buxj9rimnLrc4jcYNit0VUw==}
 
+  '@credo-ts/indy-vdr@0.5.3':
+    resolution: {integrity: sha512-UjydimYomJ2wArr0qkXy21I3PK6859vs/y/BEeKgt4b1cI7hGBZ23+DSTfxHZdf/fLy4k0iu+cfFwx3VoNyAng==}
+    peerDependencies:
+      '@hyperledger/indy-vdr-shared': ^0.2.2
+
   '@credo-ts/node@0.5.3':
     resolution: {integrity: sha512-CbriW2WqYyB1ak9PNR+5a1okKuxjepL1bgAbEk98rfveGccyV/misL5kCmWtT/bnETl9fB+UcJ47GbvBeNmDiQ==}
 
@@ -757,6 +768,13 @@ packages:
 
   '@hyperledger/aries-askar-shared@0.2.3':
     resolution: {integrity: sha512-g9lao8qa80kPCLqqp02ovNqEfQIrm6cAf4xZVzD5P224VmOhf4zM6AKplQTvQx7USNKoXroe93JrOOSVxPeqrA==}
+
+  '@hyperledger/indy-vdr-nodejs@0.3.0':
+    resolution: {integrity: sha512-yx6hPlTXwirouAkMwaLmowU1mfBwRjTFQUQCH7Mgd4/C6Zp0taw/KUclhB83LpbjHBZiGsV/bILeLYD+HNpHfA==}
+    engines: {node: '>= 20'}
+
+  '@hyperledger/indy-vdr-shared@0.3.0':
+    resolution: {integrity: sha512-MMH/PwmjfKSH9X7nplYPgu8oMNHsbMZSaP6F+6xFzJDJKsJ15v/y9zwi4eiTDcMVmmRcDHfSep2uBR4FWkXxzQ==}
 
   '@isaacs/fs-minipass@4.0.1':
     resolution: {integrity: sha512-wgm9Ehl2jpeqP3zw/7mo3kRHFp5MEDhqAdwy1fTGkHAwnkGOVsgpvQhL8B5n1qlb01jV3n/bI0ZfZp5lWA1k4w==}
@@ -2311,6 +2329,9 @@ packages:
   kleur@3.0.3:
     resolution: {integrity: sha512-eTIzlVOSUR+JxdDFepEYcBMtZ9Qqdef+rnzWdRZuMbOywu5tO2w2N7rqjoANZ5k9vywhL6Br1VRjUIgTQx4E8w==}
     engines: {node: '>=6'}
+
+  koffi@2.16.2:
+    resolution: {integrity: sha512-owU0MRwv6xkrVqCd+33uw6BaYppkTRXbO/rVdJNI2dvZG0gzyRhYwW25eWtc5pauwK8TGh3AbkFONSezdykfSA==}
 
   ky-universal@0.11.0:
     resolution: {integrity: sha512-65KyweaWvk+uKKkCrfAf+xqN2/epw1IJDtlyCPxYffFCMR8u1sp2U65NtWpnozYfZxQ6IUzIlvUcw+hQ82U2Xw==}
@@ -4361,6 +4382,20 @@ snapshots:
       - supports-color
       - web-streams-polyfill
 
+  '@credo-ts/indy-vdr@0.5.3(@hyperledger/anoncreds-shared@0.4.0)(@hyperledger/indy-vdr-shared@0.3.0)(expo@55.0.23)(react-native@0.85.3(@babel/core@7.29.0)(react@19.2.6))(web-streams-polyfill@3.3.3)':
+    dependencies:
+      '@credo-ts/anoncreds': 0.5.3(@hyperledger/anoncreds-shared@0.4.0)(expo@55.0.23)(react-native@0.85.3(@babel/core@7.29.0)(react@19.2.6))(web-streams-polyfill@3.3.3)
+      '@credo-ts/core': 0.5.3(expo@55.0.23)(react-native@0.85.3(@babel/core@7.29.0)(react@19.2.6))(web-streams-polyfill@3.3.3)
+      '@hyperledger/indy-vdr-shared': 0.3.0
+    transitivePeerDependencies:
+      - '@hyperledger/anoncreds-shared'
+      - domexception
+      - encoding
+      - expo
+      - react-native
+      - supports-color
+      - web-streams-polyfill
+
   '@credo-ts/node@0.5.3(expo@55.0.23)(react-native@0.85.3(@babel/core@7.29.0)(react@19.2.6))(web-streams-polyfill@3.3.3)':
     dependencies:
       '@2060.io/ffi-napi': 4.0.9
@@ -4937,6 +4972,15 @@ snapshots:
   '@hyperledger/aries-askar-shared@0.2.3':
     dependencies:
       buffer: 6.0.3
+
+  '@hyperledger/indy-vdr-nodejs@0.3.0':
+    dependencies:
+      '@hyperledger/indy-vdr-shared': 0.3.0
+      koffi: 2.16.2
+
+  '@hyperledger/indy-vdr-shared@0.3.0':
+    dependencies:
+      tar: 7.5.15
 
   '@isaacs/fs-minipass@4.0.1':
     dependencies:
@@ -6969,6 +7013,8 @@ snapshots:
 
   kleur@3.0.3:
     optional: true
+
+  koffi@2.16.2: {}
 
   ky-universal@0.11.0(ky@0.33.3)(web-streams-polyfill@3.3.3):
     dependencies:
