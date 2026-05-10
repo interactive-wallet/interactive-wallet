@@ -2,14 +2,14 @@ import { AskarModule } from "@credo-ts/askar";
 import {
   Agent,
   AgentEventTypes,
+  AgentMessageReceivedEvent,
   ConnectionsModule,
   HttpOutboundTransport,
   MediatorModule,
   WsOutboundTransport,
 } from "@credo-ts/core";
 import { agentDependencies, HttpInboundTransport } from "@credo-ts/node";
-// @ts-ignore
-import { ariesAskar } from "@openwallet-foundation/askar-nodejs";
+import { ariesAskar } from "@hyperledger/aries-askar-nodejs";
 
 const { PORT = "3000" } = process.env;
 
@@ -40,9 +40,12 @@ agent.registerOutboundTransport(new HttpOutboundTransport());
 agent.registerOutboundTransport(new WsOutboundTransport());
 agent.registerInboundTransport(new HttpInboundTransport({ port: +PORT }));
 
-agent.events.on(AgentEventTypes.AgentMessageReceived, (data) => {
-  console.log(`[MEDIATOR LOG] Message received: ${data.message.type}`);
-});
+agent.events.on(
+  AgentEventTypes.AgentMessageReceived,
+  (data: AgentMessageReceivedEvent) => {
+    console.log(`Message received:`, JSON.stringify(data));
+  },
+);
 
 async function createInvitation() {
   const mediatorOutOfBandRecord = await agent.oob.createInvitation({

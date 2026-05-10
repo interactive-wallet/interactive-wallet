@@ -1,32 +1,40 @@
 import {
-  Agent,
-  HttpOutboundTransport,
-  WsOutboundTransport,
-  ConnectionsModule,
-  CredentialState,
-  ProofState,
-  ConnectionEventTypes,
-  CredentialEventTypes,
-  ProofEventTypes,
-  ConnectionState,
-  MediatorModule,
-  AgentEventTypes,
-  ConnectionStateChangedEvent,
-  CredentialStateChangedEvent,
-  ProofStateChangedEvent,
-  DidsModule,
-} from "@credo-ts/core";
-import { agentDependencies, HttpInboundTransport } from "@credo-ts/node";
+  AnonCredsCredentialFormatService,
+  AnonCredsModule,
+  AnonCredsProofFormatService,
+} from "@credo-ts/anoncreds";
 import { AskarModule } from "@credo-ts/askar";
-import { ariesAskar } from "@hyperledger/aries-askar-nodejs";
-import { AnonCredsModule } from "@credo-ts/anoncreds";
-import { anoncreds } from "@hyperledger/anoncreds-nodejs";
+import {
+  Agent,
+  ConnectionEventTypes,
+  ConnectionsModule,
+  ConnectionState,
+  ConnectionStateChangedEvent,
+  CredentialEventTypes,
+  CredentialsModule,
+  CredentialState,
+  CredentialStateChangedEvent,
+  DidExchangeState,
+  DidsModule,
+  HttpOutboundTransport,
+  ProofEventTypes,
+  ProofsModule,
+  ProofState,
+  ProofStateChangedEvent,
+  V2CredentialProtocol,
+  V2ProofProtocol,
+  WsOutboundTransport,
+} from "@credo-ts/core";
 import {
   IndyVdrAnonCredsRegistry,
   IndyVdrIndyDidRegistrar,
   IndyVdrIndyDidResolver,
   IndyVdrModule,
 } from "@credo-ts/indy-vdr";
+import { agentDependencies, HttpInboundTransport } from "@credo-ts/node";
+import { anoncreds } from "@hyperledger/anoncreds-nodejs";
+// import { askarNodeJS } from "@openwallet-foundation/askar-nodejs";
+import { ariesAskar } from "@hyperledger/aries-askar-nodejs";
 import { indyVdr } from "@hyperledger/indy-vdr-nodejs";
 
 async function createAgent(
@@ -40,7 +48,7 @@ async function createAgent(
       label: name,
       walletConfig: {
         id: `wallet-${name}`,
-        key: `key-${name}`.padEnd(32, "0"),
+        key: `key-${name}00000000000000000000000`,
       },
       endpoints: mediatorInvitationUrl ? [] : [`http://localhost:${port}`],
     },
@@ -50,6 +58,20 @@ async function createAgent(
       dids: new DidsModule({
         registrars: [new IndyVdrIndyDidRegistrar()],
         resolvers: [new IndyVdrIndyDidResolver()],
+      }),
+      credentials: new CredentialsModule({
+        credentialProtocols: [
+          new V2CredentialProtocol({
+            credentialFormats: [new AnonCredsCredentialFormatService()],
+          }),
+        ],
+      }),
+      proofs: new ProofsModule({
+        proofProtocols: [
+          new V2ProofProtocol({
+            proofFormats: [new AnonCredsProofFormatService()],
+          }),
+        ],
       }),
       indyVdr: new IndyVdrModule({
         indyVdr,
@@ -64,7 +86,7 @@ async function createAgent(
       }),
       anoncreds: new AnonCredsModule({
         registries: [new IndyVdrAnonCredsRegistry()],
-        anoncreds,
+        anoncreds: anoncreds as any, // TODO they differ in the error type
       }),
     },
   });
@@ -84,13 +106,13 @@ async function createAgent(
     );
     const connection = await agent.oob.receiveInvitation(outOfBandInvitation);
 
-    // Wait for connection to be completed
+    console.log(`${name}: Waiting for connection to be completed ...`);
     await new Promise<void>((resolve) => {
       const checkState = (event: ConnectionStateChangedEvent) => {
         if (
           event.payload.connectionRecord.id ===
             connection.connectionRecord?.id &&
-          event.payload.connectionRecord.state === ConnectionState.Complete
+          event.payload.connectionRecord.state === DidExchangeState.Completed
         ) {
           agent.events.off(
             ConnectionEventTypes.ConnectionStateChanged,
@@ -99,10 +121,10 @@ async function createAgent(
           resolve();
         }
       };
-      agent.events.on(ConnectionStateChangedEvent, checkState);
+      agent.events.on(ConnectionEventTypes.ConnectionStateChanged, checkState);
     });
 
-    console.log(`${name}: Requesting mediation...`);
+    console.log(`${name}: Connected. Requesting mediation...`);
     const mediationRecord = await agent.mediationRecipient.requestAndAwaitGrant(
       connection.connectionRecord!,
     );
@@ -113,47 +135,9 @@ async function createAgent(
   return agent;
 }
 
-async function run() {
-  const mediatorPort = 3000;
-
-  console.log("--- Starting Local Mediator ---");
-  const mediator = new Agent({
-    dependencies: agentDependencies,
-    config: {
-      label: "Mediator",
-      walletConfig: {
-        id: "wallet-mediator-traffic",
-        key: "mediator_00000000000000000000000",
-      },
-      endpoints: [`http://localhost:${mediatorPort}`],
-    },
-    modules: {
-      askar: new AskarModule({ ariesAskar }),
-      connections: new ConnectionsModule({ autoAcceptConnections: true }),
-      mediator: new MediatorModule({ autoAcceptMediationRequests: true }),
-    },
-  });
-  mediator.registerOutboundTransport(new HttpOutboundTransport());
-  mediator.registerOutboundTransport(new WsOutboundTransport());
-  mediator.registerInboundTransport(
-    new HttpInboundTransport({ port: mediatorPort }),
-  );
-
-  mediator.events.on(AgentEventTypes.AgentMessageReceived, (data) => {
-    // @ts-ignore
-    console.log(
-      `[MEDIATOR LOG] Message received: ${(data.payload as any).message.type}`,
-    );
-  });
-
-  await mediator.initialize();
-  const invitation = await mediator.oob.createInvitation({
-    multiUseInvitation: true,
-  });
-  const mediatorInvitation = invitation.outOfBandInvitation.toUrl({
-    domain: `http://localhost:${mediatorPort}`,
-  });
-  console.log(`Mediator invitation: ${mediatorInvitation}`);
+async function main() {
+  console.log(process.argv); // XXX
+  const mediatorInvitationUrl = process.argv[10];
 
   // 2. Setup Faber (Issuer)
   console.log("\n--- Starting Faber ---");
@@ -178,14 +162,14 @@ async function run() {
         schemaId: schemaResult.schemaState.schemaId!,
         tag: "default",
       },
-      options: {},
+      options: { supportRevocation: false },
     });
   const credDefId =
     credDefResult.credentialDefinitionState.credentialDefinitionId!;
 
   // 4. Setup Alice (Holder) - using the mediator
   console.log("\n--- Starting Alice (with Mediator) ---");
-  const alice = await createAgent("Alice", 3002, mediatorInvitation);
+  const alice = await createAgent("Alice", 3002, mediatorInvitationUrl);
 
   // 5. Connect Alice and Faber
   console.log("\n--- Connecting Alice and Faber ---");
@@ -195,7 +179,7 @@ async function run() {
     await alice.oob.receiveInvitation(faberInvitation);
 
   await new Promise<void>((resolve) => {
-    const checkState = (event: ConnectionStateChangedEvent) => {
+    const checkState = (event: any) => {
       if (
         event.payload.connectionRecord.id === aliceFaberConnection?.id &&
         event.payload.connectionRecord.state === ConnectionState.Complete
@@ -217,6 +201,7 @@ async function run() {
   // 6. Faber issues Credential
   console.log("\n--- Issuing Masters Certificate ---");
   await faber.credentials.offerCredential({
+    protocolVersion: "v2",
     connectionId: faberAliceConnection.id,
     credentialFormats: {
       anoncreds: {
@@ -255,6 +240,7 @@ async function run() {
   // 7. Faber requests Proof
   console.log("\n--- Requesting and Presenting Proof ---");
   await faber.proofs.requestProof({
+    protocolVersion: "v2",
     connectionId: faberAliceConnection.id,
     proofFormats: {
       anoncreds: {
@@ -298,7 +284,7 @@ async function run() {
   process.exit(0);
 }
 
-run().catch((e) => {
+main().catch((e) => {
   console.error(e);
   process.exit(1);
 });

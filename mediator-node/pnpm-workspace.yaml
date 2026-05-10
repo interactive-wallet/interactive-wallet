@@ -6,4 +6,3 @@ allowBuilds:
   '@hyperledger/indy-vdr-nodejs': true
   '@sphereon/pex': true
   es5-ext: true
-  koffi: true
