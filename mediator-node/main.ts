@@ -4,16 +4,29 @@ import {
   AgentEventTypes,
   AgentMessageReceivedEvent,
   ConnectionsModule,
+  DidsModule,
   HttpOutboundTransport,
   MediatorModule,
+  PeerDidResolver,
   WsOutboundTransport,
 } from "@credo-ts/core";
+import {
+  IndyVdrIndyDidRegistrar,
+  IndyVdrIndyDidResolver,
+  IndyVdrModule,
+} from "@credo-ts/indy-vdr";
 import { agentDependencies, HttpInboundTransport } from "@credo-ts/node";
 import { ariesAskar } from "@hyperledger/aries-askar-nodejs";
+import { indyVdr } from "@hyperledger/indy-vdr-nodejs";
 
 const { PORT = "3000" } = process.env;
 
 const endpointUrl = `http://127.0.0.1:${PORT}`;
+
+const vonUrl = `http://127.0.0.1:9000`;
+const genesisTransactions = await fetch(`${vonUrl}/genesis`).then((res) =>
+  res.text(),
+);
 
 const agent = new Agent({
   dependencies: agentDependencies,
@@ -30,8 +43,21 @@ const agent = new Agent({
     connections: new ConnectionsModule({
       autoAcceptConnections: true,
     }),
-    mediator: new MediatorModule({
-      autoAcceptMediationRequests: true,
+    mediator: new MediatorModule({ autoAcceptMediationRequests: true }),
+    dids: new DidsModule({
+      registrars: [new IndyVdrIndyDidRegistrar()],
+      resolvers: [new PeerDidResolver(), new IndyVdrIndyDidResolver()],
+    }),
+    indyVdr: new IndyVdrModule({
+      indyVdr,
+      networks: [
+        {
+          isProduction: false,
+          indyNamespace: "bcovrin:test",
+          genesisTransactions,
+          connectOnStartup: true,
+        },
+      ],
     }),
   },
 });
@@ -47,19 +73,21 @@ agent.events.on(
   },
 );
 
-async function createInvitation() {
-  const mediatorOutOfBandRecord = await agent.oob.createInvitation({
-    multiUseInvitation: true,
+async function registerMediatorDid() {
+  // Register the mediator on the ledger
+  const mediatorDid = await agent.dids.create({
+    method: "indy",
+    options: { indyNamespace: "bcovrin:test" },
   });
-  const mediatorInvitationUrl =
-    mediatorOutOfBandRecord.outOfBandInvitation.toUrl({ domain: endpointUrl });
-  return mediatorInvitationUrl;
+  console.log("Mediator DID registered on ledger:", mediatorDid.didState.did);
+  return mediatorDid.didState.did;
 }
 
 async function main() {
   await agent.initialize();
   console.log("Mediator running on port", PORT);
-  console.log("Invitation:", await createInvitation());
+  const mediatorDid = await registerMediatorDid();
+  console.log("Mediator DID:", mediatorDid);
 }
 
 main().catch(console.error);

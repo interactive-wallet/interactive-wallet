@@ -101,18 +101,19 @@ async function createAgent(
 
   agent.registerOutboundTransport(new HttpOutboundTransport());
   agent.registerOutboundTransport(new WsOutboundTransport());
-  if (!mediatorInvitationUrl) {
+  if (!mediatorDid) {
     agent.registerInboundTransport(new HttpInboundTransport({ port }));
   }
 
   await agent.initialize();
 
-  if (mediatorInvitationUrl) {
+  if (mediatorDid) {
     console.log(`${name}: Connecting to mediator...`);
-    const outOfBandInvitation = await agent.oob.parseInvitation(
-      mediatorInvitationUrl,
-    );
-    const connection = await agent.oob.receiveInvitation(outOfBandInvitation);
+    // const connection = TODO(mediatorDid);
+
+    const connection = await agent.connections.create({
+      theirDid: mediatorDid,
+    });
 
     console.log(`${name}: Waiting for connection to mediator...`);
     await new Promise<void>((resolve) => {
@@ -144,16 +145,23 @@ async function createAgent(
 }
 
 async function main() {
-  const mediatorInvitationUrl = process.argv[2];
+  const mediatorDid = process.argv[2];
 
   console.log("\n--- Starting Faber ---");
   const faber = await createAgent("Faber", 3001);
 
   console.log("Faber: Registering Schema and Credential Definition...");
+  const faberDidResult = await faber.dids.create({
+    method: "indy",
+    options: { indyNamespace },
+  });
+  const faberDid = faberDidResult.didState.did!;
+  console.log(`Faber DID created: ${faberDid}`);
+
   const schemaResult = await faber.modules.anoncreds.registerSchema({
     schema: {
       attrNames: ["name", "degree"],
-      issuerId: "Faber",
+      issuerId: faberDid,
       name: "Masters Certificate",
       version: "1.0",
     },
@@ -163,7 +171,7 @@ async function main() {
   const credDefResult =
     await faber.modules.anoncreds.registerCredentialDefinition({
       credentialDefinition: {
-        issuerId: "Faber",
+        issuerId: faberDid,
         schemaId: schemaResult.schemaState.schemaId!,
         tag: "default",
       },
@@ -173,38 +181,12 @@ async function main() {
     credDefResult.credentialDefinitionState.credentialDefinitionId!;
 
   console.log("\n--- Starting Alice (with Mediator) ---");
-  const alice = await createAgent("Alice", 3002, mediatorInvitationUrl);
+  const alice = await createAgent("Alice", 3002, mediatorDid);
 
-  console.log("\n--- Connecting Alice and Faber ---");
-  const { outOfBandInvitation: faberInvitation } =
-    await faber.oob.createInvitation();
-  const { connectionRecord: aliceFaberConnection } =
-    await alice.oob.receiveInvitation(faberInvitation);
-
-  await new Promise<void>((resolve) => {
-    const checkState = (event: any) => {
-      if (
-        event.payload.connectionRecord.id === aliceFaberConnection?.id &&
-        event.payload.connectionRecord.state === ConnectionState.Complete
-      ) {
-        alice.events.off(
-          ConnectionEventTypes.ConnectionStateChanged,
-          checkState,
-        );
-        resolve();
-      }
-    };
-    alice.events.on(ConnectionEventTypes.ConnectionStateChanged, checkState);
-  });
-  const faberAliceConnection = (
-    await faber.connections.findAllByOutOfBandId(faberInvitation.id)
-  )[0];
-  console.log("Alice and Faber connected.");
-
-  console.log("\n--- Issuing Masters Certificate ---");
+  console.log("\n--- Issuing Masters Certificate to Alice ---");
   await faber.credentials.offerCredential({
     protocolVersion: "v2",
-    connectionId: faberAliceConnection.id,
+    connectionId: TODO,
     credentialFormats: {
       anoncreds: {
         attributes: [
@@ -216,33 +198,12 @@ async function main() {
     },
   });
 
-  await new Promise<void>((resolve) => {
-    alice.events.on(
-      CredentialEventTypes.CredentialStateChanged,
-      async (event: CredentialStateChangedEvent) => {
-        if (
-          event.payload.credentialRecord.state === CredentialState.OfferReceived
-        ) {
-          console.log("Alice: Received offer, accepting...");
-          await alice.credentials.acceptOffer({
-            credentialRecordId: event.payload.credentialRecord.id,
-          });
-        }
-        if (
-          event.payload.credentialRecord.state ===
-          CredentialState.CredentialReceived
-        ) {
-          console.log("Alice: Credential received!");
-          resolve();
-        }
-      },
-    );
-  });
+  // TODO: alice checks mediator to receive certificate, and accepts it
 
   console.log("\n--- Requesting and Presenting Proof ---");
   await faber.proofs.requestProof({
     protocolVersion: "v2",
-    connectionId: faberAliceConnection.id,
+    connectionId: TODO,
     proofFormats: {
       anoncreds: {
         name: "Proof of Masters",
@@ -257,37 +218,10 @@ async function main() {
     },
   });
 
-  await new Promise<void>((resolve) => {
-    alice.events.on(
-      ProofEventTypes.ProofStateChanged,
-      async (event: ProofStateChangedEvent) => {
-        if (event.payload.proofRecord.state === ProofState.RequestReceived) {
-          console.log(
-            "Alice: Received proof request, selecting credentials and presenting...",
-          );
-          const retrieval = await alice.proofs.selectCredentialsForRequest({
-            proofRecordId: event.payload.proofRecord.id,
-          });
-          await alice.proofs.acceptRequest({
-            proofRecordId: event.payload.proofRecord.id,
-            proofFormats: retrieval.proofFormats,
-          });
-        }
-        if (
-          event.payload.proofRecord.state === ProofState.PresentationReceived
-        ) {
-          console.log("Faber: Proof verified!");
-          resolve();
-        }
-      },
-    );
-  });
+  // TODO: alice checks mediator to receive proof request, and presents credentials
 
   console.log("\nSuccess: Traffic generation complete.");
   process.exit(0);
 }
 
-main().catch((e) => {
-  console.error(e);
-  process.exit(1);
-});
+main().catch(console.error);
