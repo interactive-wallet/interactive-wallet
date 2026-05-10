@@ -13,7 +13,7 @@ import { ariesAskar } from "@hyperledger/aries-askar-nodejs";
 
 const { PORT = "3000" } = process.env;
 
-const endpointUrl = `http://localhost:${PORT}`;
+const endpointUrl = `http://127.0.0.1:${PORT}`;
 
 const agent = new Agent({
   dependencies: agentDependencies,

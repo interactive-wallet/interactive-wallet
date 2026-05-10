@@ -17,6 +17,8 @@ import {
   DidExchangeState,
   DidsModule,
   HttpOutboundTransport,
+  PeerDidResolver,
+  AgentMessageReceivedEvent,
   ProofEventTypes,
   ProofsModule,
   ProofState,
@@ -33,31 +35,37 @@ import {
 } from "@credo-ts/indy-vdr";
 import { agentDependencies, HttpInboundTransport } from "@credo-ts/node";
 import { anoncreds } from "@hyperledger/anoncreds-nodejs";
-// import { askarNodeJS } from "@openwallet-foundation/askar-nodejs";
 import { ariesAskar } from "@hyperledger/aries-askar-nodejs";
 import { indyVdr } from "@hyperledger/indy-vdr-nodejs";
+
+const indyNamespace = "bcovrin:test";
+const vonUrl = `http://127.0.0.1:9000`;
+const genesisTransactions = await fetch(`${vonUrl}/genesis`).then((res) =>
+  res.text(),
+);
 
 async function createAgent(
   name: string,
   port: number,
-  mediatorInvitationUrl?: string,
+  mediatorDid?: string,
 ) {
+  const key = `key-${name}00000000000000000000000`;
+  console.log(`Ensure you have registered ${key} at ${vonUrl}`);
+
   const agent = new Agent({
     dependencies: agentDependencies,
     config: {
       label: name,
-      walletConfig: {
-        id: `wallet-${name}`,
-        key: `key-${name}00000000000000000000000`,
-      },
-      endpoints: mediatorInvitationUrl ? [] : [`http://localhost:${port}`],
+      walletConfig: { key, id: `wallet-${name}` },
+      // when using a mediator, the agent itself is not publicly reachable
+      endpoints: mediatorDid ? [] : [`http://127.0.0.1:${port}`],
     },
     modules: {
       askar: new AskarModule({ ariesAskar }),
       connections: new ConnectionsModule({ autoAcceptConnections: true }),
       dids: new DidsModule({
         registrars: [new IndyVdrIndyDidRegistrar()],
-        resolvers: [new IndyVdrIndyDidResolver()],
+        resolvers: [new PeerDidResolver(), new IndyVdrIndyDidResolver()],
       }),
       credentials: new CredentialsModule({
         credentialProtocols: [
@@ -78,15 +86,15 @@ async function createAgent(
         networks: [
           {
             isProduction: false,
-            indyNamespace: "bcovrin:test",
-            genesisTransactions: "<genesis transactions>",
+            indyNamespace,
+            genesisTransactions,
             connectOnStartup: true,
           },
         ],
       }),
       anoncreds: new AnonCredsModule({
         registries: [new IndyVdrAnonCredsRegistry()],
-        anoncreds: anoncreds as any, // TODO they differ in the error type
+        anoncreds,
       }),
     },
   });
@@ -106,7 +114,7 @@ async function createAgent(
     );
     const connection = await agent.oob.receiveInvitation(outOfBandInvitation);
 
-    console.log(`${name}: Waiting for connection to be completed ...`);
+    console.log(`${name}: Waiting for connection to mediator...`);
     await new Promise<void>((resolve) => {
       const checkState = (event: ConnectionStateChangedEvent) => {
         if (
@@ -124,31 +132,28 @@ async function createAgent(
       agent.events.on(ConnectionEventTypes.ConnectionStateChanged, checkState);
     });
 
-    console.log(`${name}: Connected. Requesting mediation...`);
+    console.log(`${name}: Connected to mediator. Requesting mediation...`);
     const mediationRecord = await agent.mediationRecipient.requestAndAwaitGrant(
       connection.connectionRecord!,
     );
     await agent.mediationRecipient.setDefaultMediator(mediationRecord);
-    console.log(`${name}: Mediation granted and set as default.`);
+    console.log(`${name}: Mediation granted.`);
   }
 
   return agent;
 }
 
 async function main() {
-  console.log(process.argv); // XXX
-  const mediatorInvitationUrl = process.argv[10];
+  const mediatorInvitationUrl = process.argv[2];
 
-  // 2. Setup Faber (Issuer)
   console.log("\n--- Starting Faber ---");
   const faber = await createAgent("Faber", 3001);
 
-  // 3. Create Schema and Cred Def for Faber
   console.log("Faber: Registering Schema and Credential Definition...");
   const schemaResult = await faber.modules.anoncreds.registerSchema({
     schema: {
       attrNames: ["name", "degree"],
-      issuerId: "did:indy:local:Faber",
+      issuerId: "Faber",
       name: "Masters Certificate",
       version: "1.0",
     },
@@ -158,7 +163,7 @@ async function main() {
   const credDefResult =
     await faber.modules.anoncreds.registerCredentialDefinition({
       credentialDefinition: {
-        issuerId: "did:indy:local:Faber",
+        issuerId: "Faber",
         schemaId: schemaResult.schemaState.schemaId!,
         tag: "default",
       },
@@ -167,11 +172,9 @@ async function main() {
   const credDefId =
     credDefResult.credentialDefinitionState.credentialDefinitionId!;
 
-  // 4. Setup Alice (Holder) - using the mediator
   console.log("\n--- Starting Alice (with Mediator) ---");
   const alice = await createAgent("Alice", 3002, mediatorInvitationUrl);
 
-  // 5. Connect Alice and Faber
   console.log("\n--- Connecting Alice and Faber ---");
   const { outOfBandInvitation: faberInvitation } =
     await faber.oob.createInvitation();
@@ -198,7 +201,6 @@ async function main() {
   )[0];
   console.log("Alice and Faber connected.");
 
-  // 6. Faber issues Credential
   console.log("\n--- Issuing Masters Certificate ---");
   await faber.credentials.offerCredential({
     protocolVersion: "v2",
@@ -237,7 +239,6 @@ async function main() {
     );
   });
 
-  // 7. Faber requests Proof
   console.log("\n--- Requesting and Presenting Proof ---");
   await faber.proofs.requestProof({
     protocolVersion: "v2",
@@ -261,7 +262,9 @@ async function main() {
       ProofEventTypes.ProofStateChanged,
       async (event: ProofStateChangedEvent) => {
         if (event.payload.proofRecord.state === ProofState.RequestReceived) {
-          console.log("Alice: Received proof request, presenting...");
+          console.log(
+            "Alice: Received proof request, selecting credentials and presenting...",
+          );
           const retrieval = await alice.proofs.selectCredentialsForRequest({
             proofRecordId: event.payload.proofRecord.id,
           });
@@ -273,7 +276,7 @@ async function main() {
         if (
           event.payload.proofRecord.state === ProofState.PresentationReceived
         ) {
-          console.log("Faber: Proof received and verified!");
+          console.log("Faber: Proof verified!");
           resolve();
         }
       },
