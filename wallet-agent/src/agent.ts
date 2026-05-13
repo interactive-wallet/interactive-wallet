@@ -2,8 +2,13 @@ import { Agent } from '@credo-ts/core'
 import { agentDependencies, DidCommHttpInboundTransport } from '@credo-ts/node'
 import { AskarModule } from '@credo-ts/askar'
 import { IndyVdrModule, IndyVdrAnonCredsRegistry, IndyVdrIndyDidResolver } from '@credo-ts/indy-vdr'
-import { AnonCredsModule } from '@credo-ts/anoncreds'
-import { DidCommModule, DidCommHttpOutboundTransport } from '@credo-ts/didcomm'
+import { AnonCredsModule, AnonCredsDidCommCredentialFormatService } from '@credo-ts/anoncreds'
+import {
+  DidCommAutoAcceptCredential,
+  DidCommModule,
+  DidCommHttpOutboundTransport,
+  DidCommCredentialV2Protocol,
+} from '@credo-ts/didcomm'
 import { askar } from '@openwallet-foundation/askar-shared'
 import { anoncreds } from '@hyperledger/anoncreds-shared'
 import { indyVdr } from '@hyperledger/indy-vdr-shared'
@@ -57,9 +62,16 @@ export function createAgent() {
           outbound: [new DidCommHttpOutboundTransport()],
         },
         connections: {
-          autoAcceptConnections: false,
+          autoAcceptConnections: true,
         },
-        credentials: false,
+        credentials: {
+          autoAcceptCredentials: DidCommAutoAcceptCredential.Always,
+          credentialProtocols: [
+            new DidCommCredentialV2Protocol({
+              credentialFormats: [new AnonCredsDidCommCredentialFormatService()],
+            }),
+          ],
+        },
         proofs: false,
       }),
     },

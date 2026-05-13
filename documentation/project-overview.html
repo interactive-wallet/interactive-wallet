@@ -1,0 +1,2010 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Interactive Wallet — Project Overview</title>
+  <style>
+    /* ── Reset & Base ── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:         #0d1117;
+      --bg2:        #161b22;
+      --bg3:        #1c2431;
+      --border:     #30363d;
+      --text:       #e6edf3;
+      --muted:      #8b949e;
+      --blue:       #2f81f7;
+      --blue-dim:   #1a3a5c;
+      --green:      #3fb950;
+      --green-dim:  #1a3a25;
+      --purple:     #bc8cff;
+      --purple-dim: #2d1f54;
+      --orange:     #f0883e;
+      --orange-dim: #3d2010;
+      --yellow:     #e3b341;
+      --red:        #f85149;
+      --radius:     12px;
+      --shadow:     0 4px 24px rgba(0,0,0,0.5);
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.7;
+      display: flex;
+    }
+
+    /* ── Nav Sidebar ── */
+    #sidebar {
+      width: 240px;
+      min-width: 240px;
+      position: sticky;
+      top: 0;
+      height: 100vh;
+      overflow-y: auto;
+      background: var(--bg2);
+      border-right: 1px solid var(--border);
+      padding: 24px 0;
+      display: flex;
+      flex-direction: column;
+    }
+
+    #sidebar .nav-logo {
+      padding: 0 20px 20px;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 16px;
+    }
+
+    #sidebar .nav-logo .logo-title {
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--blue);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
+    #sidebar .nav-logo .logo-sub {
+      font-size: 11px;
+      color: var(--muted);
+      margin-top: 2px;
+    }
+
+    #sidebar nav a {
+      display: block;
+      padding: 7px 20px;
+      font-size: 13px;
+      color: var(--muted);
+      text-decoration: none;
+      border-left: 2px solid transparent;
+      transition: all 0.15s;
+    }
+
+    #sidebar nav a:hover,
+    #sidebar nav a.active {
+      color: var(--text);
+      background: rgba(47, 129, 247, 0.08);
+      border-left-color: var(--blue);
+    }
+
+    #sidebar nav .nav-section {
+      font-size: 10px;
+      font-weight: 700;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      padding: 14px 20px 4px;
+    }
+
+    /* ── Main Content ── */
+    #main {
+      flex: 1;
+      min-width: 0;
+      padding: 48px 56px;
+      max-width: 960px;
+    }
+
+    /* ── Header ── */
+    .page-header {
+      margin-bottom: 56px;
+      padding-bottom: 40px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .page-header .badge {
+      display: inline-block;
+      background: var(--blue-dim);
+      color: var(--blue);
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      padding: 3px 10px;
+      border-radius: 20px;
+      margin-bottom: 16px;
+    }
+
+    .page-header h1 {
+      font-size: 42px;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+      background: linear-gradient(135deg, #e6edf3 0%, var(--blue) 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      margin-bottom: 12px;
+      line-height: 1.1;
+    }
+
+    .page-header .subtitle {
+      font-size: 18px;
+      color: var(--muted);
+      max-width: 600px;
+    }
+
+    .page-header .meta {
+      margin-top: 20px;
+      display: flex;
+      gap: 20px;
+      flex-wrap: wrap;
+    }
+
+    .page-header .meta-item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 13px;
+      color: var(--muted);
+    }
+
+    .page-header .meta-item span:first-child {
+      color: var(--yellow);
+    }
+
+    /* ── Sections ── */
+    .section {
+      margin-bottom: 64px;
+      scroll-margin-top: 32px;
+    }
+
+    .section-header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 24px;
+    }
+
+    .section-number {
+      width: 32px;
+      height: 32px;
+      background: var(--blue-dim);
+      border: 1px solid var(--blue);
+      color: var(--blue);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 13px;
+      font-weight: 700;
+      flex-shrink: 0;
+    }
+
+    h2 {
+      font-size: 24px;
+      font-weight: 700;
+      letter-spacing: -0.01em;
+    }
+
+    h3 {
+      font-size: 17px;
+      font-weight: 600;
+      margin-bottom: 12px;
+      color: var(--text);
+    }
+
+    p {
+      color: var(--muted);
+      margin-bottom: 14px;
+    }
+
+    p strong {
+      color: var(--text);
+    }
+
+    /* ── Cards ── */
+    .card {
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 24px;
+      margin-bottom: 16px;
+      box-shadow: var(--shadow);
+    }
+
+    .card-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 16px;
+      margin-bottom: 16px;
+    }
+
+    .card.blue  { border-left: 3px solid var(--blue);   background: linear-gradient(135deg, var(--bg2), var(--blue-dim)); }
+    .card.green { border-left: 3px solid var(--green);  background: linear-gradient(135deg, var(--bg2), var(--green-dim)); }
+    .card.purple{ border-left: 3px solid var(--purple); background: linear-gradient(135deg, var(--bg2), var(--purple-dim)); }
+    .card.orange{ border-left: 3px solid var(--orange); background: linear-gradient(135deg, var(--bg2), var(--orange-dim)); }
+
+    .card-icon { font-size: 24px; margin-bottom: 10px; }
+    .card h3 { margin-bottom: 8px; }
+    .card p  { margin-bottom: 0; font-size: 14px; }
+
+    /* ── Philosophy Banner ── */
+    .philosophy {
+      background: linear-gradient(135deg, #1a2a4a, #0d1525);
+      border: 1px solid var(--blue);
+      border-radius: var(--radius);
+      padding: 32px;
+      text-align: center;
+      margin-bottom: 32px;
+    }
+
+    .philosophy .quote {
+      font-size: 22px;
+      font-weight: 700;
+      color: var(--text);
+      letter-spacing: -0.01em;
+      margin-bottom: 8px;
+    }
+
+    .philosophy .quote-source {
+      font-size: 13px;
+      color: var(--muted);
+    }
+
+    /* ── SSI Triangle ── */
+    .ssi-triangle-container {
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 40px 24px;
+      margin-bottom: 16px;
+      overflow: hidden;
+    }
+
+    .triangle-layout {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0;
+      position: relative;
+    }
+
+    .triangle-top {
+      margin-bottom: 0;
+    }
+
+    .triangle-bottom-row {
+      display: flex;
+      justify-content: space-between;
+      width: 100%;
+      max-width: 640px;
+      margin-top: 0;
+      position: relative;
+    }
+
+    .tri-node {
+      width: 160px;
+      background: var(--bg3);
+      border-radius: var(--radius);
+      padding: 18px 16px;
+      text-align: center;
+      position: relative;
+      z-index: 2;
+    }
+
+    .tri-node.issuer  { border: 2px solid var(--green);  }
+    .tri-node.holder  { border: 2px solid var(--blue);   }
+    .tri-node.verifier{ border: 2px solid var(--purple); }
+
+    .tri-node .node-icon { font-size: 28px; margin-bottom: 6px; }
+    .tri-node .node-label {
+      font-size: 13px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 4px;
+    }
+    .tri-node.issuer  .node-label { color: var(--green); }
+    .tri-node.holder  .node-label { color: var(--blue);  }
+    .tri-node.verifier .node-label { color: var(--purple); }
+
+    .tri-node .node-example {
+      font-size: 11px;
+      color: var(--muted);
+    }
+
+    /* Triangle SVG arrows */
+    .triangle-svg-wrapper {
+      width: 100%;
+      max-width: 640px;
+      position: relative;
+      height: 0;
+    }
+
+    .ssi-arrows {
+      width: 100%;
+      max-width: 640px;
+      height: 140px;
+      position: relative;
+      margin: -10px auto;
+    }
+
+    .arrow-label {
+      position: absolute;
+      font-size: 11px;
+      color: var(--muted);
+      background: var(--bg2);
+      padding: 2px 6px;
+      border-radius: 4px;
+      white-space: nowrap;
+    }
+
+    /* ── Architecture Diagram ── */
+    .arch-diagram {
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 32px;
+      margin-bottom: 16px;
+    }
+
+    .arch-layer {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 16px;
+      margin-bottom: 8px;
+      flex-wrap: wrap;
+    }
+
+    .arch-box {
+      border-radius: 8px;
+      padding: 12px 18px;
+      font-size: 13px;
+      font-weight: 600;
+      text-align: center;
+      min-width: 140px;
+    }
+
+    .arch-box.flutter  { background: var(--blue-dim);   border: 1px solid var(--blue);   color: var(--blue);   }
+    .arch-box.agent    { background: var(--bg3);         border: 1px solid var(--green);  color: var(--green);  }
+    .arch-box.von      { background: var(--green-dim);   border: 1px solid var(--green);  color: var(--green);  }
+    .arch-box.issuer   { background: var(--bg3);         border: 1px solid var(--blue);   color: var(--blue);   }
+    .arch-box.watcher  { background: var(--orange-dim);  border: 1px solid var(--orange); color: var(--orange); }
+    .arch-box.didcomm  { background: var(--purple-dim);  border: 1px solid var(--purple); color: var(--purple); }
+
+    .arch-box .port {
+      display: block;
+      font-size: 11px;
+      font-weight: 400;
+      color: var(--muted);
+      margin-top: 2px;
+    }
+
+    .arch-connector {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      color: var(--muted);
+      font-size: 11px;
+      gap: 2px;
+    }
+
+    .arch-connector .line {
+      width: 1px;
+      height: 24px;
+      background: var(--border);
+    }
+
+    .arch-connector .hline {
+      width: 40px;
+      height: 1px;
+      background: var(--border);
+    }
+
+    .arch-row {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0;
+    }
+
+    /* ── Führerschein Flow ── */
+    .flow-steps {
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+      position: relative;
+      padding-left: 24px;
+    }
+
+    .flow-steps::before {
+      content: '';
+      position: absolute;
+      left: 16px;
+      top: 16px;
+      bottom: 16px;
+      width: 2px;
+      background: linear-gradient(to bottom, var(--blue), var(--purple));
+    }
+
+    .flow-step {
+      display: flex;
+      gap: 20px;
+      align-items: flex-start;
+      margin-bottom: 20px;
+      position: relative;
+    }
+
+    .step-num {
+      width: 32px;
+      height: 32px;
+      min-width: 32px;
+      background: var(--bg);
+      border: 2px solid var(--blue);
+      color: var(--blue);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 13px;
+      font-weight: 700;
+      position: relative;
+      z-index: 1;
+      margin-left: -8px;
+    }
+
+    .step-content {
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 14px 18px;
+      flex: 1;
+    }
+
+    .step-content .step-title {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text);
+      margin-bottom: 4px;
+    }
+
+    .step-content .step-desc {
+      font-size: 13px;
+      color: var(--muted);
+      margin: 0;
+    }
+
+    .step-tag {
+      display: inline-block;
+      font-size: 10px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      padding: 1px 7px;
+      border-radius: 10px;
+      margin-left: 8px;
+      vertical-align: middle;
+    }
+
+    .step-tag.docker  { background: var(--blue-dim);   color: var(--blue);   }
+    .step-tag.api     { background: var(--green-dim);  color: var(--green);  }
+    .step-tag.didcomm { background: var(--purple-dim); color: var(--purple); }
+    .step-tag.storage { background: var(--orange-dim); color: var(--orange); }
+
+    /* ── Code Blocks ── */
+    pre {
+      background: #010409;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 20px;
+      overflow-x: auto;
+      font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+      font-size: 13px;
+      line-height: 1.6;
+      margin-bottom: 16px;
+    }
+
+    code {
+      font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+      font-size: 12px;
+    }
+
+    .token-comment  { color: #8b949e; }
+    .token-keyword  { color: #ff7b72; }
+    .token-string   { color: #a5d6ff; }
+    .token-url      { color: #7ee787; }
+    .token-flag     { color: var(--yellow); }
+    .token-cmd      { color: var(--blue); }
+
+    /* ── Table ── */
+    .table-wrap {
+      overflow-x: auto;
+      margin-bottom: 16px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 14px;
+    }
+
+    th {
+      background: var(--bg3);
+      color: var(--muted);
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      font-weight: 600;
+      padding: 10px 16px;
+      text-align: left;
+      border-bottom: 1px solid var(--border);
+    }
+
+    td {
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--border);
+      color: var(--text);
+    }
+
+    tr:last-child td { border-bottom: none; }
+    tr:hover td { background: rgba(255,255,255,0.02); }
+
+    td:first-child { color: var(--muted); font-weight: 500; }
+
+    td .tech-badge {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-size: 12px;
+      font-weight: 500;
+    }
+
+    /* ── Transparency Channels ── */
+    .transparency-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      margin-bottom: 16px;
+    }
+
+    .transparency-card {
+      background: var(--bg2);
+      border-radius: var(--radius);
+      padding: 24px;
+      border: 1px solid var(--border);
+    }
+
+    .transparency-card.before { border-top: 3px solid var(--blue); }
+    .transparency-card.after  { border-top: 3px solid var(--purple); }
+
+    .transparency-card h3 {
+      font-size: 15px;
+      margin-bottom: 16px;
+    }
+
+    .transparency-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      margin-bottom: 12px;
+    }
+
+    .transparency-item .icon {
+      font-size: 16px;
+      flex-shrink: 0;
+      margin-top: 1px;
+    }
+
+    .transparency-item .text {
+      font-size: 13px;
+      color: var(--muted);
+    }
+
+    .transparency-item .text strong {
+      color: var(--text);
+      display: block;
+      margin-bottom: 1px;
+    }
+
+    /* ── DIDComm Flow ── */
+    .didcomm-flow {
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 28px;
+      margin-bottom: 16px;
+    }
+
+    .didcomm-actors {
+      display: grid;
+      grid-template-columns: 1fr 60px 1fr;
+      gap: 0;
+      align-items: start;
+    }
+
+    .didcomm-actor {
+      text-align: center;
+      padding: 14px;
+      border-radius: 8px;
+    }
+
+    .didcomm-actor.issuer-col  { background: var(--blue-dim);   border: 1px solid var(--blue);   }
+    .didcomm-actor.wallet-col  { background: var(--green-dim);  border: 1px solid var(--green);  }
+
+    .didcomm-actor .actor-name {
+      font-size: 13px;
+      font-weight: 700;
+      margin-bottom: 2px;
+    }
+
+    .didcomm-actor .actor-port {
+      font-size: 11px;
+      color: var(--muted);
+    }
+
+    .didcomm-messages {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      margin-top: 20px;
+    }
+
+    .didcomm-msg {
+      display: flex;
+      align-items: center;
+      gap: 0;
+    }
+
+    .didcomm-msg .msg-label {
+      flex: 1;
+      background: var(--bg3);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 8px 14px;
+      font-size: 13px;
+    }
+
+    .didcomm-msg .msg-arrow {
+      font-size: 18px;
+      padding: 0 12px;
+      color: var(--purple);
+    }
+
+    .didcomm-msg.right .msg-label { order: 1; }
+    .didcomm-msg.right .msg-arrow { order: 0; transform: scaleX(-1); }
+
+    .msg-num {
+      font-size: 11px;
+      color: var(--purple);
+      font-weight: 700;
+      margin-right: 6px;
+    }
+
+    /* ── Module Pills ── */
+    .modules-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 14px;
+      margin-bottom: 16px;
+    }
+
+    .module-card {
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 18px;
+    }
+
+    .module-card .module-name {
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--text);
+      margin-bottom: 6px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .module-card .module-name .pill {
+      font-size: 10px;
+      font-weight: 600;
+      padding: 1px 7px;
+      border-radius: 10px;
+      background: var(--blue-dim);
+      color: var(--blue);
+    }
+
+    .module-card .module-desc {
+      font-size: 13px;
+      color: var(--muted);
+      margin: 0;
+    }
+
+    /* ── Tag Row ── */
+    .tag-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 16px;
+    }
+
+    .tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 4px 12px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 500;
+    }
+
+    .tag.blue   { background: var(--blue-dim);   color: var(--blue);   border: 1px solid rgba(47,129,247,0.3); }
+    .tag.green  { background: var(--green-dim);  color: var(--green);  border: 1px solid rgba(63,185,80,0.3); }
+    .tag.purple { background: var(--purple-dim); color: var(--purple); border: 1px solid rgba(188,140,255,0.3); }
+    .tag.orange { background: var(--orange-dim); color: var(--orange); border: 1px solid rgba(240,136,62,0.3); }
+    .tag.yellow { background: rgba(227,179,65,0.15); color: var(--yellow); border: 1px solid rgba(227,179,65,0.3); }
+
+    /* ── Watcher/Future ── */
+    .future-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: var(--orange-dim);
+      color: var(--orange);
+      border: 1px solid rgba(240,136,62,0.4);
+      border-radius: 20px;
+      padding: 3px 12px;
+      font-size: 12px;
+      font-weight: 600;
+      margin-bottom: 16px;
+    }
+
+    /* ── Info Box ── */
+    .info-box {
+      background: rgba(47,129,247,0.08);
+      border: 1px solid rgba(47,129,247,0.3);
+      border-radius: 8px;
+      padding: 14px 18px;
+      margin-bottom: 16px;
+      font-size: 13px;
+      color: var(--muted);
+    }
+
+    .info-box strong { color: var(--blue); }
+
+    .warn-box {
+      background: rgba(240,136,62,0.08);
+      border: 1px solid rgba(240,136,62,0.3);
+      border-radius: 8px;
+      padding: 14px 18px;
+      margin-bottom: 16px;
+      font-size: 13px;
+      color: var(--muted);
+    }
+
+    .warn-box strong { color: var(--orange); }
+
+    /* ── Architecture: Full System ── */
+    .sys-arch {
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 32px;
+      margin-bottom: 16px;
+    }
+
+    .sys-arch .arch-title {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-bottom: 24px;
+      text-align: center;
+    }
+
+    .sys-row {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      margin-bottom: 4px;
+    }
+
+    .sys-box {
+      border-radius: 8px;
+      padding: 10px 16px;
+      font-size: 12px;
+      font-weight: 600;
+      text-align: center;
+      line-height: 1.3;
+    }
+
+    .sys-box .sys-port {
+      display: block;
+      font-size: 10px;
+      font-weight: 400;
+      margin-top: 2px;
+      opacity: 0.7;
+    }
+
+    .sys-box.f  { background: var(--blue-dim);   border: 1px solid var(--blue);   color: var(--blue);   min-width: 160px; }
+    .sys-box.w  { background: var(--bg3);         border: 1px solid var(--green);  color: var(--green);  min-width: 160px; }
+    .sys-box.i  { background: var(--bg3);         border: 1px solid var(--blue);   color: var(--blue);   min-width: 140px; }
+    .sys-box.v  { background: var(--green-dim);   border: 1px solid var(--green);  color: var(--green);  min-width: 140px; }
+    .sys-box.ws { background: var(--orange-dim);  border: 1px solid var(--orange); color: var(--orange); min-width: 140px; }
+
+    .sys-arrow {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 1px;
+      color: var(--muted);
+      font-size: 10px;
+    }
+
+    .sys-arrow .arr-line {
+      width: 1px;
+      height: 20px;
+      background: var(--border);
+    }
+
+    .sys-arrow .arr-h {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .sys-arrow .arr-hline {
+      height: 1px;
+      background: var(--border);
+      width: 32px;
+    }
+
+    .sys-label {
+      font-size: 10px;
+      color: var(--muted);
+      padding: 2px 6px;
+      background: var(--bg);
+      border-radius: 4px;
+      white-space: nowrap;
+    }
+
+    .sys-divider {
+      height: 1px;
+      background: var(--border);
+      margin: 20px 0;
+    }
+
+    .sys-bottom {
+      display: flex;
+      justify-content: center;
+      gap: 24px;
+      flex-wrap: wrap;
+    }
+
+    .anchor-line {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0;
+    }
+
+    .anchor-line .v-seg {
+      width: 1px;
+      background: var(--border);
+      height: 20px;
+    }
+
+    .h-connector {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0;
+    }
+
+    .h-connector .hs {
+      height: 1px;
+      background: var(--border);
+      width: 60px;
+    }
+
+    .h-connector .dot {
+      width: 6px;
+      height: 6px;
+      background: var(--border);
+      border-radius: 50%;
+    }
+
+    /* ── Scrollbar ── */
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: var(--bg); }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: var(--muted); }
+
+    /* ── Footer ── */
+    footer {
+      margin-top: 80px;
+      padding-top: 32px;
+      border-top: 1px solid var(--border);
+      text-align: center;
+      color: var(--muted);
+      font-size: 12px;
+      padding-bottom: 48px;
+    }
+
+    footer strong { color: var(--text); }
+  </style>
+</head>
+<body>
+
+<!-- ══════════════════════════════════════════
+     SIDEBAR NAVIGATION
+══════════════════════════════════════════ -->
+<aside id="sidebar">
+  <div class="nav-logo">
+    <div class="logo-title">🪪 Interactive Wallet</div>
+    <div class="logo-sub">Master's Project · SoSe 2026</div>
+  </div>
+  <nav>
+    <div class="nav-section">Overview</div>
+    <a href="#overview">1. Project Overview</a>
+    <a href="#ssi-triangle">2. SSI Triangle</a>
+    <a href="#von">3. VON Network</a>
+
+    <div class="nav-section">Core Stack</div>
+    <a href="#credo">4. Credo-TS</a>
+    <a href="#architecture">5. Architecture</a>
+    <a href="#agents">6. The Two Agents</a>
+
+    <div class="nav-section">Protocols</div>
+    <a href="#didcomm">7. DIDComm</a>
+    <a href="#flow">8. Führerschein Flow</a>
+
+    <div class="nav-section">Contribution</div>
+    <a href="#transparency">9. Transparency Channels</a>
+    <a href="#watcher">10. Watcher + Broker</a>
+
+    <div class="nav-section">Reference</div>
+    <a href="#techstack">11. Tech Stack</a>
+    <a href="#setup">12. Setup Guide</a>
+  </nav>
+</aside>
+
+<!-- ══════════════════════════════════════════
+     MAIN CONTENT
+══════════════════════════════════════════ -->
+<main id="main">
+
+  <!-- ── Header ── -->
+  <header class="page-header">
+    <div class="badge">Master's Project · IoS · SoSe 2026</div>
+    <h1>Interactive Wallet</h1>
+    <p class="subtitle">A Self-Sovereign Identity wallet with a transparency-first philosophy — making every cryptographic operation visible, auditable, and understandable.</p>
+    <div class="meta">
+      <div class="meta-item"><span>🏛️</span><span>Hyperledger Indy / Aries / AnonCreds</span></div>
+      <div class="meta-item"><span>📦</span><span>Credo-TS · Flutter · VON Network</span></div>
+      <div class="meta-item"><span>🔒</span><span>Zero-Knowledge Proofs · DIDComm v2</span></div>
+    </div>
+  </header>
+
+  <!-- ══════════════════════════════════════════
+       SECTION 1 — PROJECT OVERVIEW
+  ══════════════════════════════════════════ -->
+  <section class="section" id="overview">
+    <div class="section-header">
+      <div class="section-number">1</div>
+      <h2>Project Overview</h2>
+    </div>
+
+    <div class="philosophy">
+      <div class="quote">"Trust is built by showing your work."</div>
+      <div class="quote-source">— Core design philosophy of the Interactive Wallet</div>
+    </div>
+
+    <p>
+      The <strong>Interactive Wallet</strong> is a Self-Sovereign Identity (SSI) wallet designed around radical transparency. Most SSI wallets treat cryptographic operations as a black box — credentials arrive, proofs are sent, and the user sees only the result. This project challenges that assumption.
+    </p>
+
+    <p>
+      The wallet surfaces three layers of transparency to the user:
+    </p>
+
+    <div class="card-grid">
+      <div class="card blue">
+        <div class="card-icon">👀</div>
+        <h3>Before</h3>
+        <p>What is being asked of you. Who is asking, what attributes they need, for what purpose — before you agree to anything.</p>
+      </div>
+      <div class="card purple">
+        <div class="card-icon">⚙️</div>
+        <h3>During</h3>
+        <p>What is happening behind the scenes while it happens. Each cryptographic step, DIDComm message, and ledger lookup described in plain language.</p>
+      </div>
+      <div class="card green">
+        <div class="card-icon">📋</div>
+        <h3>After</h3>
+        <p>What was done. A hash-chained, tamper-evident audit log of every operation, persisted and readable at any time.</p>
+      </div>
+    </div>
+
+    <div class="info-box">
+      <strong>Research contribution:</strong> The project investigates whether surfacing SSI internals in real time increases user comprehension and trust — without overwhelming or alarming them.
+    </div>
+  </section>
+
+  <!-- ══════════════════════════════════════════
+       SECTION 2 — SSI TRIANGLE
+  ══════════════════════════════════════════ -->
+  <section class="section" id="ssi-triangle">
+    <div class="section-header">
+      <div class="section-number">2</div>
+      <h2>The SSI Triangle — Issuer / Holder / Verifier</h2>
+    </div>
+
+    <p>
+      Self-Sovereign Identity is structured around three roles. Their relationships form what is commonly called the <strong>trust triangle</strong>.
+    </p>
+
+    <!-- Triangle Diagram -->
+    <div class="ssi-triangle-container">
+      <div class="triangle-layout">
+
+        <!-- Top node: Holder -->
+        <div class="triangle-top">
+          <div class="tri-node holder" style="margin: 0 auto;">
+            <div class="node-icon">📱</div>
+            <div class="node-label">Holder</div>
+            <div class="node-example">The wallet user</div>
+          </div>
+        </div>
+
+        <!-- Arrow labels between top and bottom -->
+        <div style="width: 100%; max-width: 640px; display: flex; justify-content: space-between; padding: 0 60px; margin: 8px 0;">
+          <div style="text-align: center; font-size: 11px; color: var(--muted); max-width: 120px;">
+            ← receives credential<br/>
+            <span style="color: var(--green); font-size: 10px;">DIDComm (encrypted)</span>
+          </div>
+          <div style="text-align: center; font-size: 11px; color: var(--muted); max-width: 120px;">
+            presents proof →<br/>
+            <span style="color: var(--purple); font-size: 10px;">ZKP / selective disclosure</span>
+          </div>
+        </div>
+
+        <!-- Bottom row: Issuer and Verifier -->
+        <div class="triangle-bottom-row">
+          <div class="tri-node issuer">
+            <div class="node-icon">🏛️</div>
+            <div class="node-label">Issuer</div>
+            <div class="node-example">Führerscheinbehörde</div>
+          </div>
+
+          <div style="flex: 1; display: flex; align-items: center; justify-content: center; flex-direction: column; gap: 4px;">
+            <div style="font-size: 10px; color: var(--muted); text-align: center;">Shared trust via<br/>VON ledger</div>
+            <div style="height: 1px; width: 80%; background: var(--border);"></div>
+            <div style="font-size: 10px; color: var(--green); text-align: center;">↔</div>
+          </div>
+
+          <div class="tri-node verifier">
+            <div class="node-icon">🚗</div>
+            <div class="node-label">Verifier</div>
+            <div class="node-example">Autovermieter</div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <div class="card-grid">
+      <div class="card green">
+        <h3>🏛️ Issuer</h3>
+        <p>Creates and signs verifiable credentials. Registers their DID, schema, and credential definition on the VON ledger. Sends credentials directly to the Holder via DIDComm — <em>not</em> via the blockchain.</p>
+      </div>
+      <div class="card blue">
+        <h3>📱 Holder</h3>
+        <p>Receives, stores, and presents credentials. The wallet user. Has full control — credentials are stored locally in an encrypted Askar database, not on any server or ledger.</p>
+      </div>
+      <div class="card purple">
+        <h3>🚗 Verifier</h3>
+        <p>Requests proof from the Holder. Checks the Issuer's credential definition on VON to verify authenticity. Never sees more than what the Holder chooses to disclose (ZKP).</p>
+      </div>
+    </div>
+
+    <div class="warn-box">
+      <strong>Important:</strong> Credentials are <em>never</em> stored on the blockchain. Only the <strong>schema</strong> (what fields a credential has) and the <strong>credential definition</strong> (the Issuer's public key for that schema) are on the ledger. The actual credential travels directly Issuer → Holder via encrypted DIDComm.
+    </div>
+  </section>
+
+  <!-- ══════════════════════════════════════════
+       SECTION 3 — VON NETWORK
+  ══════════════════════════════════════════ -->
+  <section class="section" id="von">
+    <div class="section-header">
+      <div class="section-number">3</div>
+      <h2>What is VON? (Verifiable Organizations Network)</h2>
+    </div>
+
+    <p>
+      VON is a local <strong>Hyperledger Indy</strong> blockchain running in Docker. It acts as the shared trust registry that all three SSI roles can reference.
+    </p>
+
+    <div class="card green">
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px;">
+        <div>
+          <h3 style="color: var(--green);">✅ What VON stores</h3>
+          <ul style="list-style: none; padding: 0; margin: 0;">
+            <li style="padding: 5px 0; font-size: 13px; color: var(--muted); border-bottom: 1px solid rgba(255,255,255,0.05);">📌 Decentralized Identifiers (DIDs)</li>
+            <li style="padding: 5px 0; font-size: 13px; color: var(--muted); border-bottom: 1px solid rgba(255,255,255,0.05);">📄 Credential Schemas</li>
+            <li style="padding: 5px 0; font-size: 13px; color: var(--muted); border-bottom: 1px solid rgba(255,255,255,0.05);">🔑 Credential Definitions (public keys)</li>
+            <li style="padding: 5px 0; font-size: 13px; color: var(--muted);">🔁 Revocation Registries</li>
+          </ul>
+        </div>
+        <div>
+          <h3 style="color: var(--red);">❌ What VON does NOT store</h3>
+          <ul style="list-style: none; padding: 0; margin: 0;">
+            <li style="padding: 5px 0; font-size: 13px; color: var(--muted); border-bottom: 1px solid rgba(255,255,255,0.05);">🚫 Actual credentials</li>
+            <li style="padding: 5px 0; font-size: 13px; color: var(--muted); border-bottom: 1px solid rgba(255,255,255,0.05);">🚫 Personal data</li>
+            <li style="padding: 5px 0; font-size: 13px; color: var(--muted);">🚫 Proof presentations</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <div class="card-grid">
+      <div class="card">
+        <div class="card-icon">🐳</div>
+        <h3>Docker Setup</h3>
+        <p>4 Indy validator nodes + a web browser at <code>localhost:9000</code>. Boots from a <code>genesis.txn</code> file that bootstraps initial DIDs and network trust.</p>
+      </div>
+      <div class="card">
+        <div class="card-icon">🔍</div>
+        <h3>Trust Registry</h3>
+        <p>Verifiers resolve the Issuer's credential definition from VON to cryptographically verify that a presented credential was signed by a known, registered Issuer.</p>
+      </div>
+      <div class="card">
+        <div class="card-icon">🌐</div>
+        <h3>Local Only</h3>
+        <p>For development, the VON network is entirely local. In production, this would be replaced by a real Indy network (e.g., Sovrin, IDunion, or a consortium ledger).</p>
+      </div>
+    </div>
+
+    <pre><code><span class="token-comment"># VON Network web explorer</span>
+<span class="token-cmd">open</span> http://localhost:9000
+
+<span class="token-comment"># The genesis file bootstraps agent connections to VON</span>
+http://localhost:9000/genesis</code></pre>
+  </section>
+
+  <!-- ══════════════════════════════════════════
+       SECTION 4 — CREDO-TS
+  ══════════════════════════════════════════ -->
+  <section class="section" id="credo">
+    <div class="section-header">
+      <div class="section-number">4</div>
+      <h2>What is Credo-TS?</h2>
+    </div>
+
+    <p>
+      <strong>Credo-TS</strong> (formerly Aries Framework JavaScript) is a TypeScript implementation of the <strong>Hyperledger Aries</strong> specification — the standard protocol stack for SSI agents. It handles everything from DID management to encrypted credential exchange.
+    </p>
+
+    <div class="tag-row">
+      <span class="tag blue">TypeScript / Node.js</span>
+      <span class="tag green">Hyperledger Aries</span>
+      <span class="tag purple">DIDComm v2</span>
+      <span class="tag yellow">AnonCreds / ZKP</span>
+    </div>
+
+    <p>This project uses four Credo-TS modules:</p>
+
+    <div class="modules-grid">
+      <div class="module-card">
+        <div class="module-name">
+          AskarModule
+          <span class="pill">Storage</span>
+        </div>
+        <p class="module-desc">Encrypted local storage engine. Stores private keys, credential records, and connection state in a SQLite database. Uses the Askar secure enclave — no plaintext secrets on disk.</p>
+      </div>
+      <div class="module-card">
+        <div class="module-name">
+          IndyVdrModule
+          <span class="pill" style="background: var(--green-dim); color: var(--green);">Ledger</span>
+        </div>
+        <p class="module-desc">Blockchain interaction layer. Reads and writes DIDs, schemas, and credential definitions to/from the Indy ledger (VON). Uses the <code>indy-vdr</code> native library under the hood.</p>
+      </div>
+      <div class="module-card">
+        <div class="module-name">
+          AnonCredsModule
+          <span class="pill" style="background: var(--purple-dim); color: var(--purple);">ZKP</span>
+        </div>
+        <p class="module-desc">Privacy-preserving credential format. Enables selective disclosure (share only some attributes) and zero-knowledge proofs (prove a claim without revealing the value — e.g., "I am over 18").</p>
+      </div>
+      <div class="module-card">
+        <div class="module-name">
+          DIDCommModule
+          <span class="pill" style="background: var(--orange-dim); color: var(--orange);">Comms</span>
+        </div>
+        <p class="module-desc">Encrypted peer-to-peer messaging. Handles Out-of-Band invitations, connection establishment, and the full Aries credential exchange protocol between agents.</p>
+      </div>
+    </div>
+
+    <div class="info-box">
+      <strong>Why Credo-TS?</strong> It is the most mature TypeScript SSI agent framework, maintained by the OpenWallet Foundation. It implements all major Aries RFCs and supports both AnonCreds and W3C Verifiable Credentials.
+    </div>
+  </section>
+
+  <!-- ══════════════════════════════════════════
+       SECTION 5 — ARCHITECTURE
+  ══════════════════════════════════════════ -->
+  <section class="section" id="architecture">
+    <div class="section-header">
+      <div class="section-number">5</div>
+      <h2>System Architecture</h2>
+    </div>
+
+    <div class="sys-arch">
+      <div class="arch-title">Full System Overview</div>
+
+      <!-- Flutter App (top) -->
+      <div class="sys-row">
+        <div class="sys-box f">
+          📱 Flutter App
+          <span class="sys-port">wallet_app/</span>
+        </div>
+      </div>
+
+      <!-- Connectors down from Flutter -->
+      <div class="sys-row" style="gap: 80px;">
+        <div class="anchor-line">
+          <div class="v-seg"></div>
+          <div style="font-size: 10px; color: var(--blue); background: var(--bg); padding: 1px 6px; border-radius: 3px; white-space: nowrap;">REST :3000</div>
+          <div class="v-seg"></div>
+        </div>
+      </div>
+
+      <!-- wallet-agent -->
+      <div class="sys-row">
+        <div class="sys-box w">
+          🟢 wallet-agent
+          <span class="sys-port">Credo-TS · Node.js · REST :3000 · DIDComm :3001</span>
+        </div>
+      </div>
+
+      <!-- Connectors from wallet-agent to three columns -->
+      <div style="width: 100%; max-width: 560px; margin: 0 auto; padding: 12px 0 4px;">
+        <div style="display: flex; justify-content: space-between; align-items: flex-end; position: relative;">
+          <!-- Horizontal bar connecting three branches -->
+          <div style="position: absolute; top: 0; left: 16%; right: 16%; height: 1px; background: var(--border);"></div>
+          <div style="display: flex; flex-direction: column; align-items: center; gap: 0;">
+            <div class="v-seg" style="height: 14px;"></div>
+            <div style="font-size: 10px; color: var(--muted); white-space: nowrap;">DIDComm</div>
+            <div class="v-seg" style="height: 10px;"></div>
+          </div>
+          <div style="display: flex; flex-direction: column; align-items: center; gap: 0;">
+            <div class="v-seg" style="height: 14px;"></div>
+            <div style="font-size: 10px; color: var(--muted); white-space: nowrap;">IndyVdr</div>
+            <div class="v-seg" style="height: 10px;"></div>
+          </div>
+          <div style="display: flex; flex-direction: column; align-items: center; gap: 0;">
+            <div class="v-seg" style="height: 14px;"></div>
+            <div style="font-size: 10px; color: var(--muted); white-space: nowrap;">future</div>
+            <div class="v-seg" style="height: 10px;"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Bottom three: issuer-agent, VON, watcher -->
+      <div class="sys-row" style="gap: 16px; flex-wrap: wrap;">
+        <div class="sys-box i">
+          🏛️ issuer-agent
+          <span class="sys-port">Credo-TS · REST :3002 · DIDComm :3003</span>
+        </div>
+        <div class="sys-box v">
+          ⛓️ VON Network
+          <span class="sys-port">Indy Ledger · Docker · :9000</span>
+        </div>
+        <div class="sys-box ws">
+          👁️ Watcher
+          <span class="sys-port">Phase 4 · RabbitMQ</span>
+        </div>
+      </div>
+
+      <!-- Legend -->
+      <div style="margin-top: 24px; padding-top: 16px; border-top: 1px solid var(--border); display: flex; flex-wrap: wrap; gap: 16px; justify-content: center;">
+        <span style="font-size: 11px; color: var(--blue);">■ User-facing</span>
+        <span style="font-size: 11px; color: var(--green);">■ Agents / Ledger</span>
+        <span style="font-size: 11px; color: var(--orange);">■ Future (Phase 4)</span>
+      </div>
+    </div>
+
+    <div class="card-grid">
+      <div class="card">
+        <h3>🔌 Port Map</h3>
+        <p>
+          <code>:3000</code> wallet-agent REST API<br/>
+          <code>:3001</code> wallet-agent DIDComm<br/>
+          <code>:3002</code> issuer-agent REST API<br/>
+          <code>:3003</code> issuer-agent DIDComm<br/>
+          <code>:9000</code> VON Network explorer
+        </p>
+      </div>
+      <div class="card">
+        <h3>📡 Communication Protocols</h3>
+        <p>
+          <strong>Flutter ↔ wallet-agent</strong>: HTTP REST<br/>
+          <strong>Agent ↔ Agent</strong>: DIDComm (encrypted HTTP)<br/>
+          <strong>Agents ↔ VON</strong>: Indy VDR protocol<br/>
+          <strong>Future</strong>: WebSocket, RabbitMQ AMQP
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ══════════════════════════════════════════
+       SECTION 6 — THE TWO AGENTS
+  ══════════════════════════════════════════ -->
+  <section class="section" id="agents">
+    <div class="section-header">
+      <div class="section-number">6</div>
+      <h2>The Two Agents</h2>
+    </div>
+
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px;">
+
+      <div class="card blue" style="padding: 24px;">
+        <div style="font-size: 20px; margin-bottom: 8px;">📱</div>
+        <h3 style="color: var(--blue); margin-bottom: 12px;">wallet-agent</h3>
+        <p style="font-size: 13px; margin-bottom: 12px;">The user's personal SSI agent. Runs as a Node.js server alongside the Flutter app.</p>
+        <div style="font-size: 12px; color: var(--muted); line-height: 2;">
+          <div>✦ Stores credentials locally in Askar</div>
+          <div>✦ Receives credential offers from issuers</div>
+          <div>✦ Generates and presents proofs to verifiers</div>
+          <div>✦ REST API on <code>:3000</code> for frontend</div>
+          <div>✦ DIDComm on <code>:3001</code> for agent comm.</div>
+        </div>
+      </div>
+
+      <div class="card green" style="padding: 24px;">
+        <div style="font-size: 20px; margin-bottom: 8px;">🏛️</div>
+        <h3 style="color: var(--green); margin-bottom: 12px;">issuer-agent</h3>
+        <p style="font-size: 13px; margin-bottom: 12px;">Simulates a credential authority (e.g., Führerscheinbehörde). For testing and development only.</p>
+        <div style="font-size: 12px; color: var(--muted); line-height: 2;">
+          <div>✦ Issues Führerschein credentials</div>
+          <div>✦ <code>POST /setup</code> — register on VON (once)</div>
+          <div>✦ <code>GET /invitation</code> — DIDComm invite</div>
+          <div>✦ <code>POST /issue</code> — send credential offer</div>
+          <div>✦ REST API on <code>:3002</code>, DIDComm <code>:3003</code></div>
+        </div>
+      </div>
+
+    </div>
+
+    <div class="info-box">
+      <strong>Why two separate agents?</strong> In a real deployment, the Issuer agent would be run by the issuing authority (e.g., a government agency), not the wallet user. Separating them lets us test the full Aries protocol stack locally, including the DIDComm connection and credential exchange flow.
+    </div>
+
+    <h3>issuer-agent Endpoints</h3>
+    <div class="table-wrap">
+      <table>
+        <tr>
+          <th>Method</th><th>Path</th><th>Description</th>
+        </tr>
+        <tr>
+          <td><span class="tech-badge" style="background: var(--blue-dim); color: var(--blue);">POST</span></td>
+          <td><code>/setup</code></td>
+          <td>One-time: registers Issuer DID on VON, creates schema and credential definition</td>
+        </tr>
+        <tr>
+          <td><span class="tech-badge" style="background: var(--green-dim); color: var(--green);">GET</span></td>
+          <td><code>/invitation</code></td>
+          <td>Returns an OOB DIDComm invitation URL for the wallet to connect</td>
+        </tr>
+        <tr>
+          <td><span class="tech-badge" style="background: var(--blue-dim); color: var(--blue);">POST</span></td>
+          <td><code>/issue</code></td>
+          <td>Sends a credential offer to the wallet via DIDComm with provided attribute values</td>
+        </tr>
+        <tr>
+          <td><span class="tech-badge" style="background: var(--green-dim); color: var(--green);">GET</span></td>
+          <td><code>/connections</code></td>
+          <td>Lists all active DIDComm connections</td>
+        </tr>
+      </table>
+    </div>
+
+    <h3>wallet-agent Endpoints</h3>
+    <div class="table-wrap">
+      <table>
+        <tr>
+          <th>Method</th><th>Path</th><th>Description</th>
+        </tr>
+        <tr>
+          <td><span class="tech-badge" style="background: var(--green-dim); color: var(--green);">GET</span></td>
+          <td><code>/credentials</code></td>
+          <td>List all stored verifiable credentials</td>
+        </tr>
+        <tr>
+          <td><span class="tech-badge" style="background: var(--blue-dim); color: var(--blue);">POST</span></td>
+          <td><code>/receive-invitation</code></td>
+          <td>Accept a DIDComm OOB invitation URL to establish a connection</td>
+        </tr>
+        <tr>
+          <td><span class="tech-badge" style="background: var(--green-dim); color: var(--green);">GET</span></td>
+          <td><code>/connections</code></td>
+          <td>List all active DIDComm connections</td>
+        </tr>
+        <tr>
+          <td><span class="tech-badge" style="background: var(--green-dim); color: var(--green);">GET</span></td>
+          <td><code>/log</code></td>
+          <td>Retrieve the transparency audit log</td>
+        </tr>
+      </table>
+    </div>
+  </section>
+
+  <!-- ══════════════════════════════════════════
+       SECTION 7 — DIDCOMM
+  ══════════════════════════════════════════ -->
+  <section class="section" id="didcomm">
+    <div class="section-header">
+      <div class="section-number">7</div>
+      <h2>DIDComm — How Agents Talk</h2>
+    </div>
+
+    <p>
+      <strong>DIDComm</strong> is an encrypted, transport-agnostic messaging protocol for DID-based agents. All messages are encrypted end-to-end using keys derived from the agents' DIDs. Neither the transport layer nor any intermediary can read the content.
+    </p>
+
+    <div class="tag-row">
+      <span class="tag purple">End-to-End Encrypted</span>
+      <span class="tag purple">Transport Agnostic</span>
+      <span class="tag purple">DID-based Auth</span>
+      <span class="tag purple">Aries RFC compliant</span>
+    </div>
+
+    <h3 style="margin-bottom: 16px; margin-top: 8px;">Connection + Credential Exchange Flow</h3>
+
+    <div class="didcomm-flow">
+
+      <div style="display: grid; grid-template-columns: 200px 1fr 200px; gap: 16px; margin-bottom: 24px;">
+        <div class="didcomm-actor issuer-col">
+          <div class="actor-name">🏛️ Issuer Agent</div>
+          <div class="actor-port">:3003 (DIDComm)</div>
+        </div>
+        <div style="display: flex; align-items: center; justify-content: center;">
+          <div style="text-align: center; font-size: 11px; color: var(--purple);">DIDComm Channel<br/>(encrypted HTTP)</div>
+        </div>
+        <div class="didcomm-actor wallet-col">
+          <div class="actor-name">📱 Wallet Agent</div>
+          <div class="actor-port">:3001 (DIDComm)</div>
+        </div>
+      </div>
+
+      <div style="border-top: 1px solid var(--border); padding-top: 20px;">
+        <div style="font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 16px;">Phase 1: Connection Setup</div>
+
+        <!-- OOB Invitation -->
+        <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 14px;">
+          <div style="width: 200px; background: var(--bg3); border: 1px solid var(--border); border-radius: 6px; padding: 8px 14px; font-size: 13px;">
+            <span style="color: var(--muted); font-size: 11px;">① OOB Invitation URL</span>
+          </div>
+          <div style="color: var(--blue); font-size: 20px;">→</div>
+          <div style="flex: 1; font-size: 12px; color: var(--muted);">Issuer generates invitation (via REST <code>/invitation</code>) · Wallet receives via REST <code>/receive-invitation</code></div>
+        </div>
+
+        <!-- Connection Request -->
+        <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 14px; flex-direction: row-reverse;">
+          <div style="width: 200px; background: var(--bg3); border: 1px solid var(--border); border-radius: 6px; padding: 8px 14px; font-size: 13px;">
+            <span style="color: var(--muted); font-size: 11px;">② Connection Request</span>
+          </div>
+          <div style="color: var(--blue); font-size: 20px; transform: scaleX(-1);">→</div>
+          <div style="flex: 1; font-size: 12px; color: var(--muted); text-align: right;">Wallet sends DIDComm connection request · includes wallet's DID + verkey</div>
+        </div>
+
+        <!-- Connection Response -->
+        <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 14px;">
+          <div style="width: 200px; background: var(--bg3); border: 1px solid var(--border); border-radius: 6px; padding: 8px 14px; font-size: 13px;">
+            <span style="color: var(--muted); font-size: 11px;">③ Connection Response</span>
+          </div>
+          <div style="color: var(--green); font-size: 20px;">→</div>
+          <div style="flex: 1; font-size: 12px; color: var(--muted);">Issuer responds with its DID + endpoint · connection is now <strong style="color: var(--green);">Active</strong></div>
+        </div>
+
+        <div style="font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; margin: 20px 0 16px; padding-top: 16px; border-top: 1px solid var(--border);">Phase 2: Credential Exchange (Aries RFC 0453 — Issue Credential v2)</div>
+
+        <!-- Credential Offer -->
+        <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 14px;">
+          <div style="width: 200px; background: var(--bg3); border: 1px solid var(--border); border-radius: 6px; padding: 8px 14px; font-size: 13px;">
+            <span style="color: var(--muted); font-size: 11px;">① Credential Offer</span>
+          </div>
+          <div style="color: var(--purple); font-size: 20px;">→</div>
+          <div style="flex: 1; font-size: 12px; color: var(--muted);">Issuer offers a credential: includes schema, cred-def ID, and attribute preview</div>
+        </div>
+
+        <!-- Credential Request -->
+        <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 14px; flex-direction: row-reverse;">
+          <div style="width: 200px; background: var(--bg3); border: 1px solid var(--border); border-radius: 6px; padding: 8px 14px; font-size: 13px;">
+            <span style="color: var(--muted); font-size: 11px;">② Credential Request</span>
+          </div>
+          <div style="color: var(--purple); font-size: 20px; transform: scaleX(-1);">→</div>
+          <div style="flex: 1; font-size: 12px; color: var(--muted); text-align: right;">Wallet sends blinded link secret (ZKP) to bind credential to wallet — <em>auto-accepted</em></div>
+        </div>
+
+        <!-- Credential -->
+        <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 14px;">
+          <div style="width: 200px; background: var(--bg3); border: 1px solid var(--border); border-radius: 6px; padding: 8px 14px; font-size: 13px;">
+            <span style="color: var(--muted); font-size: 11px;">③ Credential</span>
+          </div>
+          <div style="color: var(--purple); font-size: 20px;">→</div>
+          <div style="flex: 1; font-size: 12px; color: var(--muted);">Signed AnonCred credential sent from Issuer to Wallet</div>
+        </div>
+
+        <!-- Ack -->
+        <div style="display: flex; align-items: center; gap: 12px; flex-direction: row-reverse;">
+          <div style="width: 200px; background: var(--bg3); border: 1px solid var(--border); border-radius: 6px; padding: 8px 14px; font-size: 13px;">
+            <span style="color: var(--green); font-size: 11px;">④ Ack + Store ✓</span>
+          </div>
+          <div style="color: var(--green); font-size: 20px; transform: scaleX(-1);">→</div>
+          <div style="flex: 1; font-size: 12px; color: var(--muted); text-align: right;">Wallet stores credential in Askar · sends acknowledgement to Issuer</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ══════════════════════════════════════════
+       SECTION 8 — FÜHRERSCHEIN FLOW
+  ══════════════════════════════════════════ -->
+  <section class="section" id="flow">
+    <div class="section-header">
+      <div class="section-number">8</div>
+      <h2>The Führerschein Flow — End-to-End</h2>
+    </div>
+
+    <p>
+      This is the complete journey of issuing a test driver's license (Führerschein) credential from scratch.
+    </p>
+
+    <div class="flow-steps">
+      <div class="flow-step">
+        <div class="step-num">1</div>
+        <div class="step-content">
+          <div class="step-title">VON Network is running <span class="step-tag docker">Docker</span></div>
+          <div class="step-desc">Four Indy validator nodes are active. The ledger explorer is accessible at <code>localhost:9000</code>. This is the shared trust registry all agents will use.</div>
+        </div>
+      </div>
+
+      <div class="flow-step">
+        <div class="step-num">2</div>
+        <div class="step-content">
+          <div class="step-title">Both agents start <span class="step-tag api">Node.js</span></div>
+          <div class="step-desc">wallet-agent and issuer-agent start, initialize their Credo-TS agents, connect to VON via genesis.txn, and open their REST + DIDComm ports.</div>
+        </div>
+      </div>
+
+      <div class="flow-step">
+        <div class="step-num">3</div>
+        <div class="step-content">
+          <div class="step-title">One-time setup <span class="step-tag api">POST /setup</span></div>
+          <div class="step-desc">The Issuer registers its DID on VON as a Trust Anchor, then writes the Führerschein schema and credential definition to the ledger. This only needs to happen once per ledger.</div>
+        </div>
+      </div>
+
+      <div class="flow-step">
+        <div class="step-num">4</div>
+        <div class="step-content">
+          <div class="step-title">Get connection invitation <span class="step-tag didcomm">DIDComm</span></div>
+          <div class="step-desc">Call <code>GET /invitation</code> on the issuer. Returns an OOB (Out-of-Band) invitation URL containing the Issuer's DIDComm endpoint and public key.</div>
+        </div>
+      </div>
+
+      <div class="flow-step">
+        <div class="step-num">5</div>
+        <div class="step-content">
+          <div class="step-title">Wallet connects <span class="step-tag didcomm">DIDComm</span></div>
+          <div class="step-desc">POST the invitation URL to wallet's <code>/receive-invitation</code>. The wallet performs the Aries connection protocol — both agents exchange DIDs and establish an encrypted channel.</div>
+        </div>
+      </div>
+
+      <div class="flow-step">
+        <div class="step-num">6</div>
+        <div class="step-content">
+          <div class="step-title">Issue credential offer <span class="step-tag didcomm">DIDComm</span></div>
+          <div class="step-desc">Call <code>POST /issue</code> on the issuer with the connection ID and Führerschein attributes (Vorname, Nachname, Geburtsdatum, Klasse, Ausstellungsdatum). The Issuer sends a DIDComm credential offer.</div>
+        </div>
+      </div>
+
+      <div class="flow-step">
+        <div class="step-num">7</div>
+        <div class="step-content">
+          <div class="step-title">Wallet auto-accepts and stores <span class="step-tag storage">Askar</span></div>
+          <div class="step-desc">The wallet-agent auto-accepts the credential offer, sends a credential request (blinded link secret), receives the signed AnonCred, and stores it encrypted in Askar. An audit log entry is written.</div>
+        </div>
+      </div>
+
+      <div class="flow-step">
+        <div class="step-num">8</div>
+        <div class="step-content">
+          <div class="step-title">Frontend reads credential <span class="step-tag api">GET /credentials</span></div>
+          <div class="step-desc">The Flutter app or curl calls <code>GET /credentials</code> on the wallet. The Führerschein appears with all attributes. It is now ready for selective disclosure and ZKP-based proof presentations.</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ══════════════════════════════════════════
+       SECTION 9 — TRANSPARENCY CHANNELS
+  ══════════════════════════════════════════ -->
+  <section class="section" id="transparency">
+    <div class="section-header">
+      <div class="section-number">9</div>
+      <h2>Two Transparency Channels</h2>
+    </div>
+
+    <p>
+      The core research contribution of this project: making every layer of an SSI interaction visible to the user. Two distinct transparency mechanisms are implemented.
+    </p>
+
+    <div class="transparency-grid">
+
+      <div class="transparency-card before">
+        <h3 style="color: var(--blue);">🔍 On-Request Transparency</h3>
+        <p style="font-size: 13px; color: var(--muted); margin-bottom: 16px;">Shown <em>before</em> the user agrees to a proof request. The wallet surfaces all relevant context so the user can make an informed consent decision.</p>
+
+        <div class="transparency-item">
+          <div class="icon">🏢</div>
+          <div class="text">
+            <strong>Who is asking</strong>
+            Verifier's DID, registered name, position in the trust registry
+          </div>
+        </div>
+        <div class="transparency-item">
+          <div class="icon">📋</div>
+          <div class="text">
+            <strong>What is being asked for</strong>
+            Exact credential attributes requested, displayed in plain language (not attribute IDs)
+          </div>
+        </div>
+        <div class="transparency-item">
+          <div class="icon">🎯</div>
+          <div class="text">
+            <strong>Why it's being requested</strong>
+            The verifier's stated purpose for each data point
+          </div>
+        </div>
+        <div class="transparency-item">
+          <div class="icon">⏱️</div>
+          <div class="text">
+            <strong>Data retention</strong>
+            How long the verifier claims they will keep the data
+          </div>
+        </div>
+      </div>
+
+      <div class="transparency-card after">
+        <h3 style="color: var(--purple);">📜 Behind-the-Scenes Log</h3>
+        <p style="font-size: 13px; color: var(--muted); margin-bottom: 16px;">A <em>persistent audit trail</em> of every operation. Tamper-evident via hash chaining. Readable in plain language at any time.</p>
+
+        <div class="transparency-item">
+          <div class="icon">🔗</div>
+          <div class="text">
+            <strong>Hash-chained entries</strong>
+            Each entry links to the previous via SHA-256 hash — any modification breaks the chain
+          </div>
+        </div>
+        <div class="transparency-item">
+          <div class="icon">🌐</div>
+          <div class="text">
+            <strong>Layer-boundary logging</strong>
+            Every operation crossing a system boundary is logged (DIDComm send/receive, ledger read/write, proof generation)
+          </div>
+        </div>
+        <div class="transparency-item">
+          <div class="icon">💬</div>
+          <div class="text">
+            <strong>Plain language descriptions</strong>
+            "Resolved DID did:indy:...", "Generated ZKP proof", "Signed with device key", "Received credential offer"
+          </div>
+        </div>
+        <div class="transparency-item">
+          <div class="icon">🔒</div>
+          <div class="text">
+            <strong>Tamper evidence</strong>
+            "Recorded entry #1247 linked to #1246" — the UI can verify the chain at any time
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card" style="background: var(--bg2);">
+      <h3>Example Audit Log Entry</h3>
+      <pre style="margin: 0;"><code>{
+  <span class="token-string">"id"</span>: 1247,
+  <span class="token-string">"timestamp"</span>: <span class="token-string">"2026-05-12T14:32:07.412Z"</span>,
+  <span class="token-string">"operation"</span>: <span class="token-string">"CREDENTIAL_RECEIVED"</span>,
+  <span class="token-string">"description"</span>: <span class="token-string">"Received Führerschein credential from did:indy:bcovrin:test:Gy..."</span>,
+  <span class="token-string">"prevHash"</span>: <span class="token-string">"sha256:a3f4b2c1d9e0..."</span>,
+  <span class="token-string">"hash"</span>: <span class="token-string">"sha256:7e8f9a0b1c2d..."</span>,
+  <span class="token-string">"metadata"</span>: {
+    <span class="token-string">"credentialId"</span>: <span class="token-string">"cred:abc123"</span>,
+    <span class="token-string">"issuerDid"</span>: <span class="token-string">"did:indy:bcovrin:test:Gy..."</span>,
+    <span class="token-string">"schema"</span>: <span class="token-string">"Fuehrerschein:1.0"</span>
+  }
+}</code></pre>
+    </div>
+  </section>
+
+  <!-- ══════════════════════════════════════════
+       SECTION 10 — WATCHER + BROKER
+  ══════════════════════════════════════════ -->
+  <section class="section" id="watcher">
+    <div class="section-header">
+      <div class="section-number">10</div>
+      <h2>Future: Watcher + Broker (Phase 4)</h2>
+    </div>
+
+    <div class="future-badge">🚧 Phase 4 — Not yet implemented</div>
+
+    <p>
+      Hyperledger Indy ledgers are <strong>pull-based</strong> — agents must actively query the ledger to detect changes. There is no push notification mechanism. This creates a fundamental problem for mobile wallets: how does a holder know when their credential has been revoked?
+    </p>
+
+    <div class="warn-box">
+      <strong>The Problem:</strong> Without active polling, a revoked credential continues to appear valid in the user's wallet until the next manual sync. This is unacceptable for high-stakes credentials like driver's licenses or medical certifications.
+    </div>
+
+    <div class="card-grid">
+      <div class="card orange">
+        <div class="card-icon">👁️</div>
+        <h3>Watcher Service</h3>
+        <p>A dedicated service that continuously polls the VON ledger and detects meaningful changes: credential revocations, DID document updates, new schema versions, and key rotations.</p>
+      </div>
+      <div class="card orange">
+        <div class="card-icon">📨</div>
+        <h3>RabbitMQ Broker</h3>
+        <p>A hierarchical message broker that routes change notifications only to wallets that hold the affected credentials. Avoids broadcasting all changes to all wallets.</p>
+      </div>
+      <div class="card orange">
+        <div class="card-icon">📲</div>
+        <h3>Push Notifications</h3>
+        <p>Mobile wallets receive a wake-up push notification (via APNS/FCM), then connect to their DIDComm mediator to fetch queued messages containing the revocation details.</p>
+      </div>
+    </div>
+
+    <div class="card" style="background: var(--bg2); border: 1px solid var(--orange); margin-top: 8px;">
+      <h3>Planned Architecture</h3>
+      <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-top: 12px; justify-content: center;">
+        <div style="background: var(--green-dim); border: 1px solid var(--green); border-radius: 8px; padding: 10px 16px; font-size: 12px; font-weight: 600; color: var(--green); text-align: center;">
+          VON Ledger<br/><span style="font-weight: 400; color: var(--muted);">change events</span>
+        </div>
+        <div style="color: var(--orange); font-size: 20px;">→</div>
+        <div style="background: var(--orange-dim); border: 1px solid var(--orange); border-radius: 8px; padding: 10px 16px; font-size: 12px; font-weight: 600; color: var(--orange); text-align: center;">
+          Watcher Service<br/><span style="font-weight: 400; color: var(--muted);">polls + detects</span>
+        </div>
+        <div style="color: var(--orange); font-size: 20px;">→</div>
+        <div style="background: var(--orange-dim); border: 1px solid var(--orange); border-radius: 8px; padding: 10px 16px; font-size: 12px; font-weight: 600; color: var(--orange); text-align: center;">
+          RabbitMQ<br/><span style="font-weight: 400; color: var(--muted);">routes to holders</span>
+        </div>
+        <div style="color: var(--orange); font-size: 20px;">→</div>
+        <div style="background: var(--orange-dim); border: 1px solid var(--orange); border-radius: 8px; padding: 10px 16px; font-size: 12px; font-weight: 600; color: var(--orange); text-align: center;">
+          Mediator<br/><span style="font-weight: 400; color: var(--muted);">DIDComm queue</span>
+        </div>
+        <div style="color: var(--orange); font-size: 20px;">→</div>
+        <div style="background: var(--blue-dim); border: 1px solid var(--blue); border-radius: 8px; padding: 10px 16px; font-size: 12px; font-weight: 600; color: var(--blue); text-align: center;">
+          Mobile Wallet<br/><span style="font-weight: 400; color: var(--muted);">push + fetch</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ══════════════════════════════════════════
+       SECTION 11 — TECH STACK
+  ══════════════════════════════════════════ -->
+  <section class="section" id="techstack">
+    <div class="section-header">
+      <div class="section-number">11</div>
+      <h2>Tech Stack Summary</h2>
+    </div>
+
+    <div class="table-wrap">
+      <table>
+        <tr>
+          <th>Layer</th>
+          <th>Technology</th>
+          <th>Notes</th>
+        </tr>
+        <tr>
+          <td>Mobile Frontend</td>
+          <td><span class="tech-badge" style="background: var(--blue-dim); color: var(--blue);">Flutter (Dart)</span></td>
+          <td>Cross-platform mobile app (iOS/Android); communicates with wallet-agent via REST</td>
+        </tr>
+        <tr>
+          <td>Wallet Agent</td>
+          <td><span class="tech-badge" style="background: var(--green-dim); color: var(--green);">Credo-TS / Node.js</span></td>
+          <td>TypeScript SSI agent; REST :3000, DIDComm :3001</td>
+        </tr>
+        <tr>
+          <td>Issuer Agent</td>
+          <td><span class="tech-badge" style="background: var(--green-dim); color: var(--green);">Credo-TS / Node.js</span></td>
+          <td>Test credential authority; REST :3002, DIDComm :3003</td>
+        </tr>
+        <tr>
+          <td>Blockchain</td>
+          <td><span class="tech-badge" style="background: var(--green-dim); color: var(--green);">Hyperledger Indy (VON)</span></td>
+          <td>Local Docker network; 4 validator nodes; trust registry at :9000</td>
+        </tr>
+        <tr>
+          <td>Credential Format</td>
+          <td><span class="tech-badge" style="background: var(--purple-dim); color: var(--purple);">AnonCreds</span></td>
+          <td>ZKP-enabled; selective disclosure; link secret binding; predicates</td>
+        </tr>
+        <tr>
+          <td>Agent Communication</td>
+          <td><span class="tech-badge" style="background: var(--purple-dim); color: var(--purple);">DIDComm v2</span></td>
+          <td>Encrypted, transport-agnostic; runs over HTTP in this setup</td>
+        </tr>
+        <tr>
+          <td>Wallet Storage</td>
+          <td><span class="tech-badge" style="background: var(--orange-dim); color: var(--orange);">Askar</span></td>
+          <td>Encrypted SQLite; stores keys, credentials, connection records</td>
+        </tr>
+        <tr>
+          <td>Future Notifications</td>
+          <td><span class="tech-badge" style="background: var(--orange-dim); color: var(--orange);">RabbitMQ + Watcher</span></td>
+          <td>Phase 4; hierarchical broker; push notification on revocation events</td>
+        </tr>
+      </table>
+    </div>
+  </section>
+
+  <!-- ══════════════════════════════════════════
+       SECTION 12 — SETUP GUIDE
+  ══════════════════════════════════════════ -->
+  <section class="section" id="setup">
+    <div class="section-header">
+      <div class="section-number">12</div>
+      <h2>Setup Instructions</h2>
+    </div>
+
+    <p>
+      Complete guide to running the full stack locally, from zero to a Führerschein in your wallet.
+    </p>
+
+    <h3>Prerequisites</h3>
+    <div class="tag-row" style="margin-bottom: 24px;">
+      <span class="tag green">Docker + Docker Compose</span>
+      <span class="tag blue">Node.js ≥ 18</span>
+      <span class="tag blue">pnpm ≥ 9</span>
+      <span class="tag yellow">Flutter SDK (for app)</span>
+      <span class="tag yellow">curl or Postman</span>
+    </div>
+
+    <h3>Step 1 — Start VON Network</h3>
+    <pre><code><span class="token-comment"># Clone VON network if not already present</span>
+<span class="token-cmd">git</span> clone https://github.com/bcgov/von-network
+<span class="token-cmd">cd</span> von-network
+
+<span class="token-comment"># Start the local Indy ledger (4 validator nodes + explorer)</span>
+<span class="token-flag">./manage</span> start
+
+<span class="token-comment"># Verify: open the ledger explorer</span>
+<span class="token-comment"># http://localhost:9000</span></code></pre>
+
+    <h3>Step 2 — Start wallet-agent</h3>
+    <pre><code><span class="token-cmd">cd</span> wallet-agent
+
+<span class="token-comment"># Install dependencies (first time only)</span>
+<span class="token-cmd">pnpm</span> install
+
+<span class="token-comment"># Start the wallet agent (REST :3000, DIDComm :3001)</span>
+<span class="token-cmd">pnpm</span> start
+
+<span class="token-comment"># Verify</span>
+<span class="token-cmd">curl</span> http://localhost:3000/credentials
+<span class="token-comment"># → {"credentials": []}</span></code></pre>
+
+    <h3>Step 3 — Start issuer-agent</h3>
+    <pre><code><span class="token-cmd">cd</span> issuer-agent
+
+<span class="token-comment"># Install, build, and start</span>
+<span class="token-cmd">pnpm</span> install
+<span class="token-cmd">pnpm</span> run build
+<span class="token-cmd">pnpm</span> start
+
+<span class="token-comment"># REST :3002, DIDComm :3003</span></code></pre>
+
+    <h3>Step 4 — One-Time Ledger Setup</h3>
+    <pre><code><span class="token-comment"># Register Issuer DID on VON + write Führerschein schema + creddef</span>
+<span class="token-comment"># Only needed once per fresh VON ledger instance</span>
+<span class="token-cmd">curl</span> <span class="token-flag">-X POST</span> http://localhost:3002/setup
+
+<span class="token-comment"># Expected: {"success": true, "did": "did:indy:...", "credDefId": "..."}</span></code></pre>
+
+    <h3>Step 5 — Create a DIDComm Connection</h3>
+    <pre><code><span class="token-comment"># 1. Get invitation from issuer</span>
+<span class="token-cmd">curl</span> http://localhost:3002/invitation
+<span class="token-comment"># → {"invitationUrl": "didcomm://...?oob=..."}</span>
+
+<span class="token-comment"># 2. Send invitation URL to wallet</span>
+<span class="token-cmd">curl</span> <span class="token-flag">-X POST</span> http://localhost:3000/receive-invitation \
+  <span class="token-flag">-H</span> <span class="token-string">"Content-Type: application/json"</span> \
+  <span class="token-flag">-d</span> <span class="token-string">'{"invitationUrl": "didcomm://...?oob=..."}'</span>
+<span class="token-comment"># → {"connectionId": "abc-123-...", "state": "completed"}</span></code></pre>
+
+    <h3>Step 6 — Issue a Führerschein</h3>
+    <pre><code><span class="token-cmd">curl</span> <span class="token-flag">-X POST</span> http://localhost:3002/issue \
+  <span class="token-flag">-H</span> <span class="token-string">"Content-Type: application/json"</span> \
+  <span class="token-flag">-d</span> <span class="token-string">'{
+    "connectionId": "abc-123-...",
+    "vorname": "Max",
+    "nachname": "Mustermann",
+    "geburtsdatum": "1990-01-01",
+    "fuehrerscheinklasse": "B",
+    "ausstellungsdatum": "2024-01-01"
+  }'</span>
+
+<span class="token-comment"># Issuer sends DIDComm credential offer → wallet auto-accepts → stores in Askar</span></code></pre>
+
+    <h3>Step 7 — Verify the Credential is Stored</h3>
+    <pre><code><span class="token-cmd">curl</span> http://localhost:3000/credentials
+
+<span class="token-comment"># → {
+<span class="token-comment">#     "credentials": [{</span>
+<span class="token-comment">#       "id": "cred:...",</span>
+<span class="token-comment">#       "schemaId": "Fuehrerschein:1.0",</span>
+<span class="token-comment">#       "attributes": {</span>
+<span class="token-comment">#         "vorname": "Max",</span>
+<span class="token-comment">#         "nachname": "Mustermann",</span>
+<span class="token-comment">#         "fuehrerscheinklasse": "B",</span>
+<span class="token-comment">#         ...</span>
+<span class="token-comment">#       }</span>
+<span class="token-comment">#     }]</span>
+<span class="token-comment"># }</span></code></pre>
+
+    <div class="card" style="background: var(--bg2); border-color: var(--green); margin-top: 8px;">
+      <h3>🎉 Done!</h3>
+      <p style="margin: 0;">The Führerschein credential is now stored in your encrypted Askar wallet. You can view it in the Flutter app or use <code>GET /credentials</code>. The transparency audit log (<code>GET /log</code>) will show every step that occurred.</p>
+    </div>
+  </section>
+
+  <footer>
+    <p><strong>Interactive Wallet</strong> — Internet of Services Master's Project · SoSe 2026</p>
+    <p style="margin-top: 6px;">Built with Credo-TS · Hyperledger Indy · AnonCreds · DIDComm · Flutter</p>
+    <p style="margin-top: 6px; font-size: 11px;">Documentation generated 2026-05-12</p>
+  </footer>
+
+</main>
+
+<script>
+  // Highlight active nav link on scroll
+  const sections = document.querySelectorAll('.section');
+  const navLinks = document.querySelectorAll('#sidebar nav a');
+
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        navLinks.forEach(link => link.classList.remove('active'));
+        const active = document.querySelector(`#sidebar nav a[href="#${entry.target.id}"]`);
+        if (active) active.classList.add('active');
+      }
+    });
+  }, { rootMargin: '-20% 0px -70% 0px' });
+
+  sections.forEach(s => observer.observe(s));
+</script>
+
+</body>
+</html>

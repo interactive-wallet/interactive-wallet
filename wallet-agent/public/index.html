@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Interactive Wallet</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: #0f1117;
+      color: #e2e8f0;
+      min-height: 100vh;
+    }
+
+    header {
+      background: #1a1d27;
+      border-bottom: 1px solid #2d3148;
+      padding: 1.25rem 2rem;
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+
+    header h1 { font-size: 1.25rem; font-weight: 600; color: #f1f5f9; }
+    header .dot { width: 10px; height: 10px; border-radius: 50%; background: #4ade80; }
+
+    main {
+      max-width: 900px;
+      margin: 2rem auto;
+      padding: 0 1.5rem;
+    }
+
+    .toolbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 1.5rem;
+    }
+
+    .toolbar h2 { font-size: 1.1rem; color: #94a3b8; font-weight: 500; }
+
+    button {
+      background: #6366f1;
+      color: white;
+      border: none;
+      padding: 0.5rem 1.25rem;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 0.875rem;
+      transition: background 0.15s;
+    }
+
+    button:hover { background: #4f46e5; }
+    button:disabled { opacity: 0.4; cursor: not-allowed; }
+
+    .empty {
+      text-align: center;
+      padding: 4rem 2rem;
+      color: #475569;
+    }
+
+    .empty .icon { font-size: 3rem; margin-bottom: 1rem; }
+
+    .card {
+      background: #1a1d27;
+      border-radius: 12px;
+      padding: 1.5rem;
+      margin-bottom: 1rem;
+      border: 1px solid #2d3148;
+      border-left: 4px solid #6366f1;
+    }
+
+    .card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 1rem;
+    }
+
+    .card-title { font-weight: 600; font-size: 1rem; color: #f1f5f9; }
+    .card-id { font-size: 0.7rem; color: #475569; margin-top: 2px; word-break: break-all; }
+
+    .badge {
+      background: #312e81;
+      color: #a5b4fc;
+      padding: 0.2rem 0.6rem;
+      border-radius: 99px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      white-space: nowrap;
+    }
+
+    .attrs {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+      gap: 0.75rem;
+    }
+
+    .attr { background: #0f1117; border-radius: 8px; padding: 0.6rem 0.8rem; border: 1px solid #2d3148; }
+    .attr-label { font-size: 0.7rem; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 2px; }
+    .attr-value { font-size: 0.95rem; font-weight: 500; color: #e2e8f0; }
+
+    .meta {
+      margin-top: 1rem;
+      padding-top: 0.75rem;
+      border-top: 1px solid #2d3148;
+      font-size: 0.72rem;
+      color: #475569;
+      word-break: break-all;
+    }
+
+    .error {
+      background: #1f1315;
+      color: #f87171;
+      padding: 1rem 1.25rem;
+      border-radius: 8px;
+      border: 1px solid #7f1d1d;
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="dot"></div>
+  <h1>Interactive Wallet</h1>
+</header>
+
+<main>
+  <div class="toolbar">
+    <h2 id="count">Credentials werden geladen...</h2>
+    <button id="refresh-btn" onclick="load()">Aktualisieren</button>
+  </div>
+  <div id="content"></div>
+</main>
+
+<script>
+  const ATTR_LABELS = {
+    vorname: 'Vorname',
+    nachname: 'Nachname',
+    geburtsdatum: 'Geburtsdatum',
+    fuehrerscheinklasse: 'Klasse',
+    ausstellungsdatum: 'Ausgestellt am',
+  }
+
+  function schemaName(schemaId) {
+    const parts = schemaId.split('/')
+    const idx = parts.indexOf('SCHEMA')
+    return idx !== -1 ? parts[idx + 1] : schemaId
+  }
+
+  function renderCredential(cred) {
+    const attrs = Object.entries(cred.attributes)
+      .map(([k, v]) => `
+        <div class="attr">
+          <div class="attr-label">${ATTR_LABELS[k] ?? k}</div>
+          <div class="attr-value">${v}</div>
+        </div>`)
+      .join('')
+
+    const issued = new Date(cred.createdAt).toLocaleString('de-DE')
+
+    return `
+      <div class="card">
+        <div class="card-header">
+          <div>
+            <div class="card-title">${schemaName(cred.schemaId)}</div>
+            <div class="card-id">${cred.credentialId}</div>
+          </div>
+          <span class="badge">AnonCreds</span>
+        </div>
+        <div class="attrs">${attrs}</div>
+        <div class="meta">
+          Schema: ${cred.schemaId}<br>
+          CredDef: ${cred.credentialDefinitionId}<br>
+          Ausgestellt: ${issued}
+        </div>
+      </div>`
+  }
+
+  async function load() {
+    const btn = document.getElementById('refresh-btn')
+    btn.disabled = true
+
+    try {
+      const res = await fetch('/credentials')
+      if (!res.ok) throw new Error(`HTTP ${res.status}`)
+      const creds = await res.json()
+
+      document.getElementById('count').textContent =
+        creds.length === 0 ? 'Keine Credentials vorhanden'
+        : creds.length === 1 ? '1 Credential'
+        : `${creds.length} Credentials`
+
+      document.getElementById('content').innerHTML =
+        creds.length === 0
+          ? `<div class="empty"><div class="icon">🪪</div>Noch keine Credentials im Wallet.</div>`
+          : creds.map(renderCredential).join('')
+    } catch (e) {
+      document.getElementById('count').textContent = 'Fehler'
+      document.getElementById('content').innerHTML =
+        `<div class="error">Verbindung zu wallet-agent fehlgeschlagen: ${e.message}</div>`
+    } finally {
+      btn.disabled = false
+    }
+  }
+
+  load()
+</script>
+</body>
+</html>
