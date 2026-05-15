@@ -2,12 +2,14 @@ import { Agent } from '@credo-ts/core'
 import { agentDependencies, DidCommHttpInboundTransport } from '@credo-ts/node'
 import { AskarModule } from '@credo-ts/askar'
 import { IndyVdrModule, IndyVdrAnonCredsRegistry, IndyVdrIndyDidResolver } from '@credo-ts/indy-vdr'
-import { AnonCredsModule, AnonCredsDidCommCredentialFormatService } from '@credo-ts/anoncreds'
+import { AnonCredsModule, AnonCredsDidCommCredentialFormatService, AnonCredsDidCommProofFormatService } from '@credo-ts/anoncreds'
 import {
   DidCommAutoAcceptCredential,
+  DidCommAutoAcceptProof,
   DidCommModule,
   DidCommHttpOutboundTransport,
   DidCommCredentialV2Protocol,
+  DidCommProofV2Protocol,
 } from '@credo-ts/didcomm'
 import { askar } from '@openwallet-foundation/askar-shared'
 import { anoncreds } from '@hyperledger/anoncreds-shared'
@@ -72,7 +74,14 @@ export function createAgent() {
             }),
           ],
         },
-        proofs: false,
+        proofs: {
+          autoAcceptProofs: DidCommAutoAcceptProof.Always,
+          proofProtocols: [
+            new DidCommProofV2Protocol({
+              proofFormats: [new AnonCredsDidCommProofFormatService()],
+            }),
+          ],
+        },
       }),
     },
   })

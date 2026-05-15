@@ -22,191 +22,337 @@
       align-items: center;
       gap: 0.75rem;
     }
-
     header h1 { font-size: 1.25rem; font-weight: 600; color: #f1f5f9; }
-    header .dot { width: 10px; height: 10px; border-radius: 50%; background: #4ade80; }
+    header .dot { width: 10px; height: 10px; border-radius: 50%; background: #4ade80; flex-shrink: 0; }
 
     main {
-      max-width: 900px;
+      max-width: 1100px;
       margin: 2rem auto;
       padding: 0 1.5rem;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      grid-template-rows: auto auto;
+      gap: 1.5rem;
     }
 
-    .toolbar {
+    /* Credentials spans full width */
+    .section-credentials { grid-column: 1 / -1; }
+
+    .section-title {
+      font-size: 0.7rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: #64748b;
+      margin-bottom: 0.75rem;
       display: flex;
-      justify-content: space-between;
       align-items: center;
-      margin-bottom: 1.5rem;
+      gap: 0.5rem;
+    }
+    .section-title .badge {
+      background: #1e2535;
+      color: #94a3b8;
+      padding: 0.1rem 0.5rem;
+      border-radius: 99px;
+      font-size: 0.65rem;
     }
 
-    .toolbar h2 { font-size: 1.1rem; color: #94a3b8; font-weight: 500; }
+    /* ── Cards ── */
+    .card {
+      background: #1a1d27;
+      border-radius: 12px;
+      padding: 1.25rem 1.5rem;
+      border: 1px solid #2d3148;
+      border-left: 4px solid #6366f1;
+      margin-bottom: 0.75rem;
+    }
+    .card:last-child { margin-bottom: 0; }
+    .card-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0.85rem; }
+    .card-title { font-weight: 600; font-size: 0.95rem; color: #f1f5f9; }
+    .card-id { font-size: 0.65rem; color: #475569; margin-top: 2px; word-break: break-all; }
+
+    .pill {
+      padding: 0.2rem 0.6rem;
+      border-radius: 99px;
+      font-size: 0.7rem;
+      font-weight: 600;
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+    .pill-purple { background: #312e81; color: #a5b4fc; }
+    .pill-green  { background: #14532d; color: #86efac; }
+    .pill-yellow { background: #713f12; color: #fde68a; }
+    .pill-red    { background: #450a0a; color: #fca5a5; }
+
+    .attrs {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+      gap: 0.6rem;
+    }
+    .attr { background: #0f1117; border-radius: 8px; padding: 0.5rem 0.75rem; border: 1px solid #2d3148; }
+    .attr-label { font-size: 0.65rem; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 2px; }
+    .attr-value { font-size: 0.9rem; font-weight: 500; color: #e2e8f0; }
+
+    .card-meta { margin-top: 0.85rem; padding-top: 0.65rem; border-top: 1px solid #2d3148; font-size: 0.68rem; color: #475569; word-break: break-all; }
+
+    /* ── On-request panel ── */
+    .section-onrequest .card { border-left-color: #f59e0b; }
+    .proof-req-attrs { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-top: 0.75rem; }
+    .attr-tag { background: #1c1a0e; border: 1px solid #78350f; color: #fde68a; padding: 0.2rem 0.6rem; border-radius: 6px; font-size: 0.78rem; }
+
+    .verified-row { display: flex; align-items: center; gap: 0.5rem; margin-top: 0.65rem; font-size: 0.82rem; }
+    .verified-icon { font-size: 1rem; }
+
+    /* ── Behind-the-scenes log ── */
+    .section-log .card { border-left-color: #06b6d4; padding: 0; overflow: hidden; }
+    .log-list { list-style: none; max-height: 320px; overflow-y: auto; }
+    .log-item {
+      display: flex;
+      gap: 0.75rem;
+      padding: 0.6rem 1rem;
+      border-bottom: 1px solid #1e2535;
+      font-size: 0.78rem;
+      align-items: flex-start;
+    }
+    .log-item:last-child { border-bottom: none; }
+    .log-time { color: #475569; white-space: nowrap; font-variant-numeric: tabular-nums; flex-shrink: 0; }
+    .log-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; margin-top: 4px; }
+    .log-dot-proof      { background: #f59e0b; }
+    .log-dot-credential { background: #6366f1; }
+    .log-dot-connection { background: #4ade80; }
+    .log-dot-system     { background: #64748b; }
+    .log-text { color: #cbd5e1; }
+    .log-text em { color: #94a3b8; font-style: normal; }
+
+    .log-empty { padding: 2rem; text-align: center; color: #475569; font-size: 0.82rem; }
+
+    /* ── Empty states ── */
+    .empty { text-align: center; padding: 2.5rem 1rem; color: #475569; font-size: 0.85rem; }
 
     button {
       background: #6366f1;
       color: white;
       border: none;
-      padding: 0.5rem 1.25rem;
+      padding: 0.4rem 1rem;
       border-radius: 6px;
       cursor: pointer;
-      font-size: 0.875rem;
+      font-size: 0.8rem;
       transition: background 0.15s;
     }
-
     button:hover { background: #4f46e5; }
-    button:disabled { opacity: 0.4; cursor: not-allowed; }
 
-    .empty {
-      text-align: center;
-      padding: 4rem 2rem;
-      color: #475569;
-    }
-
-    .empty .icon { font-size: 3rem; margin-bottom: 1rem; }
-
-    .card {
-      background: #1a1d27;
-      border-radius: 12px;
-      padding: 1.5rem;
-      margin-bottom: 1rem;
-      border: 1px solid #2d3148;
-      border-left: 4px solid #6366f1;
-    }
-
-    .card-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: flex-start;
-      margin-bottom: 1rem;
-    }
-
-    .card-title { font-weight: 600; font-size: 1rem; color: #f1f5f9; }
-    .card-id { font-size: 0.7rem; color: #475569; margin-top: 2px; word-break: break-all; }
-
-    .badge {
-      background: #312e81;
-      color: #a5b4fc;
-      padding: 0.2rem 0.6rem;
-      border-radius: 99px;
-      font-size: 0.75rem;
-      font-weight: 600;
-      white-space: nowrap;
-    }
-
-    .attrs {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-      gap: 0.75rem;
-    }
-
-    .attr { background: #0f1117; border-radius: 8px; padding: 0.6rem 0.8rem; border: 1px solid #2d3148; }
-    .attr-label { font-size: 0.7rem; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 2px; }
-    .attr-value { font-size: 0.95rem; font-weight: 500; color: #e2e8f0; }
-
-    .meta {
-      margin-top: 1rem;
-      padding-top: 0.75rem;
-      border-top: 1px solid #2d3148;
-      font-size: 0.72rem;
-      color: #475569;
-      word-break: break-all;
-    }
-
-    .error {
-      background: #1f1315;
-      color: #f87171;
-      padding: 1rem 1.25rem;
-      border-radius: 8px;
-      border: 1px solid #7f1d1d;
-    }
+    .toolbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem; }
   </style>
 </head>
 <body>
 
 <header>
-  <div class="dot"></div>
+  <div class="dot" id="status-dot"></div>
   <h1>Interactive Wallet</h1>
 </header>
 
 <main>
-  <div class="toolbar">
-    <h2 id="count">Credentials werden geladen...</h2>
-    <button id="refresh-btn" onclick="load()">Aktualisieren</button>
-  </div>
-  <div id="content"></div>
+  <!-- ── Credentials ── -->
+  <section class="section-credentials">
+    <div class="toolbar">
+      <div class="section-title">Credentials <span class="badge" id="cred-count">…</span></div>
+      <button onclick="loadCredentials()">Aktualisieren</button>
+    </div>
+    <div id="credentials-list"></div>
+  </section>
+
+  <!-- ── On-request transparency ── -->
+  <section class="section-onrequest">
+    <div class="toolbar">
+      <div class="section-title" style="color:#f59e0b">On-Request Transparenz <span class="badge" id="proof-count">…</span></div>
+      <button onclick="loadProofs()">Aktualisieren</button>
+    </div>
+    <div id="proofs-list"></div>
+  </section>
+
+  <!-- ── Behind-the-scenes log ── -->
+  <section class="section-log">
+    <div class="toolbar">
+      <div class="section-title" style="color:#06b6d4">Behind the Scenes <span class="badge" id="log-count">0</span></div>
+      <button onclick="clearLog()">Leeren</button>
+    </div>
+    <div class="card">
+      <ul class="log-list" id="log-list">
+        <li class="log-empty">Warte auf Aktivität…</li>
+      </ul>
+    </div>
+  </section>
 </main>
 
 <script>
   const ATTR_LABELS = {
-    vorname: 'Vorname',
-    nachname: 'Nachname',
-    geburtsdatum: 'Geburtsdatum',
-    fuehrerscheinklasse: 'Klasse',
-    ausstellungsdatum: 'Ausgestellt am',
+    vorname: 'Vorname', nachname: 'Nachname', geburtsdatum: 'Geburtsdatum',
+    fuehrerscheinklasse: 'Klasse', ausstellungsdatum: 'Ausgestellt am',
   }
 
-  function schemaName(schemaId) {
-    const parts = schemaId.split('/')
+  function schemaName(id) {
+    const parts = id.split('/')
     const idx = parts.indexOf('SCHEMA')
-    return idx !== -1 ? parts[idx + 1] : schemaId
+    return idx !== -1 ? parts[idx + 1] : id
   }
 
-  function renderCredential(cred) {
-    const attrs = Object.entries(cred.attributes)
-      .map(([k, v]) => `
-        <div class="attr">
-          <div class="attr-label">${ATTR_LABELS[k] ?? k}</div>
-          <div class="attr-value">${v}</div>
-        </div>`)
-      .join('')
+  function fmt(iso) { return new Date(iso).toLocaleString('de-DE') }
+  function fmtTime(iso) {
+    const d = new Date(iso)
+    return d.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+  }
 
-    const issued = new Date(cred.createdAt).toLocaleString('de-DE')
-
-    return `
+  // ── Credentials ──────────────────────────────────────────────────────────
+  async function loadCredentials() {
+    const creds = await fetch('/credentials').then(r => r.json()).catch(() => [])
+    const el = document.getElementById('credentials-list')
+    document.getElementById('cred-count').textContent = creds.length
+    if (!creds.length) { el.innerHTML = '<div class="empty">Keine Credentials vorhanden.</div>'; return }
+    el.innerHTML = creds.map(c => `
       <div class="card">
         <div class="card-header">
           <div>
-            <div class="card-title">${schemaName(cred.schemaId)}</div>
-            <div class="card-id">${cred.credentialId}</div>
+            <div class="card-title">${schemaName(c.schemaId)}</div>
+            <div class="card-id">${c.credentialId}</div>
           </div>
-          <span class="badge">AnonCreds</span>
+          <span class="pill pill-purple">AnonCreds</span>
         </div>
-        <div class="attrs">${attrs}</div>
-        <div class="meta">
-          Schema: ${cred.schemaId}<br>
-          CredDef: ${cred.credentialDefinitionId}<br>
-          Ausgestellt: ${issued}
+        <div class="attrs">
+          ${Object.entries(c.attributes).map(([k,v]) => `
+            <div class="attr">
+              <div class="attr-label">${ATTR_LABELS[k] ?? k}</div>
+              <div class="attr-value">${v}</div>
+            </div>`).join('')}
         </div>
-      </div>`
+        <div class="card-meta">Schema: ${c.schemaId}<br>CredDef: ${c.credentialDefinitionId}<br>Erhalten: ${fmt(c.createdAt)}</div>
+      </div>`).join('')
   }
 
-  async function load() {
-    const btn = document.getElementById('refresh-btn')
-    btn.disabled = true
+  // ── Proof exchanges (On-request) ─────────────────────────────────────────
+  async function loadProofs() {
+    const proofs = await fetch('/proof-exchanges').then(r => r.json()).catch(() => [])
+    const el = document.getElementById('proofs-list')
+    document.getElementById('proof-count').textContent = proofs.length
+    if (!proofs.length) { el.innerHTML = '<div class="empty">Noch keine Proof-Anfragen eingegangen.</div>'; return }
 
-    try {
-      const res = await fetch('/credentials')
-      if (!res.ok) throw new Error(`HTTP ${res.status}`)
-      const creds = await res.json()
+    el.innerHTML = proofs.slice().reverse().map(p => {
+      const statePill = p.state === 'done'
+        ? '<span class="pill pill-green">Beweis gesendet ✓</span>'
+        : p.state === 'abandoned'
+          ? '<span class="pill pill-red">Abgebrochen ✗</span>'
+          : '<span class="pill pill-yellow">Ausstehend…</span>'
 
-      document.getElementById('count').textContent =
-        creds.length === 0 ? 'Keine Credentials vorhanden'
-        : creds.length === 1 ? '1 Credential'
-        : `${creds.length} Credentials`
+      const attrTags = (p.requestedAttributes ?? []).map(a =>
+        `<span class="attr-tag">${ATTR_LABELS[a] ?? a}</span>`).join('')
 
-      document.getElementById('content').innerHTML =
-        creds.length === 0
-          ? `<div class="empty"><div class="icon">🪪</div>Noch keine Credentials im Wallet.</div>`
-          : creds.map(renderCredential).join('')
-    } catch (e) {
-      document.getElementById('count').textContent = 'Fehler'
-      document.getElementById('content').innerHTML =
-        `<div class="error">Verbindung zu wallet-agent fehlgeschlagen: ${e.message}</div>`
-    } finally {
-      btn.disabled = false
+      return `
+        <div class="card">
+          <div class="card-header">
+            <div>
+              <div class="card-title">Proof-Anfrage</div>
+              <div class="card-id">${p.id}</div>
+            </div>
+            ${statePill}
+          </div>
+          <div style="font-size:0.78rem;color:#94a3b8;margin-bottom:0.4rem">Angefragte Attribute:</div>
+          <div class="proof-req-attrs">${attrTags || '<span style="color:#475569;font-size:0.78rem">keine</span>'}</div>
+          <div class="card-meta">Eingang: ${fmt(p.createdAt)}</div>
+        </div>`
+    }).join('')
+  }
+
+  // ── Behind-the-scenes log ────────────────────────────────────────────────
+  const logItems = []
+
+  function addLog(type, text, ts) {
+    logItems.push({ type, text, ts: ts ?? new Date().toISOString() })
+    renderLog()
+  }
+
+  function renderLog() {
+    const el = document.getElementById('log-list')
+    document.getElementById('log-count').textContent = logItems.length
+    if (!logItems.length) { el.innerHTML = '<li class="log-empty">Warte auf Aktivität…</li>'; return }
+    el.innerHTML = logItems.slice().reverse().map(item => `
+      <li class="log-item">
+        <span class="log-time">${fmtTime(item.ts)}</span>
+        <span class="log-dot log-dot-${item.type}"></span>
+        <span class="log-text">${item.text}</span>
+      </li>`).join('')
+  }
+
+  function clearLog() { logItems.length = 0; renderLog() }
+
+  function proofStateText(state, isVerified) {
+    const map = {
+      'request-received':       'Proof-Anfrage erhalten — Wallet prüft verfügbare Credentials',
+      'presentation-sent':      'Kryptografischer Beweis generiert und gesendet',
+      'done':                   isVerified === true  ? 'Verifikation abgeschlossen — <em>isVerified: true ✓</em>'
+                              : isVerified === false ? 'Verifikation fehlgeschlagen — <em>isVerified: false ✗</em>'
+                              : 'Proof-Austausch abgeschlossen',
+      'abandoned':              'Proof-Austausch abgebrochen',
+    }
+    return map[state] ?? `Proof-Status: <em>${state}</em>`
+  }
+
+  function credStateText(state, role) {
+    const map = {
+      'offer-received':  'Credential-Angebot erhalten',
+      'request-sent':    'Credential-Request gesendet',
+      'credential-received': 'Credential empfangen — wird in Askar gespeichert',
+      'done':            'Credential erfolgreich gespeichert ✓',
+    }
+    return map[state] ?? `Credential-Status: <em>${state}</em>`
+  }
+
+  function connStateText(state, label) {
+    const map = {
+      'invitation-received': `Einladung empfangen von <em>${label}</em>`,
+      'request-sent':        `Verbindungsanfrage gesendet an <em>${label}</em>`,
+      'response-received':   `Verbindungsantwort empfangen von <em>${label}</em>`,
+      'completed':           `DIDComm-Verbindung aufgebaut mit <em>${label}</em>`,
+    }
+    return map[state] ?? `Verbindung mit <em>${label}</em>: ${state}`
+  }
+
+  // ── SSE connection ────────────────────────────────────────────────────────
+  function connectSSE() {
+    const es = new EventSource('/events')
+
+    es.onmessage = (e) => {
+      const data = JSON.parse(e.data)
+      const { type, ts } = data
+
+      if (type === 'connected') {
+        addLog('system', 'Live-Verbindung zum Wallet-Agent hergestellt', ts)
+        return
+      }
+      if (type === 'proof') {
+        addLog('proof', proofStateText(data.state, data.isVerified), ts)
+        if (data.state === 'request-received' || data.state === 'done') loadProofs()
+      }
+      if (type === 'credential') {
+        addLog('credential', credStateText(data.state, data.role), ts)
+        if (data.state === 'done') loadCredentials()
+      }
+      if (type === 'connection') {
+        addLog('connection', connStateText(data.state, data.theirLabel), ts)
+      }
+    }
+
+    es.onerror = () => {
+      document.getElementById('status-dot').style.background = '#ef4444'
+      setTimeout(connectSSE, 3000)
+    }
+
+    es.onopen = () => {
+      document.getElementById('status-dot').style.background = '#4ade80'
     }
   }
 
-  load()
+  // ── Init ──────────────────────────────────────────────────────────────────
+  loadCredentials()
+  loadProofs()
+  connectSSE()
 </script>
 </body>
 </html>
