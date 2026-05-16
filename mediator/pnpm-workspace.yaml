@@ -1,0 +1,12 @@
+allowBuilds:
+  '@2060.io/ffi-napi': true
+  '@2060.io/ref-napi': true
+  '@animo-id/pex': true
+  '@hyperledger/anoncreds-nodejs': true
+  '@hyperledger/aries-askar-nodejs': true
+  '@hyperledger/indy-vdr-nodejs': true
+  '@openwallet-foundation/askar-nodejs': true
+  cbor-extract: true
+  es5-ext: true
+  esbuild: true
+  koffi: true
