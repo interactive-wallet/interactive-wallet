@@ -1,68 +1,94 @@
 #!/bin/bash
+# Setup: Issuer-DID registrieren + Credential ausstellen
+# Benötigt: alle drei Agents laufen, VON Network läuft
 set -e
 
-ISSUER_STATE="/home/ab/Uni/Master/SoSe26/InternetofServiceProject/interactive-wallet/issuer-agent/issuer-state.json"
+GRN='\033[0;32m'; YLW='\033[1;33m'; CYN='\033[0;36m'; RED='\033[0;31m'; BLD='\033[1m'; NC='\033[0m'
 
-echo "=== 0. Clearing old issuer state ==="
-rm -f "$ISSUER_STATE"
-echo "  Done"
+ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+ISSUER="http://localhost:3002"
+WALLET="http://localhost:3000"
 
+echo -e "${BLD}┌─────────────────────────────────────┐${NC}"
+echo -e "${BLD}│   Interactive Wallet — Setup         │${NC}"
+echo -e "${BLD}└─────────────────────────────────────┘${NC}"
 echo ""
-echo "=== 1. Setup issuer DID ==="
-SETUP_RESPONSE=$(curl -s -X POST http://localhost:3002/setup)
-echo "$SETUP_RESPONSE" | python3 -m json.tool
-if echo "$SETUP_RESPONSE" | python3 -c "import sys,json; d=json.load(sys.stdin); sys.exit(1 if 'error' in d else 0)"; then
-  :
+
+# ── 1. Issuer DID registrieren ───────────────────────────────────────────────
+echo -e "${CYN}[1/4] Issuer-DID auf VON registrieren…${NC}"
+rm -f "$ROOT/issuer-agent/issuer-state.json"
+SETUP=$(curl -sf -X POST "$ISSUER/setup" 2>/dev/null || echo '{"error":"Issuer nicht erreichbar"}')
+if echo "$SETUP" | python3 -c "import sys,json; d=json.load(sys.stdin); sys.exit(1 if 'error' in d else 0)" 2>/dev/null; then
+  CRED_DEF=$(echo "$SETUP" | python3 -c "import sys,json; print(json.load(sys.stdin)['credDefId'])")
+  echo -e "  ${GRN}✓${NC} CredDef: $CRED_DEF"
 else
-  echo ""
-  echo "ERROR: Setup failed. Check issuer-agent logs. Aborting."
-  exit 1
+  echo -e "  ${RED}✗ Fehler:${NC} $SETUP"; exit 1
 fi
+echo ""
+
+# ── 2. Einladung holen & in UI einfügen ──────────────────────────────────────
+echo -e "${CYN}[2/4] Verbindung Wallet ↔ Issuer herstellen…${NC}"
+INV_URL=$(curl -sf "$ISSUER/invitation" | python3 -c "import sys,json; print(json.load(sys.stdin)['invitationUrl'])")
 
 echo ""
-echo "=== 2. Connect wallet to issuer ==="
-INVITATION_URL=$(curl -s http://localhost:3002/invitation | python3 -c "import sys,json; print(json.load(sys.stdin)['invitationUrl'])")
-curl -s -X POST http://localhost:3000/receive-invitation \
-  -H "Content-Type: application/json" \
-  -d "{\"invitationUrl\": \"$INVITATION_URL\"}" | python3 -m json.tool
-
+echo -e "${YLW}┌─────────────────────────────────────────────────────────┐${NC}"
+echo -e "${YLW}│  👉 AKTION: Wallet-UI öffnen → URL einfügen → Verbinden  │${NC}"
+echo -e "${YLW}│     http://localhost:3000                                │${NC}"
+echo -e "${YLW}└─────────────────────────────────────────────────────────┘${NC}"
 echo ""
-echo "=== 3. Waiting for connection to complete ==="
-for i in $(seq 1 10); do
-  STATE=$(curl -s http://localhost:3002/connections | python3 -c "import sys,json; d=json.load(sys.stdin); print(d[0]['state'] if d else 'none')" 2>/dev/null)
-  echo "  Connection state: $STATE"
-  if [ "$STATE" = "completed" ]; then
-    break
-  fi
+echo -e "${BLD}Einladungs-URL:${NC}"
+echo "$INV_URL"
+echo ""
+xdg-open "http://localhost:3000" 2>/dev/null || true
+
+echo -e "${CYN}Warte auf Verbindungsaufbau…${NC}"
+for i in $(seq 1 90); do
+  STATE=$(curl -sf "$ISSUER/connections" 2>/dev/null \
+    | python3 -c "import sys,json; d=json.load(sys.stdin); print(d[0]['state'] if d else 'none')" 2>/dev/null || echo "none")
+  [ "$STATE" = "completed" ] && echo -e "\r  ${GRN}✓ Verbindung aufgebaut${NC}          " && break
+  printf "\r  … Status: %-30s" "$STATE (${i}s)"
   sleep 1
+  [ "$i" = "90" ] && echo -e "\n  ${RED}✗ Timeout — Verbindung nicht aufgebaut${NC}" && exit 1
 done
-
 echo ""
-echo "=== 4. Issue Führerschein ==="
-CONNECTION_ID=$(curl -s http://localhost:3002/connections | python3 -c "import sys,json; print(json.load(sys.stdin)[0]['id'])")
-echo "  Using connection: $CONNECTION_ID"
-curl -s -X POST http://localhost:3002/issue \
+
+# ── 3. Credential ausstellen ─────────────────────────────────────────────────
+echo -e "${CYN}[3/4] Führerschein-Angebot senden…${NC}"
+CONN=$(curl -sf "$ISSUER/connections" \
+  | python3 -c "import sys,json; d=sorted([c for c in json.load(sys.stdin) if c['state']=='completed'], key=lambda x:x['createdAt'], reverse=True); print(d[0]['id'])")
+curl -sf -X POST "$ISSUER/issue" \
   -H "Content-Type: application/json" \
   -d "{
-    \"connectionId\": \"$CONNECTION_ID\",
+    \"connectionId\": \"$CONN\",
     \"vorname\": \"Max\",
     \"nachname\": \"Mustermann\",
     \"geburtsdatum\": \"1990-01-15\",
     \"fuehrerscheinklasse\": \"B\",
     \"ausstellungsdatum\": \"2024-03-01\"
-  }" | python3 -m json.tool
-
+  }" > /dev/null
+echo -e "  ${GRN}✓${NC} Angebot gesendet"
 echo ""
-echo "=== 5. Waiting for wallet to receive credential ==="
-for i in $(seq 1 15); do
-  COUNT=$(curl -s http://localhost:3000/credentials | python3 -c "import sys,json; print(len(json.load(sys.stdin)))" 2>/dev/null)
-  echo "  Credentials in wallet: $COUNT"
+
+# ── 4. Warten bis User in UI akzeptiert ──────────────────────────────────────
+echo -e "${YLW}┌─────────────────────────────────────────────────────────┐${NC}"
+echo -e "${YLW}│  👉 AKTION: Wallet-UI → 'Credential-Angebote'           │${NC}"
+echo -e "${YLW}│     Klicke auf Annehmen                                 │${NC}"
+echo -e "${YLW}└─────────────────────────────────────────────────────────┘${NC}"
+echo ""
+
+echo -e "${CYN}[4/4] Warte auf Annahme in der UI…${NC}"
+for i in $(seq 1 120); do
+  COUNT=$(curl -sf "$WALLET/credentials" \
+    | python3 -c "import sys,json; print(len(json.load(sys.stdin)))" 2>/dev/null || echo "0")
   if [ "$COUNT" != "0" ]; then
+    echo -e "\r  ${GRN}✓ Credential gespeichert!${NC}                    "
     break
   fi
+  printf "\r  … warte auf UI-Aktion (${i}s)"
   sleep 1
+  [ "$i" = "120" ] && echo -e "\n  ${YLW}⚠ Timeout — hast du 'Annehmen' geklickt?${NC}" && exit 1
 done
 
 echo ""
-echo "=== 6. Wallet credentials ==="
-curl -s http://localhost:3000/credentials | python3 -m json.tool
+echo -e "${GRN}${BLD}✓ Setup abgeschlossen!${NC} Führerschein liegt im Wallet."
+echo -e "  Nächster Schritt: ${BLD}./scripts/verify.sh${NC}"

@@ -70,7 +70,7 @@ export function createAgent() {
           autoAcceptConnections: true,
         },
         credentials: {
-          autoAcceptCredentials: DidCommAutoAcceptCredential.Always,
+          autoAcceptCredentials: DidCommAutoAcceptCredential.Never,
           credentialProtocols: [
             new DidCommCredentialV2Protocol({
               credentialFormats: [new AnonCredsDidCommCredentialFormatService()],
@@ -78,7 +78,7 @@ export function createAgent() {
           ],
         },
         proofs: {
-          autoAcceptProofs: DidCommAutoAcceptProof.Always,
+          autoAcceptProofs: DidCommAutoAcceptProof.Never,
           proofProtocols: [
             new DidCommProofV2Protocol({
               proofFormats: [new AnonCredsDidCommProofFormatService()],
