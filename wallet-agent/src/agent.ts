@@ -1,4 +1,4 @@
-import { Agent } from '@credo-ts/core'
+import { Agent, DidsModule } from '@credo-ts/core'
 import { agentDependencies, DidCommHttpInboundTransport } from '@credo-ts/node'
 import { AskarModule } from '@credo-ts/askar'
 import { IndyVdrModule, IndyVdrAnonCredsRegistry, IndyVdrIndyDidResolver } from '@credo-ts/indy-vdr'
@@ -52,6 +52,9 @@ export function createAgent() {
             connectOnStartup: true,
           },
         ],
+      }),
+      dids: new DidsModule({
+        resolvers: [new IndyVdrIndyDidResolver()],
       }),
       anoncreds: new AnonCredsModule({
         anoncreds,

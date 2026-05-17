@@ -35,6 +35,13 @@ async function main() {
   await agent.initialize()
   console.log('[wallet-agent] Agent initialized')
 
+  // AnonCreds holders need a link secret before they can accept credential offers.
+  const linkSecretIds = await agent.modules.anoncreds.getLinkSecretIds()
+  if (linkSecretIds.length === 0) {
+    await agent.modules.anoncreds.createLinkSecret({ setAsDefault: true })
+    console.log('[wallet-agent] Created default link secret')
+  }
+
   // ─── Event listeners → SSE broadcast ─────────────────────────────────────
   agent.events.on(DidCommConnectionEventTypes.DidCommConnectionStateChanged, ({ payload }: any) => {
     const c = payload.connectionRecord
@@ -42,7 +49,7 @@ async function main() {
   })
 
   agent.events.on(DidCommCredentialEventTypes.DidCommCredentialStateChanged, ({ payload }: any) => {
-    const e = payload.credentialRecord
+    const e = payload.credentialExchangeRecord
     broadcast('credential', { state: e.state, role: e.role, credentialId: e.id })
   })
 
