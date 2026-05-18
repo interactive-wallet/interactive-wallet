@@ -5,8 +5,5 @@ allowBuilds:
   '@hyperledger/anoncreds-nodejs': true
   '@hyperledger/aries-askar-nodejs': true
   '@hyperledger/indy-vdr-nodejs': true
-  '@openwallet-foundation/askar-nodejs': true
-  cbor-extract: true
   es5-ext: true
   esbuild: true
-  koffi: true

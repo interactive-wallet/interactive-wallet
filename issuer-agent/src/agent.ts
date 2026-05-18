@@ -9,9 +9,9 @@ import {
   DidCommHttpOutboundTransport,
   DidCommCredentialV2Protocol,
 } from '@credo-ts/didcomm'
-import { askar } from '@openwallet-foundation/askar-nodejs'
-import { anoncreds } from '@hyperledger/anoncreds-nodejs'
-import { indyVdr } from '@hyperledger/indy-vdr-nodejs'
+import { askar } from '@openwallet-foundation/askar-shared'
+import { anoncreds } from '@hyperledger/anoncreds-shared'
+import { indyVdr } from '@hyperledger/indy-vdr-shared'
 import * as fs from 'fs'
 import * as path from 'path'
 import { fileURLToPath } from 'url'

@@ -4,183 +4,634 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Interactive Wallet</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=JetBrains+Mono:ital,wght@0,300;0,400;0,500;1,300&display=swap" rel="stylesheet">
   <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg:          #03050b;
+      --bg-layer:    #070c17;
+      --bg-card:     #0b1120;
+      --bg-elevated: #101827;
+      --bg-input:    #070c17;
+
+      --border-faint:   rgba(255,255,255,0.045);
+      --border-default: rgba(255,255,255,0.08);
+      --border-bright:  rgba(255,255,255,0.14);
+
+      --text:        #eaf0f8;
+      --text-2:      #7a93ab;
+      --text-3:      #3a5060;
+
+      --blue:        #3b82f6;
+      --blue-dim:    rgba(59,130,246,0.1);
+      --blue-glow:   rgba(59,130,246,0.22);
+      --blue-border: rgba(59,130,246,0.22);
+
+      --amber:        #f59e0b;
+      --amber-dim:    rgba(245,158,11,0.08);
+      --amber-glow:   rgba(245,158,11,0.18);
+      --amber-border: rgba(245,158,11,0.22);
+
+      --emerald:        #10b981;
+      --emerald-dim:    rgba(16,185,129,0.08);
+      --emerald-border: rgba(16,185,129,0.2);
+
+      --rose:        #f43f5e;
+      --rose-dim:    rgba(244,63,94,0.08);
+      --rose-border: rgba(244,63,94,0.2);
+
+      --cyan:        #22d3ee;
+      --cyan-dim:    rgba(34,211,238,0.07);
+      --cyan-border: rgba(34,211,238,0.18);
+
+      --r-sm: 6px;
+      --r-md: 10px;
+      --r-lg: 14px;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; }
 
     body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-      background: #0f1117;
-      color: #e2e8f0;
+      font-family: 'Syne', sans-serif;
+      background: var(--bg);
+      color: var(--text);
       min-height: 100vh;
+      background-image:
+        radial-gradient(ellipse 70% 45% at 15% 0%,   rgba(59,130,246,0.055) 0%, transparent 65%),
+        radial-gradient(ellipse 55% 35% at 85% 100%, rgba(34,211,238,0.035) 0%, transparent 65%),
+        radial-gradient(ellipse 40% 30% at 50% 50%,  rgba(245,158,11,0.015) 0%, transparent 70%);
     }
 
+    /* ═══════════════════ HEADER ═══════════════════ */
     header {
-      background: #1a1d27;
-      border-bottom: 1px solid #2d3148;
-      padding: 1.25rem 2rem;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      height: 54px;
+      background: rgba(3,5,11,0.8);
+      backdrop-filter: blur(24px) saturate(1.4);
+      border-bottom: 1px solid var(--border-faint);
+      padding: 0 2rem;
       display: flex;
       align-items: center;
-      gap: 0.75rem;
+      justify-content: space-between;
     }
-    header h1 { font-size: 1.25rem; font-weight: 600; color: #f1f5f9; }
-    header .dot { width: 10px; height: 10px; border-radius: 50%; background: #4ade80; flex-shrink: 0; }
 
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .brand-icon {
+      width: 26px;
+      height: 26px;
+      border: 1.5px solid var(--blue);
+      border-radius: var(--r-sm);
+      display: grid;
+      place-items: center;
+      position: relative;
+      overflow: hidden;
+    }
+    .brand-icon::before {
+      content: '';
+      position: absolute;
+      inset: 4px;
+      background: var(--blue);
+      border-radius: 2px;
+      opacity: 0.25;
+    }
+    .brand-icon::after {
+      content: '';
+      width: 7px; height: 7px;
+      background: var(--blue);
+      border-radius: 1.5px;
+    }
+
+    .brand-name {
+      font-size: 0.9rem;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+      color: var(--text);
+    }
+    .brand-name span { color: var(--blue); }
+
+    .conn-status {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.65rem;
+      color: var(--text-3);
+    }
+
+    .beacon {
+      position: relative;
+      width: 8px; height: 8px;
+    }
+    .beacon-dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: var(--emerald);
+      position: relative;
+      z-index: 1;
+      transition: background 0.4s;
+    }
+    .beacon-ring {
+      position: absolute;
+      inset: -3px;
+      border-radius: 50%;
+      border: 1px solid var(--emerald);
+      animation: ring-pulse 2.2s ease-out infinite;
+      opacity: 0;
+    }
+    @keyframes ring-pulse {
+      0%   { transform: scale(0.6); opacity: 0.7; }
+      100% { transform: scale(2);   opacity: 0; }
+    }
+
+    /* ═══════════════════ LAYOUT ═══════════════════ */
     main {
-      max-width: 1100px;
-      margin: 2rem auto;
-      padding: 0 1.5rem;
+      max-width: 1300px;
+      margin: 0 auto;
+      padding: 2rem 1.75rem;
       display: grid;
       grid-template-columns: 1fr 1fr;
-      grid-template-rows: auto auto;
-      gap: 1.5rem;
+      gap: 1.4rem;
     }
+    .span2 { grid-column: 1 / -1; }
 
-    /* Credentials spans full width */
-    .section-credentials { grid-column: 1 / -1; }
-
-    .section-title {
-      font-size: 0.7rem;
-      text-transform: uppercase;
-      letter-spacing: 0.08em;
-      color: #64748b;
-      margin-bottom: 0.75rem;
+    /* ═══════════════════ SECTION HEADER ═══════════════════ */
+    .sec-head {
       display: flex;
       align-items: center;
-      gap: 0.5rem;
+      justify-content: space-between;
+      margin-bottom: 0.9rem;
     }
-    .section-title .badge {
-      background: #1e2535;
-      color: #94a3b8;
-      padding: 0.1rem 0.5rem;
+    .sec-label {
+      display: flex;
+      align-items: center;
+      gap: 0.55rem;
+    }
+    .sec-label-text {
+      font-size: 0.62rem;
+      font-weight: 700;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--text-3);
+    }
+    .sec-count {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.58rem;
+      background: var(--bg-elevated);
+      border: 1px solid var(--border-faint);
+      color: var(--text-3);
+      padding: 0.1rem 0.45rem;
       border-radius: 99px;
-      font-size: 0.65rem;
     }
 
-    /* ── Cards ── */
+    /* ═══════════════════ CARDS ═══════════════════ */
     .card {
-      background: #1a1d27;
-      border-radius: 12px;
-      padding: 1.25rem 1.5rem;
-      border: 1px solid #2d3148;
-      border-left: 4px solid #6366f1;
-      margin-bottom: 0.75rem;
+      background: var(--bg-card);
+      border: 1px solid var(--border-faint);
+      border-radius: var(--r-md);
+      padding: 1.05rem 1.2rem;
+      margin-bottom: 0.55rem;
+      position: relative;
+      overflow: hidden;
+      animation: card-in 0.28s ease-out both;
     }
     .card:last-child { margin-bottom: 0; }
-    .card-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0.85rem; }
-    .card-title { font-weight: 600; font-size: 0.95rem; color: #f1f5f9; }
-    .card-id { font-size: 0.65rem; color: #475569; margin-top: 2px; word-break: break-all; }
 
-    .pill {
-      padding: 0.2rem 0.6rem;
+    @keyframes card-in {
+      from { opacity: 0; transform: translateY(6px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    /* accent stripe */
+    .card::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0;
+      width: 3px; height: 100%;
+      background: var(--blue);
+      border-radius: 0 2px 2px 0;
+    }
+    .card-amber::before  { background: var(--amber); }
+    .card-emerald::before { background: var(--emerald); }
+    .card-rose::before   { background: var(--rose); }
+    .card-cyan::before   { background: var(--cyan); }
+
+    /* pending glow */
+    @keyframes amber-pulse {
+      0%, 100% { box-shadow: 0 0 0 0 transparent; }
+      50%       { box-shadow: 0 0 18px 1px var(--amber-glow); }
+    }
+    .card-pending {
+      border-color: var(--amber-border);
+      animation: card-in 0.28s ease-out both, amber-pulse 3s ease-in-out 0.3s infinite;
+    }
+
+    .card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 0.7rem;
+    }
+    .card-title {
+      font-size: 0.88rem;
+      font-weight: 700;
+      letter-spacing: -0.01em;
+      color: var(--text);
+    }
+    .card-id {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.55rem;
+      color: var(--text-3);
+      margin-top: 3px;
+      word-break: break-all;
+    }
+    .card-meta {
+      margin-top: 0.7rem;
+      padding-top: 0.55rem;
+      border-top: 1px solid var(--border-faint);
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.58rem;
+      color: var(--text-3);
+      line-height: 1.65;
+      word-break: break-all;
+    }
+
+    /* ═══════════════════ BADGES ═══════════════════ */
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      padding: 0.17rem 0.55rem;
       border-radius: 99px;
-      font-size: 0.7rem;
-      font-weight: 600;
+      font-size: 0.62rem;
+      font-weight: 700;
+      letter-spacing: 0.03em;
       white-space: nowrap;
       flex-shrink: 0;
     }
-    .pill-purple { background: #312e81; color: #a5b4fc; }
-    .pill-green  { background: #14532d; color: #86efac; }
-    .pill-yellow { background: #713f12; color: #fde68a; }
-    .pill-red    { background: #450a0a; color: #fca5a5; }
+    .badge-blue    { background: var(--blue-dim);    color: var(--blue);    border: 1px solid var(--blue-border); }
+    .badge-amber   { background: var(--amber-dim);   color: var(--amber);   border: 1px solid var(--amber-border); }
+    .badge-emerald { background: var(--emerald-dim); color: var(--emerald); border: 1px solid var(--emerald-border); }
+    .badge-rose    { background: var(--rose-dim);    color: var(--rose);    border: 1px solid var(--rose-border); }
 
+    /* ═══════════════════ ATTRIBUTES ═══════════════════ */
     .attrs {
       display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
-      gap: 0.6rem;
+      grid-template-columns: repeat(auto-fill, minmax(125px, 1fr));
+      gap: 0.45rem;
+      margin-top: 0.55rem;
     }
-    .attr { background: #0f1117; border-radius: 8px; padding: 0.5rem 0.75rem; border: 1px solid #2d3148; }
-    .attr-label { font-size: 0.65rem; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 2px; }
-    .attr-value { font-size: 0.9rem; font-weight: 500; color: #e2e8f0; }
+    .attr {
+      background: var(--bg);
+      border: 1px solid var(--border-faint);
+      border-radius: var(--r-sm);
+      padding: 0.45rem 0.65rem;
+    }
+    .attr-label {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.55rem;
+      color: var(--text-3);
+      text-transform: uppercase;
+      letter-spacing: 0.07em;
+      margin-bottom: 3px;
+    }
+    .attr-value {
+      font-size: 0.82rem;
+      font-weight: 600;
+      color: var(--text);
+    }
 
-    .card-meta { margin-top: 0.85rem; padding-top: 0.65rem; border-top: 1px solid #2d3148; font-size: 0.68rem; color: #475569; word-break: break-all; }
+    /* ═══════════════════ ATTR TAGS ═══════════════════ */
+    .attr-tags { display: flex; flex-wrap: wrap; gap: 0.32rem; margin-top: 0.55rem; }
+    .attr-tag {
+      background: var(--amber-dim);
+      border: 1px solid var(--amber-border);
+      color: var(--amber);
+      padding: 0.14rem 0.48rem;
+      border-radius: 4px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.68rem;
+    }
 
-    /* ── On-request panel ── */
-    .section-onrequest .card { border-left-color: #f59e0b; }
-    .proof-req-attrs { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-top: 0.75rem; }
-    .attr-tag { background: #1c1a0e; border: 1px solid #78350f; color: #fde68a; padding: 0.2rem 0.6rem; border-radius: 6px; font-size: 0.78rem; }
+    /* ═══════════════════ BUTTONS ═══════════════════ */
+    button {
+      font-family: 'Syne', sans-serif;
+      font-weight: 600;
+      font-size: 0.76rem;
+      letter-spacing: 0.01em;
+      border: none;
+      border-radius: var(--r-sm);
+      padding: 0.4rem 0.88rem;
+      cursor: pointer;
+      transition: all 0.14s;
+    }
+    button:disabled { opacity: 0.38; cursor: not-allowed; }
 
-    .verified-row { display: flex; align-items: center; gap: 0.5rem; margin-top: 0.65rem; font-size: 0.82rem; }
-    .verified-icon { font-size: 1rem; }
+    .btn-primary { background: var(--blue);    color: #fff; }
+    .btn-primary:not(:disabled):hover { background: #2563eb; }
 
-    /* ── Behind-the-scenes log ── */
-    .section-log .card { border-left-color: #06b6d4; padding: 0; overflow: hidden; }
-    .log-list { list-style: none; max-height: 320px; overflow-y: auto; }
+    .btn-accept {
+      background: var(--emerald-dim);
+      color: var(--emerald);
+      border: 1px solid var(--emerald-border);
+    }
+    .btn-accept:not(:disabled):hover { background: rgba(16,185,129,0.16); }
+
+    .btn-decline {
+      background: var(--rose-dim);
+      color: var(--rose);
+      border: 1px solid var(--rose-border);
+    }
+    .btn-decline:not(:disabled):hover { background: rgba(244,63,94,0.16); }
+
+    .btn-ghost {
+      background: var(--bg-elevated);
+      color: var(--text-2);
+      border: 1px solid var(--border-faint);
+    }
+    .btn-ghost:not(:disabled):hover { border-color: var(--border-bright); color: var(--text); }
+
+    .action-row { display: flex; gap: 0.4rem; margin-top: 0.7rem; }
+
+    /* ═══════════════════ CONNECT PANEL ═══════════════════ */
+    .connect-panel {
+      background: var(--bg-card);
+      border: 1px solid var(--border-faint);
+      border-radius: var(--r-lg);
+      padding: 1.4rem 1.5rem;
+      position: relative;
+      overflow: hidden;
+    }
+    .connect-panel::after {
+      content: '';
+      position: absolute;
+      top: -60px; right: -60px;
+      width: 200px; height: 200px;
+      background: radial-gradient(circle, var(--blue-glow) 0%, transparent 70%);
+      pointer-events: none;
+    }
+
+    .connect-hint {
+      font-size: 0.8rem;
+      color: var(--text-2);
+      margin-bottom: 1rem;
+      line-height: 1.55;
+    }
+
+    .input-row { display: flex; gap: 0.45rem; }
+
+    .url-input {
+      flex: 1;
+      background: var(--bg-input);
+      border: 1px solid var(--border-default);
+      border-radius: var(--r-sm);
+      padding: 0.52rem 0.85rem;
+      color: var(--text);
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.74rem;
+      outline: none;
+      transition: border-color 0.15s, background 0.15s;
+    }
+    .url-input:focus {
+      border-color: var(--blue);
+      background: rgba(59,130,246,0.04);
+    }
+    .url-input::placeholder { color: var(--text-3); }
+
+    .preview-box {
+      margin-top: 0.9rem;
+      background: rgba(59,130,246,0.05);
+      border: 1px solid var(--blue-border);
+      border-radius: var(--r-md);
+      padding: 0.95rem 1.1rem;
+    }
+    .preview-from {
+      font-size: 0.6rem;
+      font-weight: 700;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--text-3);
+      margin-bottom: 4px;
+    }
+    .preview-name {
+      font-size: 1.05rem;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+      color: var(--text);
+    }
+    .connect-status {
+      margin-top: 0.6rem;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.68rem;
+      color: var(--text-3);
+      min-height: 1rem;
+    }
+
+    /* ═══════════════════ EMPTY STATES ═══════════════════ */
+    .empty {
+      text-align: center;
+      padding: 1.75rem 1rem;
+      color: var(--text-3);
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.72rem;
+      border: 1px dashed var(--border-faint);
+      border-radius: var(--r-md);
+    }
+
+    /* ═══════════════════ LOG ═══════════════════ */
+    .log-wrap {
+      background: var(--bg-card);
+      border: 1px solid var(--border-faint);
+      border-left: 3px solid var(--cyan);
+      border-radius: var(--r-md);
+      overflow: hidden;
+    }
+
+    .log-list {
+      list-style: none;
+      max-height: 360px;
+      overflow-y: auto;
+      scrollbar-width: thin;
+      scrollbar-color: var(--border-default) transparent;
+    }
+
     .log-item {
-      display: flex;
-      gap: 0.75rem;
-      padding: 0.6rem 1rem;
-      border-bottom: 1px solid #1e2535;
-      font-size: 0.78rem;
-      align-items: flex-start;
+      display: grid;
+      grid-template-columns: 52px 10px 1fr;
+      gap: 0.6rem;
+      padding: 0.52rem 1rem;
+      border-bottom: 1px solid var(--border-faint);
+      align-items: start;
+      animation: log-in 0.18s ease-out;
     }
     .log-item:last-child { border-bottom: none; }
-    .log-time { color: #475569; white-space: nowrap; font-variant-numeric: tabular-nums; flex-shrink: 0; }
-    .log-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; margin-top: 4px; }
-    .log-dot-proof      { background: #f59e0b; }
-    .log-dot-credential { background: #6366f1; }
-    .log-dot-connection { background: #4ade80; }
-    .log-dot-system     { background: #64748b; }
-    .log-text { color: #cbd5e1; }
-    .log-text em { color: #94a3b8; font-style: normal; }
 
-    .log-empty { padding: 2rem; text-align: center; color: #475569; font-size: 0.82rem; }
-
-    /* ── Empty states ── */
-    .empty { text-align: center; padding: 2.5rem 1rem; color: #475569; font-size: 0.85rem; }
-
-    button {
-      background: #6366f1;
-      color: white;
-      border: none;
-      padding: 0.4rem 1rem;
-      border-radius: 6px;
-      cursor: pointer;
-      font-size: 0.8rem;
-      transition: background 0.15s;
+    @keyframes log-in {
+      from { opacity: 0; transform: translateX(-6px); }
+      to   { opacity: 1; transform: translateX(0); }
     }
-    button:hover { background: #4f46e5; }
 
-    .toolbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem; }
+    .log-time {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.58rem;
+      color: var(--text-3);
+      white-space: nowrap;
+      padding-top: 2px;
+    }
+    .log-dot {
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      margin-top: 4px;
+      flex-shrink: 0;
+    }
+    .log-dot-proof      { background: var(--amber); }
+    .log-dot-credential { background: var(--blue); }
+    .log-dot-connection { background: var(--emerald); }
+    .log-dot-system     { background: var(--text-3); }
+
+    .log-text {
+      font-size: 0.74rem;
+      color: var(--text-2);
+      line-height: 1.45;
+    }
+    .log-text em { color: var(--text-3); font-style: normal; }
+
+    .log-empty {
+      padding: 2rem;
+      text-align: center;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.68rem;
+      color: var(--text-3);
+    }
+
+    /* ═══════════════════ PENDING SECTION LABEL COLOR ═══════════════════ */
+    .sec-label-amber { color: var(--amber) !important; }
+    .sec-label-cyan  { color: var(--cyan)  !important; }
+
+    /* ═══════════════════ PENDING INFO ═══════════════════ */
+    .pending-info {
+      font-size: 0.78rem;
+      color: var(--text-2);
+      margin: 0.1rem 0;
+    }
   </style>
 </head>
 <body>
 
 <header>
-  <div class="dot" id="status-dot"></div>
-  <h1>Interactive Wallet</h1>
+  <div class="brand">
+    <div class="brand-icon"></div>
+    <div class="brand-name">Interactive<span>Wallet</span></div>
+  </div>
+  <div class="conn-status">
+    <div class="beacon">
+      <div class="beacon-ring"></div>
+      <div class="beacon-dot" id="status-dot"></div>
+    </div>
+    <span id="status-text">Verbinde…</span>
+  </div>
 </header>
 
 <main>
-  <!-- ── Credentials ── -->
-  <section class="section-credentials">
-    <div class="toolbar">
-      <div class="section-title">Credentials <span class="badge" id="cred-count">…</span></div>
-      <button onclick="loadCredentials()">Aktualisieren</button>
+
+  <!-- ── Verbindung ── -->
+  <section class="span2">
+    <div class="sec-head">
+      <div class="sec-label">
+        <span class="sec-label-text">Verbindung herstellen</span>
+      </div>
+    </div>
+    <div class="connect-panel">
+      <p class="connect-hint">Füge eine OOB-Einladungs-URL von Issuer oder Verifier ein, um eine DIDComm-Verbindung aufzubauen.</p>
+      <div class="input-row">
+        <input class="url-input" type="text" id="oob-url-input" placeholder="https://…?oob=…" />
+        <button class="btn-ghost" onclick="previewInvitation()">Vorschau</button>
+      </div>
+      <div id="oob-preview" style="display:none">
+        <div class="preview-box">
+          <div class="preview-from">Einladung von</div>
+          <div class="preview-name" id="oob-label">Unbekannt</div>
+          <div class="action-row">
+            <button class="btn-accept" onclick="acceptInvitation()">Verbinden</button>
+            <button class="btn-ghost" onclick="cancelInvitation()">Abbrechen</button>
+          </div>
+        </div>
+      </div>
+      <div class="connect-status" id="oob-status"></div>
+    </div>
+  </section>
+
+  <!-- ── Ausstehende Credentials ── -->
+  <section>
+    <div class="sec-head">
+      <div class="sec-label">
+        <span class="sec-label-text sec-label-amber">Credential-Angebote</span>
+        <span class="sec-count" id="pending-cred-count">0</span>
+      </div>
+      <button class="btn-ghost" style="padding:0.28rem 0.65rem;font-size:0.7rem" onclick="loadPendingCredentials()">↻</button>
+    </div>
+    <div id="pending-credentials-list"><div class="empty">— keine ausstehenden Angebote —</div></div>
+  </section>
+
+  <!-- ── Ausstehende Proofs ── -->
+  <section>
+    <div class="sec-head">
+      <div class="sec-label">
+        <span class="sec-label-text sec-label-amber">Proof-Anfragen</span>
+        <span class="sec-count" id="pending-proof-count">0</span>
+      </div>
+      <button class="btn-ghost" style="padding:0.28rem 0.65rem;font-size:0.7rem" onclick="loadPendingProofs()">↻</button>
+    </div>
+    <div id="pending-proofs-list"><div class="empty">— keine ausstehenden Anfragen —</div></div>
+  </section>
+
+  <!-- ── Gespeicherte Credentials ── -->
+  <section class="span2">
+    <div class="sec-head">
+      <div class="sec-label">
+        <span class="sec-label-text">Gespeicherte Credentials</span>
+        <span class="sec-count" id="cred-count">…</span>
+      </div>
+      <button class="btn-ghost" style="padding:0.28rem 0.65rem;font-size:0.7rem" onclick="loadCredentials()">↻</button>
     </div>
     <div id="credentials-list"></div>
   </section>
 
-  <!-- ── On-request transparency ── -->
-  <section class="section-onrequest">
-    <div class="toolbar">
-      <div class="section-title" style="color:#f59e0b">On-Request Transparenz <span class="badge" id="proof-count">…</span></div>
-      <button onclick="loadProofs()">Aktualisieren</button>
+  <!-- ── Abgeschlossene Proofs ── -->
+  <section>
+    <div class="sec-head">
+      <div class="sec-label">
+        <span class="sec-label-text">Abgeschlossene Proofs</span>
+        <span class="sec-count" id="proof-count">…</span>
+      </div>
+      <button class="btn-ghost" style="padding:0.28rem 0.65rem;font-size:0.7rem" onclick="loadProofs()">↻</button>
     </div>
     <div id="proofs-list"></div>
   </section>
 
-  <!-- ── Behind-the-scenes log ── -->
-  <section class="section-log">
-    <div class="toolbar">
-      <div class="section-title" style="color:#06b6d4">Behind the Scenes <span class="badge" id="log-count">0</span></div>
-      <button onclick="clearLog()">Leeren</button>
+  <!-- ── Log ── -->
+  <section>
+    <div class="sec-head">
+      <div class="sec-label">
+        <span class="sec-label-text sec-label-cyan">Behind the Scenes</span>
+        <span class="sec-count" id="log-count">0</span>
+      </div>
+      <button class="btn-ghost" style="padding:0.28rem 0.65rem;font-size:0.7rem" onclick="clearLog()">leeren</button>
     </div>
-    <div class="card">
+    <div class="log-wrap">
       <ul class="log-list" id="log-list">
         <li class="log-empty">Warte auf Aktivität…</li>
       </ul>
     </div>
   </section>
+
 </main>
 
 <script>
@@ -195,18 +646,194 @@
     return idx !== -1 ? parts[idx + 1] : id
   }
 
+  function credDefLabel(id) {
+    if (!id) return 'Unbekanntes Credential'
+    const parts = id.split('/')
+    const idx = parts.indexOf('CLAIM_DEF')
+    if (idx !== -1) return parts[idx - 1]?.split(':').pop() ?? id
+    return id.split(':').pop() ?? id
+  }
+
   function fmt(iso) { return new Date(iso).toLocaleString('de-DE') }
   function fmtTime(iso) {
     const d = new Date(iso)
     return d.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
   }
 
-  // ── Credentials ──────────────────────────────────────────────────────────
+  // ── OOB ────────────────────────────────────────────────────────────────────
+  function decodeOobLabel(url) {
+    try {
+      const match = url.match(/[?&]oob=([^&]+)/)
+      if (!match) return null
+      const json = JSON.parse(atob(match[1].replace(/-/g, '+').replace(/_/g, '/')))
+      return json.label ?? json.from ?? null
+    } catch { return null }
+  }
+
+  function previewInvitation() {
+    const url = document.getElementById('oob-url-input').value.trim()
+    if (!url) { setStatus('Bitte eine URL eingeben.', 'var(--text-3)'); return }
+    const label = decodeOobLabel(url)
+    document.getElementById('oob-label').textContent = label ?? 'Unbekannt'
+    document.getElementById('oob-preview').style.display = 'block'
+    document.getElementById('oob-status').textContent = ''
+  }
+
+  function setStatus(msg, color) {
+    const el = document.getElementById('oob-status')
+    el.style.color = color
+    el.textContent = msg
+  }
+
+  async function acceptInvitation() {
+    const url = document.getElementById('oob-url-input').value.trim()
+    setStatus('⟳ Verbinde…', 'var(--text-3)')
+    document.getElementById('oob-preview').style.display = 'none'
+    try {
+      const res = await fetch('/receive-invitation', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ invitationUrl: url }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error)
+      setStatus(`✓ Verbunden — ${data.connectionId ?? '?'}`, 'var(--emerald)')
+      document.getElementById('oob-url-input').value = ''
+    } catch (err) {
+      setStatus(`✗ ${err.message}`, 'var(--rose)')
+    }
+  }
+
+  function cancelInvitation() {
+    document.getElementById('oob-preview').style.display = 'none'
+    document.getElementById('oob-url-input').value = ''
+    document.getElementById('oob-status').textContent = ''
+  }
+
+  // ── Pending credentials ────────────────────────────────────────────────────
+  async function loadPendingCredentials() {
+    const items = await fetch('/pending-credentials').then(r => r.json()).catch(() => [])
+    const el = document.getElementById('pending-credentials-list')
+    document.getElementById('pending-cred-count').textContent = items.length
+    if (!items.length) {
+      el.innerHTML = '<div class="empty">— keine ausstehenden Angebote —</div>'
+      return
+    }
+    el.innerHTML = items.map(c => `
+      <div class="card card-amber card-pending" id="pending-cred-${c.id}">
+        <div class="card-header">
+          <div>
+            <div class="card-title">${credDefLabel(c.credDefId)}</div>
+            <div class="card-id">${c.id}</div>
+          </div>
+          <span class="badge badge-amber">Angebot</span>
+        </div>
+        <div class="pending-info">Von: <strong>${c.fromLabel ?? 'Unbekannt'}</strong></div>
+        ${c.credDefId ? `<div class="card-id" style="margin-top:3px">${c.credDefId}</div>` : ''}
+        <div class="action-row">
+          <button class="btn-accept" onclick="acceptCredential('${c.id}', this)">Annehmen</button>
+          <button class="btn-decline" onclick="declineCredential('${c.id}', this)">Ablehnen</button>
+        </div>
+        <div class="card-meta">Eingang: ${fmt(c.createdAt)}</div>
+      </div>`).join('')
+  }
+
+  async function acceptCredential(id, btn) {
+    btn.disabled = true; btn.textContent = '…'
+    try {
+      const res = await fetch(`/accept-credential/${id}`, { method: 'POST' })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error)
+      addLog('credential', 'Credential-Angebot angenommen — warte auf Ausstellung')
+      await loadPendingCredentials()
+    } catch (err) {
+      btn.disabled = false; btn.textContent = 'Annehmen'
+      alert(`Fehler: ${err.message}`)
+    }
+  }
+
+  async function declineCredential(id, btn) {
+    btn.disabled = true; btn.textContent = '…'
+    try {
+      const res = await fetch(`/decline-credential/${id}`, { method: 'POST' })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error)
+      addLog('credential', 'Credential-Angebot abgelehnt')
+      await loadPendingCredentials()
+    } catch (err) {
+      btn.disabled = false; btn.textContent = 'Ablehnen'
+      alert(`Fehler: ${err.message}`)
+    }
+  }
+
+  // ── Pending proofs ─────────────────────────────────────────────────────────
+  async function loadPendingProofs() {
+    const proofs = await fetch('/proof-exchanges').then(r => r.json()).catch(() => [])
+    const pending = proofs.filter(p => p.state === 'request-received')
+    const el = document.getElementById('pending-proofs-list')
+    document.getElementById('pending-proof-count').textContent = pending.length
+    if (!pending.length) {
+      el.innerHTML = '<div class="empty">— keine ausstehenden Anfragen —</div>'
+      return
+    }
+    el.innerHTML = pending.map(p => {
+      const tags = (p.requestedAttributes ?? []).map(a =>
+        `<span class="attr-tag">${ATTR_LABELS[a] ?? a}</span>`).join('')
+      return `
+        <div class="card card-amber card-pending" id="pending-proof-${p.id}">
+          <div class="card-header">
+            <div>
+              <div class="card-title">Proof-Anfrage</div>
+              <div class="card-id">${p.id}</div>
+            </div>
+            <span class="badge badge-amber">Anfrage</span>
+          </div>
+          <div style="font-size:0.6rem;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;color:var(--text-3);margin-bottom:0.3rem">Angefragte Attribute</div>
+          <div class="attr-tags">${tags || '<span style="color:var(--text-3);font-size:0.7rem;font-family:\'JetBrains Mono\',monospace">keine</span>'}</div>
+          <div class="action-row">
+            <button class="btn-accept" onclick="acceptProof('${p.id}', this)">Teilen</button>
+            <button class="btn-decline" onclick="declineProof('${p.id}', this)">Ablehnen</button>
+          </div>
+          <div class="card-meta">Eingang: ${fmt(p.createdAt)}</div>
+        </div>`
+    }).join('')
+  }
+
+  async function acceptProof(id, btn) {
+    btn.disabled = true; btn.textContent = '…'
+    try {
+      const res = await fetch(`/accept-proof/${id}`, { method: 'POST' })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error)
+      addLog('proof', 'Proof geteilt — kryptografischer Beweis gesendet')
+      await loadPendingProofs()
+      await loadProofs()
+    } catch (err) {
+      btn.disabled = false; btn.textContent = 'Teilen'
+      alert(`Fehler: ${err.message}`)
+    }
+  }
+
+  async function declineProof(id, btn) {
+    btn.disabled = true; btn.textContent = '…'
+    try {
+      const res = await fetch(`/decline-proof/${id}`, { method: 'POST' })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error)
+      addLog('proof', 'Proof-Anfrage abgelehnt')
+      await loadPendingProofs()
+    } catch (err) {
+      btn.disabled = false; btn.textContent = 'Ablehnen'
+      alert(`Fehler: ${err.message}`)
+    }
+  }
+
+  // ── Credentials ────────────────────────────────────────────────────────────
   async function loadCredentials() {
     const creds = await fetch('/credentials').then(r => r.json()).catch(() => [])
     const el = document.getElementById('credentials-list')
     document.getElementById('cred-count').textContent = creds.length
-    if (!creds.length) { el.innerHTML = '<div class="empty">Keine Credentials vorhanden.</div>'; return }
+    if (!creds.length) { el.innerHTML = '<div class="empty">— noch keine Credentials gespeichert —</div>'; return }
     el.innerHTML = creds.map(c => `
       <div class="card">
         <div class="card-header">
@@ -214,7 +841,7 @@
             <div class="card-title">${schemaName(c.schemaId)}</div>
             <div class="card-id">${c.credentialId}</div>
           </div>
-          <span class="pill pill-purple">AnonCreds</span>
+          <span class="badge badge-blue">AnonCreds</span>
         </div>
         <div class="attrs">
           ${Object.entries(c.attributes).map(([k,v]) => `
@@ -227,40 +854,37 @@
       </div>`).join('')
   }
 
-  // ── Proof exchanges (On-request) ─────────────────────────────────────────
+  // ── Completed proofs ───────────────────────────────────────────────────────
   async function loadProofs() {
     const proofs = await fetch('/proof-exchanges').then(r => r.json()).catch(() => [])
+    const done = proofs.filter(p => p.state !== 'request-received')
     const el = document.getElementById('proofs-list')
-    document.getElementById('proof-count').textContent = proofs.length
-    if (!proofs.length) { el.innerHTML = '<div class="empty">Noch keine Proof-Anfragen eingegangen.</div>'; return }
-
-    el.innerHTML = proofs.slice().reverse().map(p => {
-      const statePill = p.state === 'done'
-        ? '<span class="pill pill-green">Beweis gesendet ✓</span>'
+    document.getElementById('proof-count').textContent = done.length
+    if (!done.length) { el.innerHTML = '<div class="empty">— noch keine abgeschlossenen Proofs —</div>'; return }
+    el.innerHTML = done.slice().reverse().map(p => {
+      const badge = p.state === 'done'
+        ? '<span class="badge badge-emerald">Gesendet ✓</span>'
         : p.state === 'abandoned'
-          ? '<span class="pill pill-red">Abgebrochen ✗</span>'
-          : '<span class="pill pill-yellow">Ausstehend…</span>'
-
-      const attrTags = (p.requestedAttributes ?? []).map(a =>
+          ? '<span class="badge badge-rose">Abgebrochen</span>'
+          : `<span class="badge badge-amber">${p.state}</span>`
+      const tags = (p.requestedAttributes ?? []).map(a =>
         `<span class="attr-tag">${ATTR_LABELS[a] ?? a}</span>`).join('')
-
       return `
-        <div class="card">
+        <div class="card ${p.state === 'done' ? 'card-emerald' : ''}">
           <div class="card-header">
             <div>
-              <div class="card-title">Proof-Anfrage</div>
+              <div class="card-title">Proof-Austausch</div>
               <div class="card-id">${p.id}</div>
             </div>
-            ${statePill}
+            ${badge}
           </div>
-          <div style="font-size:0.78rem;color:#94a3b8;margin-bottom:0.4rem">Angefragte Attribute:</div>
-          <div class="proof-req-attrs">${attrTags || '<span style="color:#475569;font-size:0.78rem">keine</span>'}</div>
-          <div class="card-meta">Eingang: ${fmt(p.createdAt)}</div>
+          ${tags ? `<div class="attr-tags">${tags}</div>` : ''}
+          <div class="card-meta">Erstellt: ${fmt(p.createdAt)}</div>
         </div>`
     }).join('')
   }
 
-  // ── Behind-the-scenes log ────────────────────────────────────────────────
+  // ── Log ────────────────────────────────────────────────────────────────────
   const logItems = []
 
   function addLog(type, text, ts) {
@@ -284,22 +908,24 @@
 
   function proofStateText(state, isVerified) {
     const map = {
-      'request-received':       'Proof-Anfrage erhalten — Wallet prüft verfügbare Credentials',
-      'presentation-sent':      'Kryptografischer Beweis generiert und gesendet',
-      'done':                   isVerified === true  ? 'Verifikation abgeschlossen — <em>isVerified: true ✓</em>'
-                              : isVerified === false ? 'Verifikation fehlgeschlagen — <em>isVerified: false ✗</em>'
-                              : 'Proof-Austausch abgeschlossen',
-      'abandoned':              'Proof-Austausch abgebrochen',
+      'request-received':  'Proof-Anfrage erhalten — warte auf Bestätigung',
+      'presentation-sent': 'Kryptografischer Beweis generiert und gesendet',
+      'done':              isVerified === true  ? 'Verifikation abgeschlossen — <em>isVerified: true ✓</em>'
+                         : isVerified === false ? 'Verifikation fehlgeschlagen — <em>isVerified: false ✗</em>'
+                         : 'Proof-Austausch abgeschlossen',
+      'abandoned':         'Proof-Austausch abgebrochen',
+      'declined':          'Proof-Anfrage abgelehnt',
     }
     return map[state] ?? `Proof-Status: <em>${state}</em>`
   }
 
-  function credStateText(state, role) {
+  function credStateText(state) {
     const map = {
-      'offer-received':  'Credential-Angebot erhalten',
-      'request-sent':    'Credential-Request gesendet',
-      'credential-received': 'Credential empfangen — wird in Askar gespeichert',
-      'done':            'Credential erfolgreich gespeichert ✓',
+      'offer-received':      'Credential-Angebot erhalten — warte auf Bestätigung',
+      'request-sent':        'Credential-Request gesendet',
+      'credential-received': 'Credential empfangen — wird gespeichert',
+      'done':                'Credential erfolgreich gespeichert ✓',
+      'declined':            'Credential-Angebot abgelehnt',
     }
     return map[state] ?? `Credential-Status: <em>${state}</em>`
   }
@@ -314,7 +940,7 @@
     return map[state] ?? `Verbindung mit <em>${label}</em>: ${state}`
   }
 
-  // ── SSE connection ────────────────────────────────────────────────────────
+  // ── SSE ────────────────────────────────────────────────────────────────────
   function connectSSE() {
     const es = new EventSource('/events')
 
@@ -328,11 +954,16 @@
       }
       if (type === 'proof') {
         addLog('proof', proofStateText(data.state, data.isVerified), ts)
-        if (data.state === 'request-received' || data.state === 'done') loadProofs()
+        if (data.state === 'request-received') loadPendingProofs()
+        if (data.state === 'done' || data.state === 'abandoned' || data.state === 'declined') {
+          loadPendingProofs(); loadProofs()
+        }
       }
       if (type === 'credential') {
-        addLog('credential', credStateText(data.state, data.role), ts)
-        if (data.state === 'done') loadCredentials()
+        addLog('credential', credStateText(data.state), ts)
+        if (data.state === 'offer-received') loadPendingCredentials()
+        if (data.state === 'done') { loadCredentials(); loadPendingCredentials() }
+        if (data.state === 'declined') loadPendingCredentials()
       }
       if (type === 'connection') {
         addLog('connection', connStateText(data.state, data.theirLabel), ts)
@@ -340,18 +971,22 @@
     }
 
     es.onerror = () => {
-      document.getElementById('status-dot').style.background = '#ef4444'
+      document.getElementById('status-dot').style.background = 'var(--rose)'
+      document.getElementById('status-text').textContent = 'Verbindung unterbrochen'
       setTimeout(connectSSE, 3000)
     }
 
     es.onopen = () => {
-      document.getElementById('status-dot').style.background = '#4ade80'
+      document.getElementById('status-dot').style.background = 'var(--emerald)'
+      document.getElementById('status-text').textContent = 'Verbunden'
     }
   }
 
-  // ── Init ──────────────────────────────────────────────────────────────────
+  // ── Init ───────────────────────────────────────────────────────────────────
   loadCredentials()
   loadProofs()
+  loadPendingCredentials()
+  loadPendingProofs()
   connectSSE()
 </script>
 </body>

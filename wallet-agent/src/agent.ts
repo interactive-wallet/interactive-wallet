@@ -1,4 +1,4 @@
-import { Agent } from '@credo-ts/core'
+import { Agent, DidsModule } from '@credo-ts/core'
 import { agentDependencies, DidCommHttpInboundTransport } from '@credo-ts/node'
 import { AskarModule } from '@credo-ts/askar'
 import { IndyVdrModule, IndyVdrAnonCredsRegistry, IndyVdrIndyDidResolver } from '@credo-ts/indy-vdr'
@@ -53,6 +53,9 @@ export function createAgent() {
           },
         ],
       }),
+      dids: new DidsModule({
+        resolvers: [new IndyVdrIndyDidResolver()],
+      }),
       anoncreds: new AnonCredsModule({
         anoncreds,
         registries: [new IndyVdrAnonCredsRegistry()],
@@ -67,7 +70,7 @@ export function createAgent() {
           autoAcceptConnections: true,
         },
         credentials: {
-          autoAcceptCredentials: DidCommAutoAcceptCredential.Always,
+          autoAcceptCredentials: DidCommAutoAcceptCredential.Never,
           credentialProtocols: [
             new DidCommCredentialV2Protocol({
               credentialFormats: [new AnonCredsDidCommCredentialFormatService()],
@@ -75,7 +78,7 @@ export function createAgent() {
           ],
         },
         proofs: {
-          autoAcceptProofs: DidCommAutoAcceptProof.Always,
+          autoAcceptProofs: DidCommAutoAcceptProof.Never,
           proofProtocols: [
             new DidCommProofV2Protocol({
               proofFormats: [new AnonCredsDidCommProofFormatService()],

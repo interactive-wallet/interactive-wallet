@@ -6,25 +6,25 @@
   "main": "dist/index.js",
   "scripts": {
     "build": "tsc",
-    "start": "node dist/index.js",
+    "start": "pnpm build && node dist/index.js",
     "dev": "tsc && node --watch dist/index.js"
   },
   "dependencies": {
-    "@credo-ts/core": "0.7.0",
-    "@credo-ts/node": "0.7.0",
-    "@credo-ts/askar": "0.7.0",
-    "@credo-ts/indy-vdr": "0.7.0",
     "@credo-ts/anoncreds": "0.7.0",
+    "@credo-ts/askar": "0.7.0",
+    "@credo-ts/core": "0.7.0",
     "@credo-ts/didcomm": "0.7.0",
-    "@hyperledger/anoncreds-nodejs": "^0.4.0",
-    "@hyperledger/anoncreds-shared": "^0.4.0",
-    "@hyperledger/indy-vdr-nodejs": "^0.3.0",
-    "@hyperledger/indy-vdr-shared": "^0.3.0",
+    "@credo-ts/indy-vdr": "0.7.0",
+    "@credo-ts/node": "0.7.0",
+    "@hyperledger/anoncreds-nodejs": "0.4.0",
+    "@hyperledger/anoncreds-shared": "0.4.0",
+    "@hyperledger/indy-vdr-nodejs": "0.3.0",
+    "@hyperledger/indy-vdr-shared": "0.3.0",
     "@openwallet-foundation/askar-nodejs": "0.6.0",
     "@openwallet-foundation/askar-shared": "0.6.0",
-    "cors": "^2.8.5",
-    "dotenv": "^16.0.0",
-    "express": "^4.19.0"
+    "cors": "2.8.6",
+    "dotenv": "16.6.1",
+    "express": "4.22.2"
   },
   "devDependencies": {
     "@types/cors": "^2.8.0",

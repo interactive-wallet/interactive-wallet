@@ -20,7 +20,11 @@ const STATE_FILE = path.join(__dirname, '..', 'issuer-state.json')
 const ADMIN_PORT = parseInt(process.env.ADMIN_PORT ?? '3002', 10)
 const VON_NETWORK_URL = process.env.VON_NETWORK_URL ?? 'http://localhost:9000'
 const INDY_NAMESPACE = process.env.INDY_NAMESPACE ?? 'local:test'
-const ISSUER_SEED = process.env.ISSUER_SEED ?? '0000000000000InteractiveIssuer1'
+const ISSUER_SEED = process.env.ISSUER_SEED ?? '00000000000000InteractiveIssuer1'
+
+if (Buffer.byteLength(ISSUER_SEED, 'utf8') !== 32) {
+  throw new Error(`ISSUER_SEED must be exactly 32 bytes, got ${Buffer.byteLength(ISSUER_SEED, 'utf8')}`)
+}
 
 interface IssuerState {
   issuerDid: string
@@ -120,7 +124,7 @@ async function main() {
           name: 'Fuehrerschein',
           version: '1.0',
         },
-        options: { endorserMode: 'internal', endorserDid: issuerDid },
+        options: {},
       })
       if (schemaResult.schemaState.state !== 'finished') {
         throw new Error(`Schema registration failed: ${JSON.stringify(schemaResult.schemaState)}`)
@@ -132,7 +136,7 @@ async function main() {
       console.log('[issuer-agent] Registering credential definition...')
       const credDefResult = await agent.modules.anoncreds.registerCredentialDefinition({
         credentialDefinition: { issuerId: issuerDid, schemaId, tag: 'default' },
-        options: { endorserMode: 'internal', endorserDid: issuerDid, supportRevocation: false },
+        options: { supportRevocation: false },
       })
       if (credDefResult.credentialDefinitionState.state !== 'finished') {
         throw new Error(`CredDef registration failed: ${JSON.stringify(credDefResult.credentialDefinitionState)}`)
