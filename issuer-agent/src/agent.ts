@@ -1,36 +1,46 @@
-import { Agent, DidsModule, PeerDidResolver, KeyDidResolver } from '@credo-ts/core'
-import { agentDependencies, DidCommHttpInboundTransport } from '@credo-ts/node'
-import { AskarModule } from '@credo-ts/askar'
-import { IndyVdrModule, IndyVdrAnonCredsRegistry, IndyVdrIndyDidResolver, IndyVdrIndyDidRegistrar } from '@credo-ts/indy-vdr'
-import { AnonCredsModule, AnonCredsDidCommCredentialFormatService } from '@credo-ts/anoncreds'
+import {
+  AnonCredsDidCommCredentialFormatService,
+  AnonCredsDidCommProofFormatService,
+  AnonCredsModule,
+} from "@credo-ts/anoncreds";
+import { AskarModule } from "@credo-ts/askar";
+import {
+  Agent,
+  DidsModule,
+  KeyDidResolver,
+  PeerDidResolver,
+} from "@credo-ts/core";
 import {
   DidCommAutoAcceptCredential,
-  DidCommModule,
-  DidCommHttpOutboundTransport,
-  DidCommWsOutboundTransport,
+  DidCommAutoAcceptProof,
   DidCommCredentialV2Protocol,
-} from '@credo-ts/didcomm'
-import { askar } from '@openwallet-foundation/askar-shared'
-import { anoncreds } from '@hyperledger/anoncreds-shared'
-import { indyVdr } from '@hyperledger/indy-vdr-shared'
-import * as fs from 'fs'
-import * as path from 'path'
-import { fileURLToPath } from 'url'
+  DidCommHttpOutboundTransport,
+  DidCommModule,
+  DidCommProofV2Protocol,
+  DidCommWsOutboundTransport,
+} from "@credo-ts/didcomm";
+import {
+  IndyVdrAnonCredsRegistry,
+  IndyVdrIndyDidRegistrar,
+  IndyVdrIndyDidResolver,
+  IndyVdrModule,
+} from "@credo-ts/indy-vdr";
+import { agentDependencies, DidCommHttpInboundTransport } from "@credo-ts/node";
+import { NativeAnoncreds } from "@hyperledger/anoncreds-shared";
+import { indyVdr } from "@hyperledger/indy-vdr-shared";
+import { askar } from "@openwallet-foundation/askar-shared";
+import {
+  INDY_NAMESPACE,
+  ISSUER_HTTP_ENDPOINT,
+  ISSUER_HTTP_PORT,
+  ISSUER_SEED,
+  ISSUER_WALLET_ID,
+  VON_URL,
+} from "./config.js";
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url))
-
-const INBOUND_PORT = parseInt(process.env.INBOUND_PORT ?? '3003', 10)
-
-function loadGenesisTransactions(): string {
-  const genesisPath = process.env.GENESIS_FILE_PATH
-    ? path.resolve(__dirname, '..', process.env.GENESIS_FILE_PATH)
-    : path.join(__dirname, '..', '..', 'wallet-agent', 'genesis.txn')
-
-  if (!fs.existsSync(genesisPath)) {
-    throw new Error(`Genesis file not found at ${genesisPath}`)
-  }
-  return fs.readFileSync(genesisPath, 'utf-8')
-}
+const genesisTransactions = await fetch(`${VON_URL}/genesis`).then((res) =>
+  res.text(),
+);
 
 export function createAgent() {
   return new Agent({
@@ -40,16 +50,16 @@ export function createAgent() {
       askar: new AskarModule({
         askar,
         store: {
-          id: process.env.WALLET_ID ?? 'interactive-issuer',
-          key: process.env.WALLET_KEY ?? 'interactive-issuer-key-change-in-prod',
+          id: ISSUER_WALLET_ID,
+          key: ISSUER_SEED,
         },
       }),
       indyVdr: new IndyVdrModule({
         indyVdr,
         networks: [
           {
-            indyNamespace: process.env.INDY_NAMESPACE ?? 'local:test',
-            genesisTransactions: loadGenesisTransactions(),
+            indyNamespace: INDY_NAMESPACE,
+            genesisTransactions,
             isProduction: false,
             connectOnStartup: true,
           },
@@ -57,21 +67,26 @@ export function createAgent() {
       }),
       dids: new DidsModule({
         resolvers: [
-          new PeerDidResolver(),
-          new KeyDidResolver(),
           new IndyVdrIndyDidResolver(),
+          new KeyDidResolver(),
+          new PeerDidResolver(),
         ],
         registrars: [new IndyVdrIndyDidRegistrar()],
       }),
       anoncreds: new AnonCredsModule({
-        anoncreds,
+        anoncreds: NativeAnoncreds.instance,
         registries: [new IndyVdrAnonCredsRegistry()],
       }),
       didcomm: new DidCommModule({
-        endpoints: [process.env.AGENT_ENDPOINT ?? `http://localhost:${INBOUND_PORT}`],
+        endpoints: [ISSUER_HTTP_ENDPOINT],
         transports: {
-          inbound: [new DidCommHttpInboundTransport({ port: INBOUND_PORT })],
-          outbound: [new DidCommHttpOutboundTransport(), new DidCommWsOutboundTransport()],
+          inbound: [
+            new DidCommHttpInboundTransport({ port: +ISSUER_HTTP_PORT }),
+          ],
+          outbound: [
+            new DidCommHttpOutboundTransport(),
+            new DidCommWsOutboundTransport(),
+          ],
         },
         connections: {
           autoAcceptConnections: true,
@@ -80,14 +95,23 @@ export function createAgent() {
           autoAcceptCredentials: DidCommAutoAcceptCredential.Always,
           credentialProtocols: [
             new DidCommCredentialV2Protocol({
-              credentialFormats: [new AnonCredsDidCommCredentialFormatService()],
+              credentialFormats: [
+                new AnonCredsDidCommCredentialFormatService(),
+              ],
             }),
           ],
         },
-        proofs: false,
+        proofs: {
+          autoAcceptProofs: DidCommAutoAcceptProof.Always,
+          proofProtocols: [
+            new DidCommProofV2Protocol({
+              proofFormats: [new AnonCredsDidCommProofFormatService()],
+            }),
+          ],
+        },
       }),
     },
-  })
+  });
 }
 
-export type IssuerAgent = ReturnType<typeof createAgent>
+export type IssuerAgent = ReturnType<typeof createAgent>;

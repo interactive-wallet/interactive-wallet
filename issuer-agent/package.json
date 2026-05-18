@@ -1,7 +1,7 @@
 {
   "name": "@interactive-wallet/issuer-agent",
   "version": "0.1.0",
-  "description": "Credo-TS SSI issuer agent for the Interactive Wallet project",
+  "description": "Credo-TS SSI issuer agent",
   "type": "module",
   "main": "dist/index.js",
   "scripts": {

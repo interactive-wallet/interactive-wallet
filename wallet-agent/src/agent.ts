@@ -1,40 +1,48 @@
-import { Agent, DidsModule, PeerDidResolver, KeyDidResolver } from '@credo-ts/core'
-import { agentDependencies, DidCommHttpInboundTransport } from '@credo-ts/node'
-import { AskarModule } from '@credo-ts/askar'
-import { IndyVdrModule, IndyVdrAnonCredsRegistry, IndyVdrIndyDidResolver } from '@credo-ts/indy-vdr'
-import { AnonCredsModule, AnonCredsDidCommCredentialFormatService, AnonCredsDidCommProofFormatService } from '@credo-ts/anoncreds'
+import {
+  AnonCredsDidCommCredentialFormatService,
+  AnonCredsDidCommProofFormatService,
+  AnonCredsModule,
+} from "@credo-ts/anoncreds";
+import { AskarModule } from "@credo-ts/askar";
+import {
+  Agent,
+  DidsModule,
+  KeyDidResolver,
+  PeerDidResolver,
+} from "@credo-ts/core";
 import {
   DidCommAutoAcceptCredential,
   DidCommAutoAcceptProof,
-  DidCommModule,
-  DidCommHttpOutboundTransport,
-  DidCommWsOutboundTransport,
   DidCommCredentialV2Protocol,
-  DidCommProofV2Protocol,
+  DidCommHttpOutboundTransport,
   DidCommMediationRecipientModule,
   DidCommMediatorPickupStrategy,
-} from '@credo-ts/didcomm'
-import { askar } from '@openwallet-foundation/askar-shared'
-import { anoncreds } from '@hyperledger/anoncreds-shared'
-import { indyVdr } from '@hyperledger/indy-vdr-shared'
-import * as fs from 'fs'
-import * as path from 'path'
-import { fileURLToPath } from 'url'
+  DidCommModule,
+  DidCommProofV2Protocol,
+  DidCommWsOutboundTransport,
+} from "@credo-ts/didcomm";
+import {
+  IndyVdrAnonCredsRegistry,
+  IndyVdrIndyDidResolver,
+  IndyVdrModule,
+} from "@credo-ts/indy-vdr";
+import { agentDependencies } from "@credo-ts/node";
+import "@hyperledger/anoncreds-nodejs";
+import { NativeAnoncreds } from "@hyperledger/anoncreds-shared";
+import "@hyperledger/indy-vdr-nodejs";
+import { indyVdr } from "@hyperledger/indy-vdr-shared";
+import "@openwallet-foundation/askar-nodejs";
+import { NativeAskar } from "@openwallet-foundation/askar-shared";
+import {
+  INDY_NAMESPACE,
+  VON_URL,
+  WALLET_SEED,
+  WALLET_WALLET_ID,
+} from "./config.js";
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url))
-
-const INBOUND_PORT = parseInt(process.env.INBOUND_PORT ?? '3001', 10)
-
-const HOLDER_DIDCOMM_MODE = process.env.HOLDER_DIDCOMM_MODE ?? 'onboarding'
-const IS_MOBILE_MODE = HOLDER_DIDCOMM_MODE === 'mobile'
-
-function loadGenesisTransactions(): string {
-  const genesisPath = process.env.GENESIS_FILE_PATH ?? path.join(__dirname, '..', 'genesis.txn')
-  if (!fs.existsSync(genesisPath)) {
-    throw new Error(`Genesis file not found at ${genesisPath}. Run: curl http://localhost:9000/genesis -o wallet-agent/genesis.txn`)
-  }
-  return fs.readFileSync(genesisPath, 'utf-8')
-}
+const genesisTransactions = await fetch(`${VON_URL}/genesis`).then((res) =>
+  res.text(),
+);
 
 export function createAgent() {
   return new Agent({
@@ -42,40 +50,38 @@ export function createAgent() {
     dependencies: agentDependencies,
     modules: {
       askar: new AskarModule({
-        askar,
+        askar: NativeAskar.instance,
         store: {
-          id: process.env.WALLET_ID ?? 'interactive-wallet-ws-test-5',
-          key: process.env.WALLET_KEY ?? 'interactive-wallet-key-change-in-prod',
+          id: WALLET_WALLET_ID,
+          key: WALLET_SEED,
         },
       }),
       indyVdr: new IndyVdrModule({
         indyVdr,
         networks: [
           {
-            indyNamespace: process.env.INDY_NAMESPACE ?? 'local:test',
-            genesisTransactions: loadGenesisTransactions(),
+            indyNamespace: INDY_NAMESPACE,
+            genesisTransactions,
             isProduction: false,
             connectOnStartup: true,
           },
         ],
       }),
       dids: new DidsModule({
-        resolvers: [new IndyVdrIndyDidResolver(), new PeerDidResolver(), new KeyDidResolver()],
+        resolvers: [
+          new IndyVdrIndyDidResolver(),
+          new PeerDidResolver(),
+          new KeyDidResolver(),
+        ],
       }),
       anoncreds: new AnonCredsModule({
-        anoncreds,
+        anoncreds: NativeAnoncreds.instance,
         registries: [new IndyVdrAnonCredsRegistry()],
       }),
       didcomm: new DidCommModule({
-        endpoints: IS_MOBILE_MODE
-          ? []
-          : [process.env.AGENT_ENDPOINT ?? `http://localhost:${INBOUND_PORT}`],
-
+        endpoints: [],
         transports: {
-          inbound: IS_MOBILE_MODE
-            ? []
-            : [new DidCommHttpInboundTransport({ port: INBOUND_PORT })],
-
+          inbound: [],
           outbound: [
             new DidCommHttpOutboundTransport(),
             new DidCommWsOutboundTransport(),
@@ -88,7 +94,9 @@ export function createAgent() {
           autoAcceptCredentials: DidCommAutoAcceptCredential.Never,
           credentialProtocols: [
             new DidCommCredentialV2Protocol({
-              credentialFormats: [new AnonCredsDidCommCredentialFormatService()],
+              credentialFormats: [
+                new AnonCredsDidCommCredentialFormatService(),
+              ],
             }),
           ],
         },
@@ -101,12 +109,11 @@ export function createAgent() {
           ],
         },
       }),
-
       mediationRecipient: new DidCommMediationRecipientModule({
         mediatorPickupStrategy: DidCommMediatorPickupStrategy.Implicit,
       }),
     },
-  })
+  });
 }
 
-export type WalletAgent = ReturnType<typeof createAgent>
+export type WalletAgent = ReturnType<typeof createAgent>;

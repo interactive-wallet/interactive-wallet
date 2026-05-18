@@ -11,7 +11,7 @@ class WalletApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return ValueListenableBuilder<ThemeMode>(
       valueListenable: themeNotifier,
-      builder: (_, mode, __) => MaterialApp(
+      builder: (_, mode, _) => MaterialApp(
         title: 'DID Wallet',
         debugShowCheckedModeBanner: false,
         theme: AppTheme.lightTheme,

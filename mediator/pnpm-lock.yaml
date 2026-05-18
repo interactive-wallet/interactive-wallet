@@ -17,9 +17,18 @@ importers:
       '@credo-ts/didcomm':
         specifier: 0.7.0
         version: 0.7.0(typescript@5.9.3)
+      '@credo-ts/indy-vdr':
+        specifier: ^0.7.0
+        version: 0.7.0(@hyperledger/anoncreds-shared@0.4.0)(@hyperledger/indy-vdr-shared@0.3.0)(typescript@5.9.3)
       '@credo-ts/node':
         specifier: 0.7.0
         version: 0.7.0(typescript@5.9.3)
+      '@hyperledger/anoncreds-nodejs':
+        specifier: ^0.4.0
+        version: 0.4.0
+      '@hyperledger/indy-vdr-nodejs':
+        specifier: ^0.3.0
+        version: 0.3.0
       '@openwallet-foundation/askar-nodejs':
         specifier: 0.6.0
         version: 0.6.0
@@ -91,6 +100,11 @@ packages:
     cpu: [x64]
     os: [win32]
 
+  '@credo-ts/anoncreds@0.7.0':
+    resolution: {integrity: sha512-gGNCpaU4XExN2Ozlc9ZhptxbIp/ebGKfJI/aEHgh8g+3F0Y3z7/P2EftU/QYlOYtSGYUfkuyvhnh5A0YKpR0pg==}
+    peerDependencies:
+      '@hyperledger/anoncreds-shared': ^0.4.0
+
   '@credo-ts/askar@0.7.0':
     resolution: {integrity: sha512-ArjxNBG+mb2sRy2JgdlBj1+gd2BUwx2nlO5NrUW5I+IWjBqzQLdFTxy8en9GlvsCb6PNPjm9NYOh/ZST1RAKUg==}
     peerDependencies:
@@ -101,6 +115,11 @@ packages:
 
   '@credo-ts/didcomm@0.7.0':
     resolution: {integrity: sha512-K2x3FWRgwJwwjHV/iBRkx2R9qRZ5KjsA14AUk30T2uIgYflZWNBZz2Ar11L0QjWaZt30nuojLfWHs1c7MHuORA==}
+
+  '@credo-ts/indy-vdr@0.7.0':
+    resolution: {integrity: sha512-bQthTLYjAK6KdwngsPmePkiZdyBc9duoUWtTed/YBstrBAof4ZOyuWiVxJjDQVeFyTDsP2FRaN6HsFm8LtA1Qw==}
+    peerDependencies:
+      '@hyperledger/indy-vdr-shared': ^0.3.0
 
   '@credo-ts/node@0.7.0':
     resolution: {integrity: sha512-1+LrOY2IvkqlE9OCZnPLM3B7SOwO9Ez1S7qEYF20te7qq11UOK89sIATudtxEydD81rDaf90lfk5AOKX5e10rg==}
@@ -131,6 +150,20 @@ packages:
   '@digitalcredentials/vc@10.0.2':
     resolution: {integrity: sha512-Mmts8WtAQmgdrSurQv+SFZNozNgvPzsruWQNIBlmfrlJ7QSyCoO7jybSnq43EuLm3UcqyqSb2mLHwAza310mhw==}
     engines: {node: '>=18'}
+
+  '@hyperledger/anoncreds-nodejs@0.4.0':
+    resolution: {integrity: sha512-R8c6IZhEhPnwGvt8/0nC+Je+gCsMrFGLEMhDqp7B/4aXjnM9LG4PnI+tDREoaZS8sSxKkSRA3cdCGOpn1Rx/mQ==}
+    engines: {node: '>= 20'}
+
+  '@hyperledger/anoncreds-shared@0.4.0':
+    resolution: {integrity: sha512-iQM0Ok6tiuN8r1bjHzkUIUMZUlQt93yD812D0mMK2cBxAqzeccAy285G8iP/kra96/ptZe1mGxAcfoOESKPHzA==}
+
+  '@hyperledger/indy-vdr-nodejs@0.3.0':
+    resolution: {integrity: sha512-yx6hPlTXwirouAkMwaLmowU1mfBwRjTFQUQCH7Mgd4/C6Zp0taw/KUclhB83LpbjHBZiGsV/bILeLYD+HNpHfA==}
+    engines: {node: '>= 20'}
+
+  '@hyperledger/indy-vdr-shared@0.3.0':
+    resolution: {integrity: sha512-MMH/PwmjfKSH9X7nplYPgu8oMNHsbMZSaP6F+6xFzJDJKsJ15v/y9zwi4eiTDcMVmmRcDHfSep2uBR4FWkXxzQ==}
 
   '@isaacs/fs-minipass@4.0.1':
     resolution: {integrity: sha512-wgm9Ehl2jpeqP3zw/7mo3kRHFp5MEDhqAdwy1fTGkHAwnkGOVsgpvQhL8B5n1qlb01jV3n/bI0ZfZp5lWA1k4w==}
@@ -271,6 +304,7 @@ packages:
 
   '@sphereon/kmp-mdoc-core@0.2.0-SNAPSHOT.26':
     resolution: {integrity: sha512-QXJ6R8ENiZV2rPMbn06cw5JKwqUYN1kzVRbYfONqE1PEXx1noQ4md7uxr2zSczi0ubKkNcbyYDNtIMTZIhGzmQ==}
+    bundledDependencies: []
 
   '@sphereon/pex-models@2.3.2':
     resolution: {integrity: sha512-foFxfLkRwcn/MOp/eht46Q7wsvpQGlO7aowowIIb5Tz9u97kYZ2kz6K2h2ODxWuv5CRA7Q0MY8XUBGE2lfOhOQ==}
@@ -1124,6 +1158,21 @@ snapshots:
   '@cbor-extract/cbor-extract-win32-x64@2.2.2':
     optional: true
 
+  '@credo-ts/anoncreds@0.7.0(@hyperledger/anoncreds-shared@0.4.0)(typescript@5.9.3)':
+    dependencies:
+      '@astronautlabs/jsonpath': 1.1.2
+      '@credo-ts/core': 0.7.0(typescript@5.9.3)
+      '@credo-ts/didcomm': 0.7.0(typescript@5.9.3)
+      '@hyperledger/anoncreds-shared': 0.4.0
+      '@sphereon/pex-models': 2.3.2
+      class-transformer: 0.5.1
+      class-validator: 0.14.4
+      reflect-metadata: 0.2.2
+    transitivePeerDependencies:
+      - encoding
+      - supports-color
+      - typescript
+
   '@credo-ts/askar@0.7.0(@openwallet-foundation/askar-shared@0.6.0)(typescript@5.9.3)':
     dependencies:
       '@credo-ts/core': 0.7.0(typescript@5.9.3)
@@ -1200,6 +1249,17 @@ snapshots:
       - supports-color
       - typescript
 
+  '@credo-ts/indy-vdr@0.7.0(@hyperledger/anoncreds-shared@0.4.0)(@hyperledger/indy-vdr-shared@0.3.0)(typescript@5.9.3)':
+    dependencies:
+      '@credo-ts/anoncreds': 0.7.0(@hyperledger/anoncreds-shared@0.4.0)(typescript@5.9.3)
+      '@credo-ts/core': 0.7.0(typescript@5.9.3)
+      '@hyperledger/indy-vdr-shared': 0.3.0
+    transitivePeerDependencies:
+      - '@hyperledger/anoncreds-shared'
+      - encoding
+      - supports-color
+      - typescript
+
   '@credo-ts/node@0.7.0(typescript@5.9.3)':
     dependencies:
       '@credo-ts/core': 0.7.0(typescript@5.9.3)
@@ -1248,6 +1308,24 @@ snapshots:
       '@digitalcredentials/open-badges-context': 2.1.0
       credentials-context: 2.0.0
       ed25519-signature-2018-context: 1.1.0
+
+  '@hyperledger/anoncreds-nodejs@0.4.0':
+    dependencies:
+      '@hyperledger/anoncreds-shared': 0.4.0
+      koffi: 2.16.2
+
+  '@hyperledger/anoncreds-shared@0.4.0':
+    dependencies:
+      tar: 7.5.15
+
+  '@hyperledger/indy-vdr-nodejs@0.3.0':
+    dependencies:
+      '@hyperledger/indy-vdr-shared': 0.3.0
+      koffi: 2.16.2
+
+  '@hyperledger/indy-vdr-shared@0.3.0':
+    dependencies:
+      tar: 7.5.15
 
   '@isaacs/fs-minipass@4.0.1':
     dependencies:

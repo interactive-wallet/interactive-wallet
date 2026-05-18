@@ -87,7 +87,7 @@ flutter run -d linux
 
 Es gibt **zwei austauschbare Frontends** auf demselben wallet-agent:
 
-- **Flutter App** — primäre UI mit ledger-Identitätsanzeige, läuft nativ unter Linux
+- **Flutter App** — primäre UI mit Ledger-Identitätsanzeige, läuft nativ unter Linux
 - **HTML Referenz-UI** unter <http://localhost:3000> — direkt vom wallet-agent ausgeliefert, kein Flutter nötig, gleicher State
 
 ## Demo-Flow

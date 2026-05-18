@@ -25,8 +25,8 @@ class ApiClient {
   final http.Client _http;
 
   ApiClient({String? baseUrl, http.Client? httpClient})
-      : baseUrl = baseUrl ?? _defaultBase,
-        _http = httpClient ?? http.Client();
+    : baseUrl = baseUrl ?? _defaultBase,
+      _http = httpClient ?? http.Client();
 
   Uri _u(String path) => Uri.parse('$baseUrl$path');
 
@@ -90,6 +90,11 @@ class ApiClient {
   Future<void> receiveInvitation(String invitationUrl) async {
     await _postJson('/receive-invitation', {'invitationUrl': invitationUrl});
   }
+
+  Future<void> requestMediation(String id) =>
+      _postJson('/request-mediation/$id').then((_) {});
+
+  Future<void> pickUpMessages() => _postJson('/pickup-messages').then((_) {});
 
   Future<void> acceptCredential(String id) =>
       _postJson('/accept-credential/$id').then((_) {});

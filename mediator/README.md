@@ -2,7 +2,6 @@
 
 ```bash
 cd mediator
-
-npm install
-
-npm run dev
+pnpm install
+pnpm dev
+```
