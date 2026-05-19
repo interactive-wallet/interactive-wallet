@@ -121,6 +121,24 @@ async function main() {
     }
   })
 
+  // ─── Connections ──────────────────────────────────────────────────────────
+  app.get('/connections', async (_req, res) => {
+    try {
+      const connections = await agent.modules.didcomm.connections.getAll()
+      res.json(connections.map((c) => ({
+        id: c.id,
+        state: c.state,
+        role: c.role,
+        theirLabel: c.theirLabel ?? null,
+        theirDid: c.theirDid ?? null,
+        createdAt: c.createdAt,
+      })))
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err)
+      res.status(500).json({ error: message })
+    }
+  })
+
   // ─── Credential exchanges ─────────────────────────────────────────────────
   app.get('/exchanges', async (_req, res) => {
     try {
