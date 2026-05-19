@@ -1,76 +1,48 @@
-import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:timeago/timeago.dart' as timeago;
+
 import '../app.dart';
+import '../data/wallet_repository.dart';
+import '../models/api_models.dart';
 import '../theme/app_theme.dart';
-import '../data/mock_data.dart';
-import '../models/models.dart';
-import '../utils/message_utils.dart';
-import '../widgets/notification_sheet.dart';
 import 'profile_screen.dart';
 
-class DashboardScreen extends StatefulWidget {
+class DashboardScreen extends StatelessWidget {
   const DashboardScreen({super.key});
 
   @override
-  State<DashboardScreen> createState() => _DashboardScreenState();
-}
-
-class _DashboardScreenState extends State<DashboardScreen> {
-  int _simMsgCounter = 0;
-  Timer? _liveTimer;
-
-  @override
-  void initState() {
-    super.initState();
-    _liveTimer = Timer.periodic(const Duration(seconds: 90), (_) {
-      if (!mounted) return;
-      final types = ['credentialOffer', 'connectionInvite', 'trustPing'];
-      final type = types[_simMsgCounter % types.length];
-      _simMsgCounter++;
-      final color = AppColors.messageTypeColor(type);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Row(
-            children: [
-              Icon(messageIcon(type), color: color, size: 16),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Text(
-                  'New ${messageTitle(type)} received',
-                  style: const TextStyle(fontSize: 13),
-                ),
-              ),
-            ],
-          ),
-          backgroundColor: context.wc.card,
-          behavior: SnackBarBehavior.floating,
-          duration: const Duration(seconds: 4),
-          shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12)),
-          action: SnackBarAction(
-            label: 'View',
-            textColor: AppColors.primary,
-            onPressed: () {},
-          ),
-        ),
-      );
-    });
-  }
-
-  @override
-  void dispose() {
-    _liveTimer?.cancel();
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
-    final pending =
-        MockData.messages.where((m) => m.status == MessageStatus.pending).toList();
-    final recent = MockData.messages.take(5).toList();
+    final repo = context.watch<WalletRepository>();
     final wc = context.wc;
     final isDark = themeNotifier.value == ThemeMode.dark;
+
+    final activeConns =
+        repo.connections.where((c) => c.state == 'completed').length;
+    final pendingCount =
+        repo.pendingCredentials.length + repo.pendingProofs.length;
+    final recentEvents = repo.log.take(6).toList();
+
+    final pendingPreview = <_PendingItem>[
+      ...repo.pendingCredentials.map(
+        (c) => _PendingItem(
+          type: 'credential',
+          title: 'Credential offer',
+          subtitle: c.fromLabel ?? 'Unknown issuer',
+          createdAt: c.createdAt,
+        ),
+      ),
+      ...repo.pendingProofs.map(
+        (p) => _PendingItem(
+          type: 'proof',
+          title: 'Proof request',
+          subtitle: p.requestedAttributes.isEmpty
+              ? 'no attributes'
+              : p.requestedAttributes.join(', '),
+          createdAt: p.createdAt,
+        ),
+      ),
+    ];
 
     return Scaffold(
       backgroundColor: wc.background,
@@ -88,43 +60,30 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 ),
                 borderRadius: BorderRadius.circular(9),
               ),
-              child: const Icon(Icons.fingerprint, color: Colors.white, size: 18),
+              child: const Icon(Icons.fingerprint,
+                  color: Colors.white, size: 18),
             ),
             const SizedBox(width: 10),
             const Text('DID Wallet'),
           ],
         ),
         actions: [
-          const _LiveIndicator(),
+          _LiveBadge(isLive: repo.isLive),
           const SizedBox(width: 8),
           IconButton(
-            icon: Icon(isDark ? Icons.light_mode_rounded : Icons.dark_mode_rounded),
+            icon: Icon(isDark
+                ? Icons.light_mode_rounded
+                : Icons.dark_mode_rounded),
             tooltip: isDark ? 'Light mode' : 'Dark mode',
-            onPressed: () => setState(() {
+            onPressed: () {
               themeNotifier.value =
                   isDark ? ThemeMode.light : ThemeMode.dark;
-            }),
+            },
           ),
           IconButton(
-            icon: Stack(
-              clipBehavior: Clip.none,
-              children: [
-                const Icon(Icons.notifications_outlined, size: 24),
-                Positioned(
-                  top: -2,
-                  right: -2,
-                  child: Container(
-                    width: 8,
-                    height: 8,
-                    decoration: const BoxDecoration(
-                      color: AppColors.warning,
-                      shape: BoxShape.circle,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            onPressed: () {},
+            icon: const Icon(Icons.refresh_rounded),
+            tooltip: 'Refresh',
+            onPressed: repo.refreshAll,
           ),
           const SizedBox(width: 8),
         ],
@@ -137,107 +96,95 @@ class _DashboardScreenState extends State<DashboardScreen> {
         tooltip: 'Profile',
         child: const Icon(Icons.person_rounded),
       ),
-      body: ListView(
-        padding: const EdgeInsets.fromLTRB(20, 8, 20, 100),
-        children: [
-          _IdentityCard(),
-          const SizedBox(height: 20),
-          _StatsRow(),
-          const SizedBox(height: 28),
-          _SectionHeader(title: 'Pending Actions', count: pending.length),
-          const SizedBox(height: 12),
-          if (pending.isEmpty)
-            _EmptyState(label: 'No pending actions')
-          else
-            ...pending.map((m) => _PendingCard(message: m)),
-          const SizedBox(height: 28),
-          const _SectionHeader(title: 'Recent Activity'),
-          const SizedBox(height: 12),
-          ...recent.map((m) => _ActivityRow(message: m)),
-        ],
+      body: RefreshIndicator(
+        onRefresh: repo.refreshAll,
+        child: ListView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.fromLTRB(20, 8, 20, 100),
+          children: [
+            _IdentityCard(repo: repo),
+            const SizedBox(height: 20),
+            _StatsRow(
+              pending: pendingCount,
+              credentials: repo.credentials.length,
+              connections: activeConns,
+            ),
+            const SizedBox(height: 28),
+            _SectionHeader(title: 'Pending Actions', count: pendingCount),
+            const SizedBox(height: 12),
+            if (pendingPreview.isEmpty)
+              _EmptyTile(label: 'No pending actions')
+            else
+              ...pendingPreview.take(3).map((p) => _PendingTile(item: p)),
+            const SizedBox(height: 28),
+            const _SectionHeader(title: 'Recent Activity'),
+            const SizedBox(height: 12),
+            if (recentEvents.isEmpty)
+              _EmptyTile(label: 'No activity yet')
+            else
+              ...recentEvents.map((e) => _ActivityTile(event: e)),
+          ],
+        ),
       ),
     );
   }
 }
 
-// ─── LIVE Indicator ───────────────────────────────────────────────────────────
-
-class _LiveIndicator extends StatefulWidget {
-  const _LiveIndicator();
-
-  @override
-  State<_LiveIndicator> createState() => _LiveIndicatorState();
+class _PendingItem {
+  final String type;
+  final String title;
+  final String subtitle;
+  final DateTime createdAt;
+  const _PendingItem({
+    required this.type,
+    required this.title,
+    required this.subtitle,
+    required this.createdAt,
+  });
 }
 
-class _LiveIndicatorState extends State<_LiveIndicator>
-    with SingleTickerProviderStateMixin {
-  late AnimationController _ctrl;
-  late Animation<double> _pulse;
+// ─── LIVE Badge ──────────────────────────────────────────────────────────────
 
-  @override
-  void initState() {
-    super.initState();
-    _ctrl = AnimationController(
-      duration: const Duration(milliseconds: 1400),
-      vsync: this,
-    )..repeat(reverse: true);
-    _pulse = Tween<double>(begin: 0.3, end: 1.0).animate(
-      CurvedAnimation(parent: _ctrl, curve: Curves.easeInOut),
-    );
-  }
-
-  @override
-  void dispose() {
-    _ctrl.dispose();
-    super.dispose();
-  }
+class _LiveBadge extends StatelessWidget {
+  final bool isLive;
+  const _LiveBadge({required this.isLive});
 
   @override
   Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: _pulse,
-      builder: (_, __) {
-        final opacity = 0.06 + 0.12 * _pulse.value;
-        return Container(
-          padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
-          decoration: BoxDecoration(
-            color: AppColors.success.withOpacity(opacity),
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(
-                color: AppColors.success.withOpacity(0.4), width: 0.8),
+    final color = isLive ? AppColors.success : AppColors.warning;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.12),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: color.withOpacity(0.4), width: 0.8),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(
+            width: 6,
+            height: 6,
+            decoration: BoxDecoration(
+              color: color,
+              shape: BoxShape.circle,
+              boxShadow: [
+                BoxShadow(color: color.withOpacity(0.5), blurRadius: 5),
+              ],
+            ),
           ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: 6,
-                height: 6,
-                decoration: BoxDecoration(
-                  color: AppColors.success
-                      .withOpacity(0.5 + 0.5 * _pulse.value),
-                  shape: BoxShape.circle,
-                  boxShadow: [
-                    BoxShadow(
-                      color: AppColors.success.withOpacity(0.5 * _pulse.value),
-                      blurRadius: 5,
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 5),
-              Text(
-                'LIVE',
-                style: TextStyle(
-                  color: AppColors.success,
-                  fontSize: 10,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: 1.0,
-                ),
-              ),
-            ],
+          const SizedBox(width: 5),
+          Text(
+            isLive ? 'LIVE' : 'OFFLINE',
+            style: TextStyle(
+              color: color,
+              fontSize: 10,
+              fontWeight: FontWeight.w800,
+              letterSpacing: 1.0,
+            ),
           ),
-        );
-      },
+        ],
+      ),
     );
   }
 }
@@ -245,6 +192,10 @@ class _LiveIndicatorState extends State<_LiveIndicator>
 // ─── Identity Card ────────────────────────────────────────────────────────────
 
 class _IdentityCard extends StatelessWidget {
+  final WalletRepository repo;
+
+  const _IdentityCard({required this.repo});
+
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
@@ -254,13 +205,21 @@ class _IdentityCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(20),
         gradient: isDark
             ? const LinearGradient(
-                colors: [Color(0xFF1E3A6E), Color(0xFF0F1E3D), Color(0xFF080C18)],
+                colors: [
+                  Color(0xFF1E3A6E),
+                  Color(0xFF0F1E3D),
+                  Color(0xFF080C18),
+                ],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
                 stops: [0, 0.6, 1],
               )
             : const LinearGradient(
-                colors: [Color(0xFF1D4ED8), Color(0xFF2563EB), Color(0xFF3B82F6)],
+                colors: [
+                  Color(0xFF1D4ED8),
+                  Color(0xFF2563EB),
+                  Color(0xFF3B82F6),
+                ],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
                 stops: [0, 0.5, 1],
@@ -300,7 +259,7 @@ class _IdentityCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'My Identity',
+                      'Holder Wallet',
                       style: TextStyle(
                         color: Colors.white70,
                         fontSize: 12,
@@ -309,7 +268,7 @@ class _IdentityCard extends StatelessWidget {
                     ),
                     SizedBox(height: 3),
                     Text(
-                      'Arian Kabiri',
+                      'Anonymous (pairwise DIDs)',
                       style: TextStyle(
                         color: Colors.white,
                         fontSize: 16,
@@ -319,12 +278,11 @@ class _IdentityCard extends StatelessWidget {
                   ],
                 ),
               ),
-              _StatusBadge(),
             ],
           ),
           const SizedBox(height: 20),
           const Text(
-            'DECENTRALIZED IDENTIFIER',
+            'WALLET BACKEND',
             style: TextStyle(
               color: Colors.white54,
               fontSize: 10,
@@ -334,16 +292,14 @@ class _IdentityCard extends StatelessWidget {
           ),
           const SizedBox(height: 6),
           Text(
-            MockData.myDid,
+            repo.baseUrl,
             style: const TextStyle(
               color: Colors.white60,
-              fontSize: 10.5,
+              fontSize: 11,
               fontFamily: 'monospace',
               letterSpacing: 0.2,
               height: 1.5,
             ),
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
           ),
           const SizedBox(height: 20),
           Divider(height: 1, color: Colors.white.withOpacity(0.15)),
@@ -352,47 +308,19 @@ class _IdentityCard extends StatelessWidget {
             children: [
               _MiniStat(
                 label: 'Credentials',
-                value: '${MockData.credentials.length}',
+                value: '${repo.credentials.length}',
               ),
               _VertDivider(),
               _MiniStat(
                 label: 'Connections',
-                value: '${MockData.connections.length}',
+                value: '${repo.connections.length}',
               ),
               _VertDivider(),
               _MiniStat(
-                label: 'Messages',
-                value: '${MockData.messages.length}',
+                label: 'Proofs',
+                value: '${repo.proofExchanges.length}',
               ),
             ],
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _StatusBadge extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-      decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.15),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: Colors.white.withOpacity(0.3)),
-      ),
-      child: const Row(
-        children: [
-          Icon(Icons.circle, color: Color(0xFF4ADE80), size: 6),
-          SizedBox(width: 5),
-          Text(
-            'Active',
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
-            ),
           ),
         ],
       ),
@@ -422,10 +350,7 @@ class _MiniStat extends StatelessWidget {
           const SizedBox(height: 2),
           Text(
             label,
-            style: const TextStyle(
-              color: Colors.white70,
-              fontSize: 11,
-            ),
+            style: const TextStyle(color: Colors.white70, fontSize: 11),
           ),
         ],
       ),
@@ -447,14 +372,18 @@ class _VertDivider extends StatelessWidget {
 // ─── Stats Row ────────────────────────────────────────────────────────────────
 
 class _StatsRow extends StatelessWidget {
+  final int pending;
+  final int credentials;
+  final int connections;
+
+  const _StatsRow({
+    required this.pending,
+    required this.credentials,
+    required this.connections,
+  });
+
   @override
   Widget build(BuildContext context) {
-    final pending =
-        MockData.messages.where((m) => m.status == MessageStatus.pending).length;
-    final valid =
-        MockData.credentials.where((c) => c.status == CredentialStatus.valid).length;
-    final active = MockData.connections.where((c) => c.isActive).length;
-
     return Row(
       children: [
         Expanded(
@@ -469,8 +398,8 @@ class _StatsRow extends StatelessWidget {
         Expanded(
           child: _StatCard(
             icon: Icons.verified_user_outlined,
-            label: 'Valid Creds',
-            value: '$valid',
+            label: 'Credentials',
+            value: '$credentials',
             color: AppColors.success,
           ),
         ),
@@ -478,8 +407,8 @@ class _StatsRow extends StatelessWidget {
         Expanded(
           child: _StatCard(
             icon: Icons.hub_outlined,
-            label: 'Active',
-            value: '$active',
+            label: 'Connections',
+            value: '$connections',
             color: AppColors.primary,
           ),
         ),
@@ -562,7 +491,7 @@ class _SectionHeader extends StatelessWidget {
             fontWeight: FontWeight.w700,
           ),
         ),
-        if (count != null) ...[
+        if (count != null && count! > 0) ...[
           const SizedBox(width: 8),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
@@ -580,303 +509,180 @@ class _SectionHeader extends StatelessWidget {
             ),
           ),
         ],
-        const Spacer(),
-        Text(
-          'See all',
-          style: TextStyle(color: AppColors.primary, fontSize: 13),
-        ),
       ],
     );
   }
 }
 
-// ─── Pending Card ─────────────────────────────────────────────────────────────
+// ─── Pending tile ─────────────────────────────────────────────────────────────
 
-class _PendingCard extends StatelessWidget {
-  final DIDMessage message;
+class _PendingTile extends StatelessWidget {
+  final _PendingItem item;
 
-  const _PendingCard({required this.message});
+  const _PendingTile({required this.item});
 
   @override
   Widget build(BuildContext context) {
-    final color = AppColors.messageTypeColor(message.type);
     final wc = context.wc;
-    return GestureDetector(
-      onTap: () => showNotificationSheet(context, message),
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 10),
-        decoration: BoxDecoration(
-          color: wc.card,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: color.withOpacity(0.25)),
-          boxShadow: [
-            BoxShadow(color: color.withOpacity(0.07), blurRadius: 20),
-          ],
-        ),
-        child: Column(
-          children: [
-            if (!message.signatureVerified)
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
-                decoration: BoxDecoration(
-                  color: AppColors.error.withOpacity(0.08),
-                  borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
-                  border: Border(
-                      bottom: BorderSide(
-                          color: AppColors.error.withOpacity(0.2))),
-                ),
-                child: Row(
-                  children: [
-                    const Icon(Icons.warning_rounded,
-                        color: AppColors.error, size: 12),
-                    const SizedBox(width: 5),
-                    Text(
-                      'SIGNATURE INVALID',
-                      style: TextStyle(
-                        color: AppColors.error,
-                        fontSize: 10,
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: 0.5,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            Padding(
-              padding: const EdgeInsets.all(16),
-              child: Row(
-                children: [
-                  Container(
-                    width: 44,
-                    height: 44,
-                    decoration: BoxDecoration(
-                      color: color.withOpacity(0.13),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Icon(messageIcon(message.type), color: color, size: 22),
-                  ),
-                  const SizedBox(width: 14),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          messageTitle(message.type),
-                          style: TextStyle(
-                            color: wc.textPrimary,
-                            fontSize: 14,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                        const SizedBox(height: 3),
-                        Text(
-                          truncateDid(message.senderDid),
-                          style: TextStyle(
-                            color: wc.textSecondary,
-                            fontSize: 11,
-                            fontFamily: 'monospace',
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        Row(
-                          children: [
-                            Icon(
-                              message.signatureVerified
-                                  ? Icons.verified_rounded
-                                  : Icons.cancel_rounded,
-                              color: message.signatureVerified
-                                  ? AppColors.success
-                                  : AppColors.error,
-                              size: 11,
-                            ),
-                            const SizedBox(width: 4),
-                            Text(
-                              message.signatureVerified
-                                  ? 'Signature verified'
-                                  : 'Signature INVALID',
-                              style: TextStyle(
-                                color: message.signatureVerified
-                                    ? AppColors.success
-                                    : AppColors.error,
-                                fontSize: 10,
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.end,
-                    children: [
-                      Text(
-                        timeago.format(message.timestamp),
-                        style: TextStyle(color: wc.textTertiary, fontSize: 11),
-                      ),
-                      const SizedBox(height: 6),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 8, vertical: 3),
-                        decoration: BoxDecoration(
-                          color: AppColors.warning.withOpacity(0.13),
-                          borderRadius: BorderRadius.circular(6),
-                        ),
-                        child: const Text(
-                          'Pending',
-                          style: TextStyle(
-                            color: AppColors.warning,
-                            fontSize: 11,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
+    final color = item.type == 'credential'
+        ? AppColors.success
+        : AppColors.warning;
+    final icon = item.type == 'credential'
+        ? Icons.card_membership_rounded
+        : Icons.policy_rounded;
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: wc.card,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: color.withOpacity(0.25)),
       ),
-    );
-  }
-}
-
-// ─── Activity Row ─────────────────────────────────────────────────────────────
-
-class _ActivityRow extends StatelessWidget {
-  final DIDMessage message;
-
-  const _ActivityRow({required this.message});
-
-  @override
-  Widget build(BuildContext context) {
-    final color = AppColors.messageTypeColor(message.type);
-    final wc = context.wc;
-    return GestureDetector(
-      onTap: () => showNotificationSheet(context, message),
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 8),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-        decoration: BoxDecoration(
-          color: wc.card,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: wc.border),
-        ),
-        child: Row(
-          children: [
-            Container(
-              width: 36,
-              height: 36,
-              decoration: BoxDecoration(
-                color: color.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Icon(messageIcon(message.type), color: color, size: 18),
+      child: Row(
+        children: [
+          Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              color: color.withOpacity(0.13),
+              borderRadius: BorderRadius.circular(11),
             ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    messageTitle(message.type),
-                    style: TextStyle(
-                      color: wc.textPrimary,
-                      fontSize: 13,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                  Text(
-                    truncateDid(message.senderDid),
-                    style: TextStyle(
-                      color: wc.textSecondary,
-                      fontSize: 11,
-                      fontFamily: 'monospace',
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.end,
+            child: Icon(icon, color: color, size: 20),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  timeago.format(message.timestamp),
-                  style: TextStyle(color: wc.textTertiary, fontSize: 11),
+                  item.title,
+                  style: TextStyle(
+                    color: wc.textPrimary,
+                    fontSize: 13.5,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
-                const SizedBox(height: 4),
-                Row(
-                  children: [
-                    Icon(
-                      message.signatureVerified
-                          ? Icons.verified_rounded
-                          : Icons.cancel_rounded,
-                      color: message.signatureVerified
-                          ? AppColors.success
-                          : AppColors.error,
-                      size: 12,
-                    ),
-                    const SizedBox(width: 3),
-                    _StatusChip(status: message.status),
-                  ],
+                const SizedBox(height: 2),
+                Text(
+                  item.subtitle,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(color: wc.textSecondary, fontSize: 11),
                 ),
               ],
             ),
-          ],
-        ),
+          ),
+          Text(
+            timeago.format(item.createdAt),
+            style: TextStyle(color: wc.textTertiary, fontSize: 11),
+          ),
+        ],
       ),
     );
   }
 }
 
-class _StatusChip extends StatelessWidget {
-  final MessageStatus status;
+// ─── Activity tile ────────────────────────────────────────────────────────────
 
-  const _StatusChip({required this.status});
+class _ActivityTile extends StatelessWidget {
+  final WalletEvent event;
+
+  const _ActivityTile({required this.event});
+
+  Color get _color {
+    switch (event.type) {
+      case 'credential':
+        return AppColors.success;
+      case 'proof':
+        return AppColors.warning;
+      case 'connection':
+        return AppColors.primary;
+      case 'system':
+        return AppColors.purple;
+      default:
+        return const Color(0xFF9CA3AF);
+    }
+  }
+
+  IconData get _icon {
+    switch (event.type) {
+      case 'credential':
+        return Icons.card_membership_rounded;
+      case 'proof':
+        return Icons.policy_rounded;
+      case 'connection':
+        return Icons.link_rounded;
+      case 'system':
+        return Icons.settings_outlined;
+      default:
+        return Icons.info_outline_rounded;
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-    Color color;
-    String label;
-
-    switch (status) {
-      case MessageStatus.pending:
-        color = AppColors.warning;
-        label = 'Pending';
-      case MessageStatus.accepted:
-        color = AppColors.success;
-        label = 'Accepted';
-      case MessageStatus.rejected:
-        color = AppColors.error;
-        label = 'Rejected';
-      case MessageStatus.read:
-        color = context.wc.textTertiary;
-        label = 'Read';
-    }
+    final wc = context.wc;
+    final color = _color;
+    final state = event.state ?? event.type;
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.12),
-        borderRadius: BorderRadius.circular(5),
+        color: wc.card,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: wc.border),
       ),
-      child: Text(
-        label,
-        style: TextStyle(
-            color: color, fontSize: 10, fontWeight: FontWeight.w500),
+      child: Row(
+        children: [
+          Container(
+            width: 36,
+            height: 36,
+            decoration: BoxDecoration(
+              color: color.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(_icon, color: color, size: 18),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '${event.type[0].toUpperCase()}${event.type.substring(1)} · $state',
+                  style: TextStyle(
+                    color: wc.textPrimary,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                if (event.theirLabel != null)
+                  Text(
+                    event.theirLabel!,
+                    style: TextStyle(
+                      color: wc.textSecondary,
+                      fontSize: 11,
+                    ),
+                  ),
+              ],
+            ),
+          ),
+          Text(
+            timeago.format(event.timestamp),
+            style: TextStyle(color: wc.textTertiary, fontSize: 11),
+          ),
+        ],
       ),
     );
   }
 }
 
-class _EmptyState extends StatelessWidget {
+class _EmptyTile extends StatelessWidget {
   final String label;
 
-  const _EmptyState({required this.label});
+  const _EmptyTile({required this.label});
 
   @override
   Widget build(BuildContext context) {

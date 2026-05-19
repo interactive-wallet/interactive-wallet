@@ -1,10 +1,30 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:timeago/timeago.dart' as timeago;
+
+import '../data/wallet_repository.dart';
+import '../models/api_models.dart';
 import '../theme/app_theme.dart';
-import '../data/mock_data.dart';
-import '../models/models.dart';
-import '../utils/message_utils.dart';
-import '../widgets/notification_sheet.dart';
+
+const _attrLabels = <String, String>{
+  'vorname': 'Vorname',
+  'nachname': 'Nachname',
+  'geburtsdatum': 'Geburtsdatum',
+  'fuehrerscheinklasse': 'Klasse',
+  'ausstellungsdatum': 'Ausgestellt am',
+};
+
+String _credDefName(String? credDefId) {
+  if (credDefId == null || credDefId.isEmpty) return 'Credential Offer';
+  final parts = credDefId.split('/');
+  final idx = parts.indexOf('CLAIM_DEF');
+  if (idx > 0 && idx - 1 < parts.length) {
+    return parts[idx - 1].split(':').last;
+  }
+  return credDefId.split(':').last;
+}
+
+enum _Filter { all, credentials, proofs }
 
 class InboxScreen extends StatefulWidget {
   const InboxScreen({super.key});
@@ -14,37 +34,19 @@ class InboxScreen extends StatefulWidget {
 }
 
 class _InboxScreenState extends State<InboxScreen> {
-  String _filter = 'All';
-
-  static const _filters = [
-    'All',
-    'credentialOffer',
-    'proofRequest',
-    'connectionInvite',
-    'trustPing',
-    'problemReport',
-  ];
-
-  static const _filterLabels = {
-    'All': 'All',
-    'credentialOffer': 'Credentials',
-    'proofRequest': 'Proofs',
-    'connectionInvite': 'Invites',
-    'trustPing': 'Pings',
-    'problemReport': 'Problems',
-  };
-
-  List<DIDMessage> get _filtered {
-    if (_filter == 'All') return MockData.messages;
-    return MockData.messages.where((m) => m.type == _filter).toList();
-  }
+  _Filter _filter = _Filter.all;
 
   @override
   Widget build(BuildContext context) {
-    final filtered = _filtered;
-    final pendingCount =
-        MockData.messages.where((m) => m.status == MessageStatus.pending).length;
+    final repo = context.watch<WalletRepository>();
     final wc = context.wc;
+    final pendingCreds = repo.pendingCredentials;
+    final pendingProofs = repo.pendingProofs;
+    final totalPending = pendingCreds.length + pendingProofs.length;
+
+    final showCreds =
+        _filter == _Filter.all || _filter == _Filter.credentials;
+    final showProofs = _filter == _Filter.all || _filter == _Filter.proofs;
 
     return Scaffold(
       backgroundColor: wc.background,
@@ -53,7 +55,7 @@ class _InboxScreenState extends State<InboxScreen> {
           children: [
             const Text('Inbox'),
             const SizedBox(width: 10),
-            if (pendingCount > 0)
+            if (totalPending > 0)
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                 decoration: BoxDecoration(
@@ -61,7 +63,7 @@ class _InboxScreenState extends State<InboxScreen> {
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: Text(
-                  '$pendingCount',
+                  '$totalPending',
                   style: const TextStyle(
                     color: AppColors.warning,
                     fontSize: 13,
@@ -73,275 +75,49 @@ class _InboxScreenState extends State<InboxScreen> {
         ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.tune_rounded),
-            onPressed: () {},
+            icon: const Icon(Icons.refresh_rounded),
+            tooltip: 'Refresh',
+            onPressed: repo.refreshAll,
           ),
           const SizedBox(width: 8),
         ],
       ),
-      body: Column(
-        children: [
-          _FilterBar(
-            filters: _filters,
-            labels: _filterLabels,
-            selected: _filter,
-            onSelect: (f) => setState(() => _filter = f),
-          ),
-          const SizedBox(height: 4),
-          Expanded(
-            child: filtered.isEmpty
-                ? Center(
-                    child: Text(
-                      'No messages',
-                      style: TextStyle(
-                          color: wc.textTertiary, fontSize: 15),
-                    ),
-                  )
-                : ListView.builder(
-                    padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
-                    itemCount: filtered.length,
-                    itemBuilder: (_, i) =>
-                        _MessageCard(message: filtered[i]),
-                  ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _FilterBar extends StatelessWidget {
-  final List<String> filters;
-  final Map<String, String> labels;
-  final String selected;
-  final ValueChanged<String> onSelect;
-
-  const _FilterBar({
-    required this.filters,
-    required this.labels,
-    required this.selected,
-    required this.onSelect,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final wc = context.wc;
-    return SizedBox(
-      height: 52,
-      child: ListView.separated(
-        scrollDirection: Axis.horizontal,
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-        itemCount: filters.length,
-        separatorBuilder: (_, __) => const SizedBox(width: 8),
-        itemBuilder: (_, i) {
-          final f = filters[i];
-          final isSelected = f == selected;
-          final color =
-              f == 'All' ? AppColors.primary : AppColors.messageTypeColor(f);
-
-          return GestureDetector(
-            onTap: () => onSelect(f),
-            child: AnimatedContainer(
-              duration: const Duration(milliseconds: 200),
-              padding:
-                  const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-              decoration: BoxDecoration(
-                color:
-                    isSelected ? color.withOpacity(0.18) : wc.card,
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(
-                  color: isSelected
-                      ? color.withOpacity(0.5)
-                      : wc.border,
-                ),
-              ),
-              child: Text(
-                labels[f] ?? f,
-                style: TextStyle(
-                  color: isSelected ? color : wc.textSecondary,
-                  fontSize: 13,
-                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
-                ),
-              ),
-            ),
-          );
-        },
-      ),
-    );
-  }
-}
-
-class _MessageCard extends StatelessWidget {
-  final DIDMessage message;
-
-  const _MessageCard({required this.message});
-
-  @override
-  Widget build(BuildContext context) {
-    final color = AppColors.messageTypeColor(message.type);
-    final isPending = message.status == MessageStatus.pending;
-    final wc = context.wc;
-
-    return GestureDetector(
-      onTap: () => showNotificationSheet(context, message),
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 10),
-        decoration: BoxDecoration(
-          color: wc.card,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(
-            color: isPending ? color.withOpacity(0.3) : wc.border,
-          ),
-        ),
+      body: RefreshIndicator(
+        onRefresh: repo.refreshAll,
         child: Column(
           children: [
-            // Invalid signature warning banner
-            if (!message.signatureVerified)
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.symmetric(
-                    horizontal: 14, vertical: 8),
-                decoration: BoxDecoration(
-                  color: AppColors.error.withOpacity(0.08),
-                  borderRadius: const BorderRadius.vertical(
-                      top: Radius.circular(16)),
-                  border: Border(
-                    bottom: BorderSide(
-                        color: AppColors.error.withOpacity(0.2)),
-                  ),
-                ),
-                child: Row(
-                  children: [
-                    const Icon(Icons.warning_rounded,
-                        color: AppColors.error, size: 13),
-                    const SizedBox(width: 6),
-                    Text(
-                      '⚠ SIGNATURE INVALID — Cannot verify authenticity',
-                      style: TextStyle(
-                        color: AppColors.error,
-                        fontSize: 11,
-                        fontWeight: FontWeight.w600,
-                      ),
+            _FilterBar(
+              selected: _filter,
+              onSelect: (f) => setState(() => _filter = f),
+              credCount: pendingCreds.length,
+              proofCount: pendingProofs.length,
+            ),
+            const SizedBox(height: 4),
+            Expanded(
+              child: totalPending == 0
+                  ? _EmptyState()
+                  : ListView(
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
+                      children: [
+                        if (showCreds)
+                          ...pendingCreds.map(
+                            (c) => _CredentialOfferCard(
+                              offer: c,
+                              onAccept: () => repo.acceptCredential(c.id),
+                              onDecline: () => repo.declineCredential(c.id),
+                            ),
+                          ),
+                        if (showProofs)
+                          ...pendingProofs.map(
+                            (p) => _ProofRequestCard(
+                              proof: p,
+                              onAccept: () => repo.acceptProof(p.id),
+                              onDecline: () => repo.declineProof(p.id),
+                            ),
+                          ),
+                      ],
                     ),
-                  ],
-                ),
-              ),
-            IntrinsicHeight(
-              child: Row(
-                children: [
-                  Container(
-                    width: 4,
-                    decoration: BoxDecoration(
-                      color: color,
-                      borderRadius: message.signatureVerified
-                          ? const BorderRadius.horizontal(
-                              left: Radius.circular(16))
-                          : const BorderRadius.only(
-                              bottomLeft: Radius.circular(16)),
-                    ),
-                  ),
-                  Expanded(
-                    child: Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                    horizontal: 8, vertical: 3),
-                                decoration: BoxDecoration(
-                                  color: color.withOpacity(0.12),
-                                  borderRadius: BorderRadius.circular(6),
-                                ),
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Icon(messageIcon(message.type),
-                                        color: color, size: 12),
-                                    const SizedBox(width: 4),
-                                    Text(
-                                      messageTitle(message.type),
-                                      style: TextStyle(
-                                        color: color,
-                                        fontSize: 11,
-                                        fontWeight: FontWeight.w600,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              const Spacer(),
-                              Text(
-                                timeago.format(message.timestamp),
-                                style: TextStyle(
-                                  color: wc.textTertiary,
-                                  fontSize: 11,
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 10),
-                          Row(
-                            children: [
-                              Icon(Icons.person_outline,
-                                  color: wc.textTertiary, size: 14),
-                              const SizedBox(width: 6),
-                              Expanded(
-                                child: Text(
-                                  truncateDid(message.senderDid),
-                                  style: TextStyle(
-                                    color: wc.textSecondary,
-                                    fontSize: 11.5,
-                                    fontFamily: 'monospace',
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 10),
-                          Row(
-                            children: [
-                              _PayloadPreview(payload: message.payload),
-                              const Spacer(),
-                              _StatusPill(status: message.status),
-                            ],
-                          ),
-                          const SizedBox(height: 8),
-                          // Explicit signature row
-                          Row(
-                            children: [
-                              Icon(
-                                message.signatureVerified
-                                    ? Icons.verified_rounded
-                                    : Icons.cancel_rounded,
-                                color: message.signatureVerified
-                                    ? AppColors.success
-                                    : AppColors.error,
-                                size: 13,
-                              ),
-                              const SizedBox(width: 5),
-                              Text(
-                                message.signatureVerified
-                                    ? 'Signature verified'
-                                    : 'Signature INVALID',
-                                style: TextStyle(
-                                  color: message.signatureVerified
-                                      ? AppColors.success
-                                      : AppColors.error,
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ],
-              ),
             ),
           ],
         ),
@@ -350,63 +126,503 @@ class _MessageCard extends StatelessWidget {
   }
 }
 
-class _PayloadPreview extends StatelessWidget {
-  final Map<String, dynamic> payload;
+class _FilterBar extends StatelessWidget {
+  final _Filter selected;
+  final ValueChanged<_Filter> onSelect;
+  final int credCount;
+  final int proofCount;
 
-  const _PayloadPreview({required this.payload});
-
-  String get _preview {
-    final entry =
-        payload.entries.where((e) => e.value is String && e.key != 'senderName').firstOrNull;
-    if (entry == null) return '';
-    return '${entry.key}: ${entry.value}';
-  }
+  const _FilterBar({
+    required this.selected,
+    required this.onSelect,
+    required this.credCount,
+    required this.proofCount,
+  });
 
   @override
   Widget build(BuildContext context) {
-    return Text(
-      _preview,
-      style: TextStyle(color: context.wc.textSecondary, fontSize: 12),
+    final wc = context.wc;
+    return SizedBox(
+      height: 52,
+      child: ListView(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+        children: [
+          _Chip(
+            label: 'All',
+            count: credCount + proofCount,
+            selected: selected == _Filter.all,
+            color: AppColors.primary,
+            onTap: () => onSelect(_Filter.all),
+            wc: wc,
+          ),
+          const SizedBox(width: 8),
+          _Chip(
+            label: 'Credentials',
+            count: credCount,
+            selected: selected == _Filter.credentials,
+            color: AppColors.success,
+            onTap: () => onSelect(_Filter.credentials),
+            wc: wc,
+          ),
+          const SizedBox(width: 8),
+          _Chip(
+            label: 'Proofs',
+            count: proofCount,
+            selected: selected == _Filter.proofs,
+            color: AppColors.warning,
+            onTap: () => onSelect(_Filter.proofs),
+            wc: wc,
+          ),
+        ],
+      ),
     );
   }
 }
 
-class _StatusPill extends StatelessWidget {
-  final MessageStatus status;
+class _Chip extends StatelessWidget {
+  final String label;
+  final int count;
+  final bool selected;
+  final Color color;
+  final VoidCallback onTap;
+  final dynamic wc;
 
-  const _StatusPill({required this.status});
+  const _Chip({
+    required this.label,
+    required this.count,
+    required this.selected,
+    required this.color,
+    required this.onTap,
+    required this.wc,
+  });
 
   @override
   Widget build(BuildContext context) {
-    Color color;
-    String label;
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+        decoration: BoxDecoration(
+          color: selected ? color.withOpacity(0.18) : wc.card,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: selected ? color.withOpacity(0.5) : wc.border,
+          ),
+        ),
+        child: Row(
+          children: [
+            Text(
+              label,
+              style: TextStyle(
+                color: selected ? color : wc.textSecondary,
+                fontSize: 13,
+                fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
+              ),
+            ),
+            if (count > 0) ...[
+              const SizedBox(width: 6),
+              Text(
+                '$count',
+                style: TextStyle(
+                  color: selected ? color : wc.textTertiary,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
 
-    switch (status) {
-      case MessageStatus.pending:
-        color = AppColors.warning;
-        label = 'Pending';
-      case MessageStatus.accepted:
-        color = AppColors.success;
-        label = 'Accepted';
-      case MessageStatus.rejected:
-        color = AppColors.error;
-        label = 'Rejected';
-      case MessageStatus.read:
-        color = context.wc.textTertiary;
-        label = 'Read';
+class _EmptyState extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    final wc = context.wc;
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(40),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.inbox_outlined, color: wc.textTertiary, size: 56),
+            const SizedBox(height: 14),
+            Text(
+              'No pending items',
+              style: TextStyle(
+                color: wc.textPrimary,
+                fontSize: 15,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              'Credential offers and proof requests will appear here.',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: wc.textSecondary, fontSize: 12),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _CredentialOfferCard extends StatefulWidget {
+  final PendingCredentialOffer offer;
+  final Future<void> Function() onAccept;
+  final Future<void> Function() onDecline;
+
+  const _CredentialOfferCard({
+    required this.offer,
+    required this.onAccept,
+    required this.onDecline,
+  });
+
+  @override
+  State<_CredentialOfferCard> createState() => _CredentialOfferCardState();
+}
+
+class _CredentialOfferCardState extends State<_CredentialOfferCard> {
+  bool _busy = false;
+
+  Future<void> _run(Future<void> Function() action) async {
+    setState(() => _busy = true);
+    try {
+      await action();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _busy = false);
     }
+  }
 
+  @override
+  Widget build(BuildContext context) {
+    final wc = context.wc;
+    final color = AppColors.success;
+    final o = widget.offer;
+    final title = _credDefName(o.credDefId);
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      decoration: BoxDecoration(
+        color: wc.card,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: color.withOpacity(0.3)),
+        boxShadow: [BoxShadow(color: color.withOpacity(0.06), blurRadius: 20)],
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  width: 44,
+                  height: 44,
+                  decoration: BoxDecoration(
+                    color: color.withOpacity(0.13),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Icon(Icons.card_membership_rounded,
+                      color: color, size: 22),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        title,
+                        style: TextStyle(
+                          color: wc.textPrimary,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      const SizedBox(height: 3),
+                      Text(
+                        'Credential Offer · from ${o.fromLabel ?? "Unknown"}',
+                        style: TextStyle(color: wc.textSecondary, fontSize: 11),
+                      ),
+                    ],
+                  ),
+                ),
+                _Badge(label: 'Offer', color: color),
+              ],
+            ),
+            if (o.credDefId != null) ...[
+              const SizedBox(height: 10),
+              Text(
+                o.credDefId!,
+                style: TextStyle(
+                  color: wc.textTertiary,
+                  fontSize: 10.5,
+                  fontFamily: 'monospace',
+                  height: 1.4,
+                ),
+              ),
+            ],
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Icon(Icons.schedule, color: wc.textTertiary, size: 12),
+                const SizedBox(width: 4),
+                Text(
+                  timeago.format(o.createdAt),
+                  style: TextStyle(color: wc.textTertiary, fontSize: 11),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: _busy ? null : () => _run(widget.onDecline),
+                    icon: const Icon(Icons.close_rounded, size: 16),
+                    label: const Text('Decline'),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: AppColors.error,
+                      side: BorderSide(color: AppColors.error.withOpacity(0.3)),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: FilledButton.icon(
+                    onPressed: _busy ? null : () => _run(widget.onAccept),
+                    icon: _busy
+                        ? const SizedBox(
+                            width: 14,
+                            height: 14,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.check_rounded, size: 16),
+                    label: const Text('Accept'),
+                    style: FilledButton.styleFrom(
+                      backgroundColor: AppColors.success,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ProofRequestCard extends StatefulWidget {
+  final ProofExchange proof;
+  final Future<void> Function() onAccept;
+  final Future<void> Function() onDecline;
+
+  const _ProofRequestCard({
+    required this.proof,
+    required this.onAccept,
+    required this.onDecline,
+  });
+
+  @override
+  State<_ProofRequestCard> createState() => _ProofRequestCardState();
+}
+
+class _ProofRequestCardState extends State<_ProofRequestCard> {
+  bool _busy = false;
+
+  Future<void> _run(Future<void> Function() action) async {
+    setState(() => _busy = true);
+    try {
+      await action();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final wc = context.wc;
+    final color = AppColors.warning;
+    final p = widget.proof;
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      decoration: BoxDecoration(
+        color: wc.card,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: color.withOpacity(0.3)),
+        boxShadow: [BoxShadow(color: color.withOpacity(0.06), blurRadius: 20)],
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  width: 44,
+                  height: 44,
+                  decoration: BoxDecoration(
+                    color: color.withOpacity(0.13),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Icon(Icons.policy_rounded, color: color, size: 22),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Proof Request',
+                        style: TextStyle(
+                          color: wc.textPrimary,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      const SizedBox(height: 3),
+                      Text(
+                        'Verifier wants to verify attributes',
+                        style: TextStyle(color: wc.textSecondary, fontSize: 11),
+                      ),
+                    ],
+                  ),
+                ),
+                _Badge(label: 'Request', color: color),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Text(
+              'REQUESTED ATTRIBUTES',
+              style: TextStyle(
+                color: wc.textTertiary,
+                fontSize: 10,
+                fontWeight: FontWeight.w600,
+                letterSpacing: 1.2,
+              ),
+            ),
+            const SizedBox(height: 8),
+            if (p.requestedAttributes.isEmpty)
+              Text(
+                'none',
+                style: TextStyle(color: wc.textTertiary, fontSize: 12),
+              )
+            else
+              Wrap(
+                spacing: 6,
+                runSpacing: 6,
+                children: p.requestedAttributes
+                    .map((a) => Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 9, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: color.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(6),
+                            border: Border.all(
+                                color: color.withOpacity(0.25)),
+                          ),
+                          child: Text(
+                            _attrLabels[a] ?? a,
+                            style: TextStyle(
+                              color: color,
+                              fontSize: 11,
+                              fontFamily: 'monospace',
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ))
+                    .toList(),
+              ),
+            const SizedBox(height: 14),
+            Row(
+              children: [
+                Icon(Icons.schedule, color: wc.textTertiary, size: 12),
+                const SizedBox(width: 4),
+                Text(
+                  timeago.format(p.createdAt),
+                  style: TextStyle(color: wc.textTertiary, fontSize: 11),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: _busy ? null : () => _run(widget.onDecline),
+                    icon: const Icon(Icons.close_rounded, size: 16),
+                    label: const Text('Decline'),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: AppColors.error,
+                      side: BorderSide(color: AppColors.error.withOpacity(0.3)),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: FilledButton.icon(
+                    onPressed: _busy ? null : () => _run(widget.onAccept),
+                    icon: _busy
+                        ? const SizedBox(
+                            width: 14,
+                            height: 14,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.share_rounded, size: 16),
+                    label: const Text('Share Proof'),
+                    style: FilledButton.styleFrom(
+                      backgroundColor: AppColors.warning,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _Badge extends StatelessWidget {
+  final String label;
+  final Color color;
+
+  const _Badge({required this.label, required this.color});
+
+  @override
+  Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(
         color: color.withOpacity(0.12),
         borderRadius: BorderRadius.circular(6),
-        border: Border.all(color: color.withOpacity(0.25)),
+        border: Border.all(color: color.withOpacity(0.3)),
       ),
       child: Text(
         label,
         style: TextStyle(
-            color: color, fontSize: 11, fontWeight: FontWeight.w500),
+            color: color, fontSize: 11, fontWeight: FontWeight.w600),
       ),
     );
   }
