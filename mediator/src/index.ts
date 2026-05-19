@@ -39,6 +39,19 @@ async function main() {
         broadcast('connection', { state: c.state, theirLabel: c.theirLabel ?? 'Unknown', connectionId: c.id })
     })
 
+    agent.events.on('*' as any, (event: any) => {
+        const type = event?.type ?? event?.metadata?.type ?? 'unknown'
+        const payloadType = event?.payload?.type
+
+        console.log('[mediator event full]', JSON.stringify({
+            type,
+            payloadType,
+            payloadKeys: Object.keys(event?.payload ?? {}),
+            metadata: event?.metadata,
+            payload: event?.payload,
+        }, null, 2))
+    })
+
     console.log('[mediator] Mediator agent started...')
     console.log(`[mediator] Endpoint: ${process.env.MEDIATOR_ENDPOINT ?? 'http://localhost:3005'}`,)
 
@@ -93,6 +106,25 @@ async function main() {
                 err: message
                 })
             }
+    })
+
+    app.get('/storage-debug', async (_req, res) => {
+        try {
+            const context = (agent as any).context ?? (agent as any).agentContext
+            const deps = context?.dependencyManager
+
+            res.json({
+            agentKeys: Object.keys(agent as any),
+            contextKeys: context ? Object.keys(context) : null,
+            dependencyManagerExists: Boolean(deps),
+            didcommKeys: Object.keys(agent.modules.didcomm as any),
+            messagePickupKeys: Object.keys((agent.modules.didcomm as any).messagePickup ?? {}),
+            mediatorKeys: Object.keys((agent.modules.didcomm as any).mediator ?? {}),
+            })
+        } catch (err: unknown) {
+            const message = err instanceof Error ? err.message : String(err)
+            res.status(500).json({ error: message })
+        }
     })
 
 

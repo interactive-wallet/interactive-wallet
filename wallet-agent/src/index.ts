@@ -483,7 +483,7 @@ async function main() {
   app.get('/pending-credentials', async (_req, res) => {
     try {
       const exchanges = await agent.modules.didcomm.credentials.getAll()
-      const pending = exchanges.filter((e) => e.state === 'offer-received')
+      const pending = exchanges
       const result = await Promise.all(
         pending.map(async (e) => {
           let credDefId: string | null = null

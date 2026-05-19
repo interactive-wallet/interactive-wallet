@@ -1,7 +1,7 @@
 import { Agent, DidsModule, PeerDidResolver, KeyDidResolver } from '@credo-ts/core'
 import { agentDependencies, DidCommHttpInboundTransport, DidCommWsInboundTransport } from '@credo-ts/node'
 import { AskarModule } from '@credo-ts/askar'
-import { DidCommHttpOutboundTransport, DidCommModule, DidCommWsOutboundTransport } from '@credo-ts/didcomm'
+import { DidCommHttpOutboundTransport, DidCommModule, DidCommWsOutboundTransport, DidCommMessageForwardingStrategy } from '@credo-ts/didcomm'
 import { askar } from '@openwallet-foundation/askar-shared'
 
 const MEDIATOR_HTTP_PORT = parseInt(process.env.MEDIATOR_INBOUND_PORT ?? '3005', 10)
@@ -36,6 +36,7 @@ export function createMediatorAgent() {
                 },
                 mediator: {
                     autoAcceptMediationRequests: true,
+                    messageForwardingStrategy: DidCommMessageForwardingStrategy.QueueAndLiveModeDelivery,
                 },
                 connections: {
                     autoAcceptConnections: true,
