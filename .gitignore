@@ -13,6 +13,9 @@ build/
 ~$*
 .~lock.*
 
+# Flutter
+**/devtools_options.yaml
+
 # Ignore all markdown files except README.md
 *.md
 !README.md

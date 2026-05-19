@@ -85,6 +85,12 @@ class WalletRepository extends ChangeNotifier {
     notifyListeners();
   }
 
+  void clearLog() {
+    if (log.isEmpty) return;
+    log.clear();
+    notifyListeners();
+  }
+
   // ── Pending lists (derived views) ────────────────────────────────────────
 
   List<ProofExchange> get pendingProofs =>

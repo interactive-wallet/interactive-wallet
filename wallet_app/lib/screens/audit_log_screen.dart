@@ -123,6 +123,11 @@ class AuditLogScreen extends StatelessWidget {
             tooltip: 'Refresh',
             onPressed: repo.refreshAll,
           ),
+          IconButton(
+            icon: const Icon(Icons.delete_sweep_rounded),
+            tooltip: 'Clear log',
+            onPressed: events.isEmpty ? null : repo.clearLog,
+          ),
           const SizedBox(width: 8),
         ],
       ),
