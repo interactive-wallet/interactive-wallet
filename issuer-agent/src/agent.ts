@@ -1,4 +1,4 @@
-import { Agent, DidsModule } from '@credo-ts/core'
+import { Agent, DidsModule, PeerDidResolver, KeyDidResolver } from '@credo-ts/core'
 import { agentDependencies, DidCommHttpInboundTransport } from '@credo-ts/node'
 import { AskarModule } from '@credo-ts/askar'
 import { IndyVdrModule, IndyVdrAnonCredsRegistry, IndyVdrIndyDidResolver, IndyVdrIndyDidRegistrar } from '@credo-ts/indy-vdr'
@@ -7,6 +7,7 @@ import {
   DidCommAutoAcceptCredential,
   DidCommModule,
   DidCommHttpOutboundTransport,
+  DidCommWsOutboundTransport,
   DidCommCredentialV2Protocol,
 } from '@credo-ts/didcomm'
 import { askar } from '@openwallet-foundation/askar-shared'
@@ -55,7 +56,11 @@ export function createAgent() {
         ],
       }),
       dids: new DidsModule({
-        resolvers: [new IndyVdrIndyDidResolver()],
+        resolvers: [
+          new PeerDidResolver(),
+          new KeyDidResolver(),
+          new IndyVdrIndyDidResolver(),
+        ],
         registrars: [new IndyVdrIndyDidRegistrar()],
       }),
       anoncreds: new AnonCredsModule({
@@ -66,7 +71,7 @@ export function createAgent() {
         endpoints: [process.env.AGENT_ENDPOINT ?? `http://localhost:${INBOUND_PORT}`],
         transports: {
           inbound: [new DidCommHttpInboundTransport({ port: INBOUND_PORT })],
-          outbound: [new DidCommHttpOutboundTransport()],
+          outbound: [new DidCommHttpOutboundTransport(), new DidCommWsOutboundTransport()],
         },
         connections: {
           autoAcceptConnections: true,

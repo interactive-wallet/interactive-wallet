@@ -132,6 +132,27 @@ async function main() {
     }
   })
 
+  app.get('/connections', async (_req, res) => {
+    try {
+      const connections = await agent.modules.didcomm.connections.getAll()
+
+      res.json(connections.map((connection) => ({
+        id: connection.id,
+        state: connection.state,
+        role: connection.role,
+        theirLabel: connection.theirLabel,
+        did: connection.did,
+        theirDid: connection.theirDid,
+        invitationDid: connection.invitationDid,
+        outOfBandId: connection.outOfBandId,
+        createdAt: connection.createdAt,
+      })))
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err)
+      res.status(500).json({ error: message })
+    }
+  })
+
   // ─── Receive invitation ───────────────────────────────────────────────────
   app.post('/receive-invitation', async (req, res) => {
     try {
@@ -145,7 +166,33 @@ async function main() {
         autoAcceptInvitation: true,
         autoAcceptConnection: true,
       })
-      res.json({ oobId: outOfBandRecord.id, connectionId: connectionRecord?.id, connectionState: connectionRecord?.state })
+      res.json({ 
+        oobId: outOfBandRecord.id, 
+        connectionId: connectionRecord?.id, 
+        connectionState: connectionRecord?.state 
+      })
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err)
+      res.status(500).json({ error: message })
+    }
+  })
+
+  app.post('/request-mediation/:connectionId', async (req, res) => {
+    try {
+      const connectionRecord = await agent.modules.didcomm.connections.getById(
+        req.params.connectionId,
+      )
+
+      const mediationRecord = await agent.modules.mediationRecipient.requestAndAwaitGrant(connectionRecord)
+
+      await agent.modules.mediationRecipient.setDefaultMediator(mediationRecord)
+            
+      res.json({ 
+        mediationRecordId: mediationRecord.id, 
+        state: mediationRecord.state, 
+        connectionId: mediationRecord.connectionId,
+        defaultMediatorSet: true, 
+      })
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err)
       res.status(500).json({ error: message })
