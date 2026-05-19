@@ -25,6 +25,9 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
 const INBOUND_PORT = parseInt(process.env.INBOUND_PORT ?? '3001', 10)
 
+const HOLDER_DIDCOMM_MODE = process.env.HOLDER_DIDCOMM_MODE ?? 'onboarding'
+const IS_MOBILE_MODE = HOLDER_DIDCOMM_MODE === 'mobile'
+
 function loadGenesisTransactions(): string {
   const genesisPath = process.env.GENESIS_FILE_PATH ?? path.join(__dirname, '..', 'genesis.txn')
   if (!fs.existsSync(genesisPath)) {
@@ -64,10 +67,19 @@ export function createAgent() {
         registries: [new IndyVdrAnonCredsRegistry()],
       }),
       didcomm: new DidCommModule({
-        endpoints: [process.env.AGENT_ENDPOINT ?? `http://localhost:${INBOUND_PORT}`],
+        endpoints: IS_MOBILE_MODE
+          ? []
+          : [process.env.AGENT_ENDPOINT ?? `http://localhost:${INBOUND_PORT}`],
+
         transports: {
-          inbound: [new DidCommHttpInboundTransport({ port: INBOUND_PORT })],
-          outbound: [new DidCommHttpOutboundTransport(), new DidCommWsOutboundTransport()],
+          inbound: IS_MOBILE_MODE
+            ? []
+            : [new DidCommHttpInboundTransport({ port: INBOUND_PORT })],
+
+          outbound: [
+            new DidCommHttpOutboundTransport(),
+            new DidCommWsOutboundTransport(),
+          ],
         },
         connections: {
           autoAcceptConnections: true,

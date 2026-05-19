@@ -23,6 +23,17 @@ async function main() {
     const agent = createMediatorAgent()
     await agent.initialize()
 
+    agent.events.on('*' as any, (event: any) => {
+        const type = event?.type ?? event?.metadata?.type ?? 'unknown'
+        const payloadType = event?.payload?.type
+
+        console.log('[mediator event]', {
+            type,
+            payloadType,
+            keys: Object.keys(event ?? {}),
+        })
+    })
+
     agent.events.on(DidCommConnectionEventTypes.DidCommConnectionStateChanged, ({ payload }: any) => {
         const c = payload.connectionRecord
         broadcast('connection', { state: c.state, theirLabel: c.theirLabel ?? 'Unknown', connectionId: c.id })
@@ -84,6 +95,105 @@ async function main() {
             }
     })
 
+
+    app.get('/didcomm-debug', (_req, res) => {
+        try {
+            const didcomm = agent.modules.didcomm as any
+
+            res.json({
+            didcommKeys: Object.keys(didcomm),
+            didcommPrototypeMethods: Object.getOwnPropertyNames(
+                Object.getPrototypeOf(didcomm),
+            ).sort(),
+            })
+        } catch (err: unknown) {
+            const message = err instanceof Error ? err.message : String(err)
+            res.status(500).json({ error: message })
+        }
+    })
+
+    app.get('/mediator-pickup-debug', (_req, res) => {
+        try {
+            const didcomm = agent.modules.didcomm as any
+            const messagePickupApi = didcomm.messagePickupApi
+
+            if (!messagePickupApi) {
+            res.json({
+                error: 'No messagePickupApi on didcomm module',
+                didcommKeys: Object.keys(didcomm),
+            })
+            return
+            }
+
+            const methods = [
+            ...Object.getOwnPropertyNames(Object.getPrototypeOf(messagePickupApi)),
+            ...Object.keys(messagePickupApi),
+            ]
+
+            res.json({
+            messagePickupMethods: [...new Set(methods)].sort(),
+            })
+        } catch (err: unknown) {
+            const message = err instanceof Error ? err.message : String(err)
+            res.status(500).json({ error: message })
+        }
+    })
+
+    function getMethods(api: any) {
+        if (!api) return null
+
+        return [...new Set([
+            ...Object.getOwnPropertyNames(Object.getPrototypeOf(api)),
+            ...Object.keys(api),
+        ])].sort()
+    }
+
+    app.get('/mediator-module-debug', (_req, res) => {
+        try {
+            const didcomm = agent.modules.didcomm as any
+
+            res.json({
+            didcommKeys: Object.keys(didcomm),
+            messagePickup: {
+                exists: Boolean(didcomm.messagePickup),
+                methods: getMethods(didcomm.messagePickup),
+            },
+            mediator: {
+                exists: Boolean(didcomm.mediator),
+                methods: getMethods(didcomm.mediator),
+            },
+            mediationRecipient: {
+                exists: Boolean(didcomm.mediationRecipient),
+                methods: getMethods(didcomm.mediationRecipient),
+            },
+            })
+        } catch (err: unknown) {
+            const message = err instanceof Error ? err.message : String(err)
+            res.status(500).json({ error: message })
+        }
+    })
+
+
+    app.get('/message-pickup-api-debug', (_req, res) => {
+        try {
+            const api = (agent.modules.didcomm as any).messagePickup
+
+            res.json({
+            methods: [
+                ...new Set([
+                ...Object.getOwnPropertyNames(Object.getPrototypeOf(api)),
+                ...Object.keys(api),
+                ]),
+            ].sort(),
+            ownKeys: Object.keys(api),
+            config: api.config,
+            })
+        } catch (err: unknown) {
+            const message = err instanceof Error ? err.message : String(err)
+            res.status(500).json({ error: message })
+        }
+    })
+            
     app.get('/connections', async (_req, res) => {
         try {
             const connections = await agent.modules.didcomm.connections.getAll()
@@ -126,6 +236,7 @@ async function main() {
         process.exit(0)
     })
 }
+
 
 main().catch((err) => {
     console.error('Error starting mediator agent:', err)

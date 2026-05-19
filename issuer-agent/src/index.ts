@@ -197,6 +197,29 @@ async function main() {
     }
   })
 
+  app.get('/connections/:id/services', async (req, res) => {
+  try {
+    const connection = await agent.modules.didcomm.connections.getById(req.params.id)
+
+    if (!connection.theirDid) {
+      res.status(400).json({ error: 'Connection has no theirDid' })
+      return
+    }
+
+    const resolved = await agent.dids.resolve(connection.theirDid)
+
+    res.json({
+      connectionId: connection.id,
+      theirLabel: connection.theirLabel,
+      theirDid: connection.theirDid,
+      services: resolved.didDocument?.service ?? [],
+    })
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : String(err)
+    res.status(500).json({ error: message })
+  }
+})
+
   // ─── Exchanges ───────────────────────────────────────────────────────────
   app.get('/exchanges', async (_req, res) => {
     try {
