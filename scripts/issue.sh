@@ -33,8 +33,17 @@ echo -e "${YLW}└────────────────────�
 echo ""
 echo -e "${BLD}Einladungs-URL:${NC}"
 echo "$INV_URL"
+if command -v wl-copy >/dev/null 2>&1; then
+  printf '%s' "$INV_URL" | wl-copy 2>/dev/null && echo -e "  ${GRN}✓ In Zwischenablage kopiert${NC}"
+elif command -v xclip >/dev/null 2>&1; then
+  printf '%s' "$INV_URL" | xclip -selection clipboard 2>/dev/null && echo -e "  ${GRN}✓ In Zwischenablage kopiert${NC}"
+elif command -v xsel >/dev/null 2>&1; then
+  printf '%s' "$INV_URL" | xsel --clipboard --input 2>/dev/null && echo -e "  ${GRN}✓ In Zwischenablage kopiert${NC}"
+fi
 echo ""
-xdg-open "http://localhost:3000" 2>/dev/null || true
+if [ "${OPEN_BROWSER:-0}" = "1" ]; then
+  xdg-open "http://localhost:3000" 2>/dev/null || true
+fi
 
 CONN_COUNT_BEFORE=$(curl -sf "$ISSUER/connections" \
   | python3 -c "import sys,json; print(len([c for c in json.load(sys.stdin) if c['state']=='completed']))" 2>/dev/null || echo "0")
