@@ -1,15 +1,43 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+
+import '../data/wallet_repository.dart';
+import '../models/api_models.dart';
 import '../theme/app_theme.dart';
-import '../data/mock_data.dart';
-import '../models/models.dart';
+
+bool _isActive(WalletConnection c) => c.state == 'completed';
+
+String _stateLabel(String state) {
+  switch (state) {
+    case 'completed':
+      return 'Connected';
+    case 'request-sent':
+    case 'request-received':
+      return 'Handshake';
+    case 'invitation-sent':
+    case 'invitation-received':
+      return 'Invited';
+    case 'response-sent':
+    case 'response-received':
+      return 'Responding';
+    case 'abandoned':
+      return 'Abandoned';
+    default:
+      return state;
+  }
+}
 
 class ConnectionsScreen extends StatelessWidget {
   const ConnectionsScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
-    final active = MockData.connections.where((c) => c.isActive).toList();
-    final inactive = MockData.connections.where((c) => !c.isActive).toList();
+    final repo = context.watch<WalletRepository>();
+    final connections = repo.connections;
+    final active = connections.where(_isActive).toList();
+    final pending = connections.where((c) => !_isActive(c)).toList();
     final wc = context.wc;
 
     return Scaffold(
@@ -18,32 +46,213 @@ class ConnectionsScreen extends StatelessWidget {
         title: const Text('Network'),
         actions: [
           IconButton(
+            icon: const Icon(Icons.refresh_rounded),
+            tooltip: 'Refresh',
+            onPressed: repo.refreshAll,
+          ),
+          IconButton(
             icon: const Icon(Icons.add_link_rounded),
-            onPressed: () {},
+            tooltip: 'Add connection',
+            onPressed: () => _showInvitationDialog(context, repo),
           ),
           const SizedBox(width: 8),
         ],
       ),
-      body: ListView(
-        padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
-        children: [
-          _NetworkSummary(
-              active: active.length, total: MockData.connections.length),
-          const SizedBox(height: 24),
-          _SectionLabel('Active Connections',
-              count: active.length, color: AppColors.success),
-          const SizedBox(height: 12),
-          ...active.map((c) => _ConnectionCard(connection: c)),
-          if (inactive.isNotEmpty) ...[
-            const SizedBox(height: 20),
-            _SectionLabel('Inactive',
-                count: inactive.length,
-                color: context.wc.textTertiary),
-            const SizedBox(height: 12),
-            ...inactive.map((c) => _ConnectionCard(connection: c)),
+      body: RefreshIndicator(
+        onRefresh: repo.refreshAll,
+        child: ListView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
+          children: [
+            _NetworkSummary(active: active.length, total: connections.length),
+            const SizedBox(height: 24),
+            if (connections.isEmpty)
+              _EmptyState(onAdd: () => _showInvitationDialog(context, repo))
+            else ...[
+              if (active.isNotEmpty) ...[
+                _SectionLabel('Active Connections',
+                    count: active.length, color: AppColors.success),
+                const SizedBox(height: 12),
+                ...active.map((c) => _ConnectionCard(connection: c)),
+              ],
+              if (pending.isNotEmpty) ...[
+                const SizedBox(height: 20),
+                _SectionLabel('Pending / Inactive',
+                    count: pending.length, color: wc.textTertiary),
+                const SizedBox(height: 12),
+                ...pending.map((c) => _ConnectionCard(connection: c)),
+              ],
+            ],
           ],
-        ],
+        ),
       ),
+    );
+  }
+}
+
+Future<void> _showInvitationDialog(
+    BuildContext context, WalletRepository repo) async {
+  final controller = TextEditingController();
+  await showDialog<void>(
+    context: context,
+    builder: (ctx) => _InvitationDialog(controller: controller, repo: repo),
+  );
+  controller.dispose();
+}
+
+class _InvitationDialog extends StatefulWidget {
+  final TextEditingController controller;
+  final WalletRepository repo;
+
+  const _InvitationDialog({required this.controller, required this.repo});
+
+  @override
+  State<_InvitationDialog> createState() => _InvitationDialogState();
+}
+
+class _InvitationDialogState extends State<_InvitationDialog> {
+  String? _previewLabel;
+  String? _error;
+  bool _busy = false;
+
+  String? _decodeLabel(String url) {
+    try {
+      final match = RegExp(r'[?&]oob=([^&]+)').firstMatch(url);
+      if (match == null) return null;
+      var b64 = match.group(1)!.replaceAll('-', '+').replaceAll('_', '/');
+      while (b64.length % 4 != 0) {
+        b64 += '=';
+      }
+      final json = jsonDecode(utf8.decode(base64Decode(b64))) as Map<String, dynamic>;
+      return (json['label'] ?? json['from']) as String?;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  void _preview() {
+    final url = widget.controller.text.trim();
+    if (url.isEmpty) return;
+    setState(() {
+      _previewLabel = _decodeLabel(url) ?? 'Unknown';
+      _error = null;
+    });
+  }
+
+  Future<void> _connect() async {
+    final url = widget.controller.text.trim();
+    if (url.isEmpty) return;
+    setState(() {
+      _busy = true;
+      _error = null;
+    });
+    try {
+      await widget.repo.receiveInvitation(url);
+      if (mounted) Navigator.of(context).pop();
+    } catch (e) {
+      setState(() {
+        _busy = false;
+        _error = e.toString();
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final wc = context.wc;
+    return AlertDialog(
+      backgroundColor: wc.card,
+      title: const Text('Connect via OOB Invitation'),
+      content: SizedBox(
+        width: 460,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            TextField(
+              controller: widget.controller,
+              maxLines: 3,
+              minLines: 1,
+              style: const TextStyle(fontFamily: 'monospace', fontSize: 13),
+              decoration: InputDecoration(
+                hintText: 'https://…?oob=…',
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ),
+              onChanged: (_) => setState(() => _previewLabel = null),
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                TextButton.icon(
+                  onPressed: _busy ? null : _preview,
+                  icon: const Icon(Icons.visibility_outlined, size: 16),
+                  label: const Text('Preview'),
+                ),
+              ],
+            ),
+            if (_previewLabel != null) ...[
+              const SizedBox(height: 4),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: AppColors.primary.withOpacity(0.08),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: AppColors.primary.withOpacity(0.25)),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'INVITATION FROM',
+                      style: TextStyle(
+                        color: wc.textTertiary,
+                        fontSize: 10,
+                        fontWeight: FontWeight.w600,
+                        letterSpacing: 1.2,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      _previewLabel!,
+                      style: TextStyle(
+                        color: wc.textPrimary,
+                        fontSize: 15,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+            if (_error != null) ...[
+              const SizedBox(height: 12),
+              Text(
+                _error!,
+                style: const TextStyle(color: AppColors.error, fontSize: 12),
+              ),
+            ],
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: _busy ? null : () => Navigator.of(context).pop(),
+          child: const Text('Cancel'),
+        ),
+        FilledButton.icon(
+          onPressed: _busy ? null : _connect,
+          icon: _busy
+              ? const SizedBox(
+                  width: 14,
+                  height: 14,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : const Icon(Icons.link_rounded, size: 16),
+          label: const Text('Connect'),
+        ),
+      ],
     );
   }
 }
@@ -221,16 +430,62 @@ class _SectionLabel extends StatelessWidget {
   }
 }
 
+class _EmptyState extends StatelessWidget {
+  final VoidCallback onAdd;
+  const _EmptyState({required this.onAdd});
+
+  @override
+  Widget build(BuildContext context) {
+    final wc = context.wc;
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 40, horizontal: 24),
+      decoration: BoxDecoration(
+        color: wc.card,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: wc.border),
+      ),
+      child: Column(
+        children: [
+          Icon(Icons.hub_outlined, color: wc.textTertiary, size: 48),
+          const SizedBox(height: 12),
+          Text(
+            'No connections yet',
+            style: TextStyle(
+              color: wc.textPrimary,
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            'Paste an OOB invitation URL to connect to an issuer or verifier.',
+            textAlign: TextAlign.center,
+            style: TextStyle(color: wc.textSecondary, fontSize: 12),
+          ),
+          const SizedBox(height: 16),
+          FilledButton.icon(
+            onPressed: onAdd,
+            icon: const Icon(Icons.add_link_rounded, size: 16),
+            label: const Text('Add connection'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _ConnectionCard extends StatelessWidget {
-  final DIDConnection connection;
+  final WalletConnection connection;
 
   const _ConnectionCard({required this.connection});
 
   @override
   Widget build(BuildContext context) {
     final c = connection;
-    final color = c.isActive ? AppColors.success : context.wc.textTertiary;
+    final active = _isActive(c);
+    final color = active ? AppColors.success : context.wc.textTertiary;
     final wc = context.wc;
+    final did = c.theirDid;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
@@ -239,9 +494,7 @@ class _ConnectionCard extends StatelessWidget {
         color: wc.card,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: c.isActive
-              ? AppColors.success.withOpacity(0.2)
-              : wc.border,
+          color: active ? AppColors.success.withOpacity(0.2) : wc.border,
         ),
       ),
       child: Row(
@@ -283,7 +536,7 @@ class _ConnectionCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  c.label,
+                  c.theirLabel ?? 'Unknown',
                   style: TextStyle(
                     color: wc.textPrimary,
                     fontSize: 14,
@@ -292,7 +545,7 @@ class _ConnectionCard extends StatelessWidget {
                 ),
                 const SizedBox(height: 3),
                 Text(
-                  _shortDid(c.theirDid),
+                  did == null || did.isEmpty ? c.id : _shortDid(did),
                   style: TextStyle(
                     color: wc.textSecondary,
                     fontSize: 11,
@@ -305,13 +558,25 @@ class _ConnectionCard extends StatelessWidget {
           Column(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              Text(
-                'Connected',
-                style: TextStyle(color: wc.textTertiary, fontSize: 11),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                decoration: BoxDecoration(
+                  color: color.withOpacity(0.12),
+                  borderRadius: BorderRadius.circular(6),
+                  border: Border.all(color: color.withOpacity(0.3)),
+                ),
+                child: Text(
+                  _stateLabel(c.state),
+                  style: TextStyle(
+                    color: color,
+                    fontSize: 10,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
               ),
-              const SizedBox(height: 2),
+              const SizedBox(height: 4),
               Text(
-                _formatDate(c.connectedAt),
+                _formatDate(c.createdAt),
                 style: TextStyle(
                   color: wc.textSecondary,
                   fontSize: 11,
