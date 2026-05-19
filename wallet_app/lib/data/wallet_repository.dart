@@ -57,8 +57,12 @@ class WalletRepository extends ChangeNotifier {
     if (log.length > 500) log.removeRange(500, log.length);
 
     switch (ev.type) {
+      case 'connected':
       case 'system':
         isLive = true;
+        break;
+      case 'disconnected':
+        isLive = false;
         break;
       case 'connection':
         _safeUnawaited(() async => connections = await _api.connections());

@@ -65,6 +65,16 @@ class WalletEventStream {
     _sub?.cancel();
     _sub = null;
     if (_closed) return;
+    // Notify the repository that we are currently disconnected — it will
+    // toggle isLive back to true once the next 'connected' event arrives.
+    _controller?.add(WalletEvent(
+      type: 'disconnected',
+      state: null,
+      theirLabel: null,
+      isVerified: null,
+      timestamp: DateTime.now(),
+      raw: const {'type': 'disconnected'},
+    ));
     Future.delayed(reconnectDelay, _connect);
   }
 

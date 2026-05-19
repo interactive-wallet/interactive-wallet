@@ -53,10 +53,19 @@ cd wallet_app && flutter pub get && cd ..
 cd von-network && ./manage build && cd ..
 ```
 
-Für die Flutter-Desktop-App werden zusätzlich Build-Deps benötigt (auf Arch):
+Für die Flutter-App unter Linux werden zusätzlich Build-Tools benötigt. Installiere `clang`, `cmake`, `ninja`, `pkg-config`, GTK 3 Headers und Mesa über deinen Paketmanager. Beispiele:
 
 ```bash
+# Ubuntu
+sudo apt install clang cmake ninja-build pkg-config libgtk-3-dev libstdc++-12-dev
+
+# Arch
 sudo pacman -S --needed clang cmake ninja pkgconf gtk3 mesa
+```
+
+Dann einmalig:
+
+```bash
 flutter config --enable-linux-desktop
 ```
 
@@ -72,13 +81,14 @@ cd issuer-agent   && pnpm start
 cd verifier-agent && pnpm start
 
 # 3. Flutter Wallet App
-cd wallet_app && flutter run -d linux
+cd wallet_app
+flutter run -d linux
 ```
 
 Es gibt **zwei austauschbare Frontends** auf demselben wallet-agent:
 
-- **Flutter Desktop** — primäre UI mit ledger-Identitätsanzeige
-- **HTML Referenz-UI** unter <http://localhost:3000> — funktioniert parallel, gleicher State
+- **Flutter App** — primäre UI mit ledger-Identitätsanzeige, läuft nativ unter Linux
+- **HTML Referenz-UI** unter <http://localhost:3000> — direkt vom wallet-agent ausgeliefert, kein Flutter nötig, gleicher State
 
 ## Demo-Flow
 

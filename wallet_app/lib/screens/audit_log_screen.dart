@@ -34,6 +34,8 @@ _EventStyle _styleFor(WalletEvent e) {
         'Connection',
       );
     case 'system':
+    case 'connected':
+    case 'disconnected':
       return _EventStyle(
         AppColors.purple,
         Icons.settings_outlined,
@@ -52,7 +54,10 @@ String _describe(WalletEvent e) {
   final state = e.state;
   switch (e.type) {
     case 'system':
+    case 'connected':
       return 'Live connection to wallet-agent established';
+    case 'disconnected':
+      return 'Live connection lost — retrying…';
     case 'connection':
       final who = e.theirLabel ?? 'unknown peer';
       switch (state) {
