@@ -1,17 +1,55 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+
+import '../data/wallet_repository.dart';
+import '../models/api_models.dart';
 import '../theme/app_theme.dart';
-import '../data/mock_data.dart';
-import '../models/models.dart';
+
+const _attrLabels = <String, String>{
+  'vorname': 'Vorname',
+  'nachname': 'Nachname',
+  'geburtsdatum': 'Geburtsdatum',
+  'fuehrerscheinklasse': 'Klasse',
+  'ausstellungsdatum': 'Ausgestellt am',
+};
+
+String _schemaName(String? schemaId) {
+  if (schemaId == null || schemaId.isEmpty) return 'Credential';
+  final parts = schemaId.split('/');
+  final idx = parts.indexOf('SCHEMA');
+  if (idx != -1 && idx + 1 < parts.length) return parts[idx + 1];
+  return schemaId.split(':').last;
+}
+
+String _issuerDidFromCredDef(String? credDefId) {
+  if (credDefId == null || credDefId.isEmpty) return '';
+  final idx = credDefId.indexOf('/anoncreds/');
+  return idx > 0 ? credDefId.substring(0, idx) : credDefId;
+}
+
+IconData _iconForSchema(String name) {
+  switch (name.toLowerCase()) {
+    case 'fuehrerschein':
+    case 'driverslicense':
+      return Icons.directions_car_rounded;
+    case 'universitydegree':
+      return Icons.school_rounded;
+    case 'nationalid':
+      return Icons.badge_rounded;
+    case 'healthinsurance':
+      return Icons.local_hospital_rounded;
+    default:
+      return Icons.card_membership_rounded;
+  }
+}
 
 class WalletScreen extends StatelessWidget {
   const WalletScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
-    final valid =
-        MockData.credentials.where((c) => c.status == CredentialStatus.valid).toList();
-    final other =
-        MockData.credentials.where((c) => c.status != CredentialStatus.valid).toList();
+    final repo = context.watch<WalletRepository>();
+    final credentials = repo.credentials;
     final wc = context.wc;
 
     return Scaffold(
@@ -20,41 +58,43 @@ class WalletScreen extends StatelessWidget {
         title: const Text('Wallet'),
         actions: [
           IconButton(
-            icon: const Icon(Icons.add_circle_outline_rounded),
-            onPressed: () {},
+            icon: const Icon(Icons.refresh_rounded),
+            tooltip: 'Refresh',
+            onPressed: repo.refreshAll,
           ),
           const SizedBox(width: 8),
         ],
       ),
-      body: ListView(
-        padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
-        children: [
-          _WalletSummary(),
-          const SizedBox(height: 24),
-          _Label(text: 'Active Credentials', context: context),
-          const SizedBox(height: 12),
-          ...valid.map((c) => _CredentialCard(credential: c)),
-          if (other.isNotEmpty) ...[
-            const SizedBox(height: 20),
-            _Label(text: 'Inactive Credentials', context: context),
-            const SizedBox(height: 12),
-            ...other.map((c) => _CredentialCard(credential: c)),
+      body: RefreshIndicator(
+        onRefresh: repo.refreshAll,
+        child: ListView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
+          children: [
+            _WalletSummary(count: credentials.length, isLive: repo.isLive),
+            const SizedBox(height: 24),
+            if (credentials.isEmpty)
+              _EmptyState()
+            else ...[
+              _Label(text: 'Active Credentials', context: context),
+              const SizedBox(height: 12),
+              ...credentials.map((c) => _CredentialCard(credential: c)),
+            ],
           ],
-        ],
+        ),
       ),
     );
   }
 }
 
 class _WalletSummary extends StatelessWidget {
+  final int count;
+  final bool isLive;
+
+  const _WalletSummary({required this.count, required this.isLive});
+
   @override
   Widget build(BuildContext context) {
-    final valid =
-        MockData.credentials.where((c) => c.status == CredentialStatus.valid).length;
-    final expired =
-        MockData.credentials.where((c) => c.status == CredentialStatus.expired).length;
-    final revoked =
-        MockData.credentials.where((c) => c.status == CredentialStatus.revoked).length;
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final wc = context.wc;
 
@@ -104,36 +144,39 @@ class _WalletSummary extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 16),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'My Credentials',
-                style: TextStyle(
-                  color: wc.textSecondary,
-                  fontSize: 12,
-                  letterSpacing: 0.3,
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'My Credentials',
+                  style: TextStyle(
+                    color: wc.textSecondary,
+                    fontSize: 12,
+                    letterSpacing: 0.3,
+                  ),
                 ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                'Identity Wallet',
-                style: TextStyle(
-                  color: wc.textPrimary,
-                  fontSize: 16,
-                  fontWeight: FontWeight.w700,
+                const SizedBox(height: 4),
+                Text(
+                  'Identity Wallet',
+                  style: TextStyle(
+                    color: wc.textPrimary,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
-          const Spacer(),
           Column(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              _SummaryBadge('$valid Valid', AppColors.success),
+              _SummaryBadge('$count Stored', AppColors.success),
               const SizedBox(height: 4),
-              if (expired > 0) _SummaryBadge('$expired Expired', AppColors.error),
-              if (revoked > 0) _SummaryBadge('$revoked Revoked', AppColors.warning),
+              _SummaryBadge(
+                isLive ? 'Live' : 'Offline',
+                isLive ? AppColors.success : AppColors.warning,
+              ),
             ],
           ),
         ],
@@ -188,8 +231,43 @@ class _Label extends StatelessWidget {
   }
 }
 
+class _EmptyState extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    final wc = context.wc;
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 48, horizontal: 24),
+      decoration: BoxDecoration(
+        color: wc.card,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: wc.border),
+      ),
+      child: Column(
+        children: [
+          Icon(Icons.inbox_rounded, color: wc.textTertiary, size: 48),
+          const SizedBox(height: 12),
+          Text(
+            'No credentials yet',
+            style: TextStyle(
+              color: wc.textPrimary,
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            'Accept a credential offer to see it here.',
+            textAlign: TextAlign.center,
+            style: TextStyle(color: wc.textSecondary, fontSize: 12),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _CredentialCard extends StatefulWidget {
-  final Credential credential;
+  final StoredCredential credential;
 
   const _CredentialCard({required this.credential});
 
@@ -200,51 +278,12 @@ class _CredentialCard extends StatefulWidget {
 class _CredentialCardState extends State<_CredentialCard> {
   bool _expanded = false;
 
-  Color get _accentColor {
-    switch (widget.credential.status) {
-      case CredentialStatus.valid:
-        return AppColors.success;
-      case CredentialStatus.expired:
-        return AppColors.error;
-      case CredentialStatus.revoked:
-        return AppColors.warning;
-    }
-  }
-
-  String get _statusLabel {
-    switch (widget.credential.status) {
-      case CredentialStatus.valid:
-        return 'Valid';
-      case CredentialStatus.expired:
-        return 'Expired';
-      case CredentialStatus.revoked:
-        return 'Revoked';
-    }
-  }
-
-  IconData get _typeIcon {
-    switch (widget.credential.type) {
-      case 'UniversityDegree':
-        return Icons.school_rounded;
-      case 'NationalID':
-        return Icons.badge_rounded;
-      case 'EmploymentCredential':
-        return Icons.work_rounded;
-      case 'HealthInsurance':
-        return Icons.local_hospital_rounded;
-      case 'DriversLicense':
-        return Icons.directions_car_rounded;
-      case 'AirportAccessPass':
-        return Icons.flight_takeoff_rounded;
-      default:
-        return Icons.card_membership_rounded;
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
-    final color = _accentColor;
+    final color = AppColors.success;
     final c = widget.credential;
+    final schema = _schemaName(c.schemaId);
+    final issuerDid = _issuerDidFromCredDef(c.credentialDefinitionId);
     final wc = context.wc;
 
     return Container(
@@ -276,7 +315,7 @@ class _CredentialCardState extends State<_CredentialCard> {
                           borderRadius: BorderRadius.circular(13),
                           border: Border.all(color: color.withOpacity(0.25)),
                         ),
-                        child: Icon(_typeIcon, color: color, size: 22),
+                        child: Icon(_iconForSchema(schema), color: color, size: 22),
                       ),
                       const SizedBox(width: 14),
                       Expanded(
@@ -284,7 +323,7 @@ class _CredentialCardState extends State<_CredentialCard> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              _formatType(c.type),
+                              schema,
                               style: TextStyle(
                                 color: wc.textPrimary,
                                 fontSize: 15,
@@ -293,7 +332,7 @@ class _CredentialCardState extends State<_CredentialCard> {
                             ),
                             const SizedBox(height: 3),
                             Text(
-                              _shortDid(c.issuerDid),
+                              _shortDid(issuerDid),
                               style: TextStyle(
                                 color: wc.textSecondary,
                                 fontSize: 11,
@@ -306,7 +345,7 @@ class _CredentialCardState extends State<_CredentialCard> {
                       Column(
                         crossAxisAlignment: CrossAxisAlignment.end,
                         children: [
-                          _StatusPill(label: _statusLabel, color: color),
+                          _StatusPill(label: 'AnonCreds', color: color),
                           const SizedBox(height: 6),
                           Icon(
                             _expanded
@@ -324,18 +363,9 @@ class _CredentialCardState extends State<_CredentialCard> {
                     children: [
                       _DateChip(
                         icon: Icons.calendar_today_outlined,
-                        label: 'Issued',
-                        date: _formatDate(c.issuedAt),
+                        label: 'Received',
+                        date: _formatDate(c.createdAt),
                       ),
-                      if (c.expiresAt != null) ...[
-                        const SizedBox(width: 10),
-                        _DateChip(
-                          icon: Icons.event_busy_outlined,
-                          label: 'Expires',
-                          date: _formatDate(c.expiresAt!),
-                          highlight: c.status == CredentialStatus.expired,
-                        ),
-                      ],
                     ],
                   ),
                 ],
@@ -359,28 +389,34 @@ class _CredentialCardState extends State<_CredentialCard> {
                     ),
                   ),
                   const SizedBox(height: 12),
-                  ...c.claims.entries
-                      .map((e) => _ClaimRow(key_: e.key, value: e.value)),
-                  const SizedBox(height: 12),
-                  Text(
-                    'ISSUER',
-                    style: TextStyle(
-                      color: wc.textTertiary,
-                      fontSize: 10,
-                      fontWeight: FontWeight.w600,
-                      letterSpacing: 1.2,
+                  ...c.attributes.entries.map(
+                    (e) => _ClaimRow(
+                      key_: _attrLabels[e.key] ?? e.key,
+                      value: e.value,
                     ),
                   ),
-                  const SizedBox(height: 8),
-                  Text(
-                    c.issuerDid,
-                    style: TextStyle(
-                      color: wc.textSecondary,
-                      fontSize: 10.5,
-                      fontFamily: 'monospace',
-                      height: 1.5,
+                  if (c.credentialDefinitionId != null) ...[
+                    const SizedBox(height: 12),
+                    Text(
+                      'CRED DEF',
+                      style: TextStyle(
+                        color: wc.textTertiary,
+                        fontSize: 10,
+                        fontWeight: FontWeight.w600,
+                        letterSpacing: 1.2,
+                      ),
                     ),
-                  ),
+                    const SizedBox(height: 8),
+                    Text(
+                      c.credentialDefinitionId!,
+                      style: TextStyle(
+                        color: wc.textSecondary,
+                        fontSize: 10.5,
+                        fontFamily: 'monospace',
+                        height: 1.5,
+                      ),
+                    ),
+                  ],
                 ],
               ),
             ),
@@ -388,12 +424,6 @@ class _CredentialCardState extends State<_CredentialCard> {
         ],
       ),
     );
-  }
-
-  String _formatType(String type) {
-    return type
-        .replaceAllMapped(RegExp(r'([A-Z])'), (m) => ' ${m.group(0)}')
-        .trim();
   }
 
   String _shortDid(String did) {
@@ -434,19 +464,16 @@ class _DateChip extends StatelessWidget {
   final IconData icon;
   final String label;
   final String date;
-  final bool highlight;
 
   const _DateChip({
     required this.icon,
     required this.label,
     required this.date,
-    this.highlight = false,
   });
 
   @override
   Widget build(BuildContext context) {
-    final color =
-        highlight ? AppColors.error : context.wc.textTertiary;
+    final color = context.wc.textTertiary;
     return Row(
       children: [
         Icon(icon, color: color, size: 12),
