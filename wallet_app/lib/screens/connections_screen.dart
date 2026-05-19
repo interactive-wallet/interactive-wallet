@@ -9,6 +9,36 @@ import '../theme/app_theme.dart';
 
 bool _isActive(WalletConnection c) => c.state == 'completed';
 
+bool _isLedgerDid(String? did) =>
+    did != null && (did.startsWith('did:indy:') || did.startsWith('did:sov:'));
+
+class _DecodedInvitation {
+  final String? label;
+  final String? from;
+  const _DecodedInvitation({this.label, this.from});
+
+  bool get hasLedgerIdentity => _isLedgerDid(from);
+}
+
+_DecodedInvitation _decodeInvitation(String url) {
+  try {
+    final match = RegExp(r'[?&]oob=([^&]+)').firstMatch(url);
+    if (match == null) return const _DecodedInvitation();
+    var b64 = match.group(1)!.replaceAll('-', '+').replaceAll('_', '/');
+    while (b64.length % 4 != 0) {
+      b64 += '=';
+    }
+    final json =
+        jsonDecode(utf8.decode(base64Decode(b64))) as Map<String, dynamic>;
+    return _DecodedInvitation(
+      label: json['label'] as String?,
+      from: json['from'] as String?,
+    );
+  } catch (_) {
+    return const _DecodedInvitation();
+  }
+}
+
 String _stateLabel(String state) {
   switch (state) {
     case 'completed':
@@ -111,30 +141,15 @@ class _InvitationDialog extends StatefulWidget {
 }
 
 class _InvitationDialogState extends State<_InvitationDialog> {
-  String? _previewLabel;
+  _DecodedInvitation? _preview;
   String? _error;
   bool _busy = false;
 
-  String? _decodeLabel(String url) {
-    try {
-      final match = RegExp(r'[?&]oob=([^&]+)').firstMatch(url);
-      if (match == null) return null;
-      var b64 = match.group(1)!.replaceAll('-', '+').replaceAll('_', '/');
-      while (b64.length % 4 != 0) {
-        b64 += '=';
-      }
-      final json = jsonDecode(utf8.decode(base64Decode(b64))) as Map<String, dynamic>;
-      return (json['label'] ?? json['from']) as String?;
-    } catch (_) {
-      return null;
-    }
-  }
-
-  void _preview() {
+  void _doPreview() {
     final url = widget.controller.text.trim();
     if (url.isEmpty) return;
     setState(() {
-      _previewLabel = _decodeLabel(url) ?? 'Unknown';
+      _preview = _decodeInvitation(url);
       _error = null;
     });
   }
@@ -180,51 +195,21 @@ class _InvitationDialogState extends State<_InvitationDialog> {
                   borderRadius: BorderRadius.circular(8),
                 ),
               ),
-              onChanged: (_) => setState(() => _previewLabel = null),
+              onChanged: (_) => setState(() => _preview = null),
             ),
             const SizedBox(height: 12),
             Row(
               children: [
                 TextButton.icon(
-                  onPressed: _busy ? null : _preview,
+                  onPressed: _busy ? null : _doPreview,
                   icon: const Icon(Icons.visibility_outlined, size: 16),
                   label: const Text('Preview'),
                 ),
               ],
             ),
-            if (_previewLabel != null) ...[
+            if (_preview != null) ...[
               const SizedBox(height: 4),
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: AppColors.primary.withOpacity(0.08),
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: AppColors.primary.withOpacity(0.25)),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'INVITATION FROM',
-                      style: TextStyle(
-                        color: wc.textTertiary,
-                        fontSize: 10,
-                        fontWeight: FontWeight.w600,
-                        letterSpacing: 1.2,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      _previewLabel!,
-                      style: TextStyle(
-                        color: wc.textPrimary,
-                        fontSize: 15,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
+              _PreviewBox(decoded: _preview!),
             ],
             if (_error != null) ...[
               const SizedBox(height: 12),
@@ -253,6 +238,88 @@ class _InvitationDialogState extends State<_InvitationDialog> {
           label: const Text('Connect'),
         ),
       ],
+    );
+  }
+}
+
+class _PreviewBox extends StatelessWidget {
+  final _DecodedInvitation decoded;
+
+  const _PreviewBox({required this.decoded});
+
+  @override
+  Widget build(BuildContext context) {
+    final wc = context.wc;
+    final verified = decoded.hasLedgerIdentity;
+    final color = verified ? AppColors.success : AppColors.warning;
+
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.08),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: color.withOpacity(0.3)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(
+                verified ? Icons.verified_rounded : Icons.warning_amber_rounded,
+                color: color,
+                size: 14,
+              ),
+              const SizedBox(width: 6),
+              Text(
+                verified
+                    ? 'VERIFIED IDENTITY'
+                    : 'LABEL ONLY · NOT LEDGER-VERIFIED',
+                style: TextStyle(
+                  color: color,
+                  fontSize: 10,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 1.2,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Text(
+            decoded.label ?? 'Unknown',
+            style: TextStyle(
+              color: wc.textPrimary,
+              fontSize: 15,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          if (decoded.from != null) ...[
+            const SizedBox(height: 4),
+            Text(
+              decoded.from!,
+              style: TextStyle(
+                color: wc.textSecondary,
+                fontSize: 10.5,
+                fontFamily: 'monospace',
+                height: 1.4,
+              ),
+            ),
+          ],
+          if (!verified) ...[
+            const SizedBox(height: 6),
+            Text(
+              'The label above is self-declared by the inviter. '
+              'Without a public DID, the wallet cannot verify the identity '
+              'against the ledger.',
+              style: TextStyle(
+                color: wc.textSecondary,
+                fontSize: 11,
+                height: 1.4,
+              ),
+            ),
+          ],
+        ],
+      ),
     );
   }
 }
@@ -535,13 +602,30 @@ class _ConnectionCard extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  c.theirLabel ?? 'Unknown',
-                  style: TextStyle(
-                    color: wc.textPrimary,
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                  ),
+                Row(
+                  children: [
+                    Flexible(
+                      child: Text(
+                        c.theirLabel ?? 'Unknown',
+                        style: TextStyle(
+                          color: wc.textPrimary,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                    if (_isLedgerDid(did)) ...[
+                      const SizedBox(width: 6),
+                      Tooltip(
+                        message: 'Ledger-verified identity',
+                        child: Icon(
+                          Icons.verified_rounded,
+                          color: AppColors.success,
+                          size: 14,
+                        ),
+                      ),
+                    ],
+                  ],
                 ),
                 const SizedBox(height: 3),
                 Text(

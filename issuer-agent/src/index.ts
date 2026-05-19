@@ -155,10 +155,15 @@ async function main() {
   })
 
   // ─── Invitation ──────────────────────────────────────────────────────────
+  // If /setup has run, the invitation carries the issuer's public did:indy
+  // so the holder wallet can resolve and verify it against the ledger
+  // before accepting the connection.
   app.get('/invitation', async (_req, res) => {
     try {
+      const state = loadState()
       const oobRecord = await agent.modules.didcomm.oob.createInvitation({
         label: process.env.AGENT_LABEL ?? 'Interactive Issuer',
+        invitationDid: state?.issuerDid,
         handshakeProtocols: [DidCommHandshakeProtocol.Connections],
       })
       res.json({
@@ -167,6 +172,7 @@ async function main() {
         }),
         invitation: oobRecord.outOfBandInvitation.toJSON(),
         oobId: oobRecord.id,
+        invitationDid: state?.issuerDid ?? null,
       })
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err)

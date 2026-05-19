@@ -7,6 +7,7 @@ GRN='\033[0;32m'; YLW='\033[1;33m'; CYN='\033[0;36m'; RED='\033[0;31m'; BLD='\03
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 ISSUER="http://localhost:3002"
+VERIFIER="http://localhost:3004"
 WALLET="http://localhost:3000"
 
 echo -e "${BLD}┌─────────────────────────────────────┐${NC}"
@@ -15,7 +16,7 @@ echo -e "${BLD}└────────────────────�
 echo ""
 
 # ── 1. Issuer DID registrieren ───────────────────────────────────────────────
-echo -e "${CYN}[1/4] Issuer-DID auf VON registrieren…${NC}"
+echo -e "${CYN}[1/5] Issuer-DID auf VON registrieren…${NC}"
 rm -f "$ROOT/issuer-agent/issuer-state.json"
 SETUP=$(curl -sf -X POST "$ISSUER/setup" 2>/dev/null || echo '{"error":"Issuer nicht erreichbar"}')
 if echo "$SETUP" | python3 -c "import sys,json; d=json.load(sys.stdin); sys.exit(1 if 'error' in d else 0)" 2>/dev/null; then
@@ -26,8 +27,20 @@ else
 fi
 echo ""
 
+# ── 2. Verifier DID registrieren ─────────────────────────────────────────────
+echo -e "${CYN}[2/5] Verifier-DID auf VON registrieren…${NC}"
+rm -f "$ROOT/verifier-agent/verifier-state.json"
+V_SETUP=$(curl -sf -X POST "$VERIFIER/setup" 2>/dev/null || echo '{"error":"Verifier nicht erreichbar"}')
+if echo "$V_SETUP" | python3 -c "import sys,json; d=json.load(sys.stdin); sys.exit(1 if 'error' in d else 0)" 2>/dev/null; then
+  V_DID=$(echo "$V_SETUP" | python3 -c "import sys,json; print(json.load(sys.stdin)['verifierDid'])")
+  echo -e "  ${GRN}✓${NC} Verifier-DID: $V_DID"
+else
+  echo -e "  ${RED}✗ Fehler:${NC} $V_SETUP"; exit 1
+fi
+echo ""
+
 # ── 2. Einladung holen & in UI einfügen ──────────────────────────────────────
-echo -e "${CYN}[2/4] Verbindung Wallet ↔ Issuer herstellen…${NC}"
+echo -e "${CYN}[3/5] Verbindung Wallet ↔ Issuer herstellen…${NC}"
 INV_URL=$(curl -sf "$ISSUER/invitation" | python3 -c "import sys,json; print(json.load(sys.stdin)['invitationUrl'])")
 
 echo ""
@@ -62,7 +75,7 @@ done
 echo ""
 
 # ── 3. Credential ausstellen ─────────────────────────────────────────────────
-echo -e "${CYN}[3/4] Führerschein-Angebot senden…${NC}"
+echo -e "${CYN}[4/5] Führerschein-Angebot senden…${NC}"
 CONN=$(curl -sf "$ISSUER/connections" \
   | python3 -c "import sys,json; d=sorted([c for c in json.load(sys.stdin) if c['state']=='completed'], key=lambda x:x['createdAt'], reverse=True); print(d[0]['id'])")
 curl -sf -X POST "$ISSUER/issue" \
@@ -85,7 +98,7 @@ echo -e "${YLW}│     Klicke auf Annehmen                                 │${
 echo -e "${YLW}└─────────────────────────────────────────────────────────┘${NC}"
 echo ""
 
-echo -e "${CYN}[4/4] Warte auf Annahme in der UI…${NC}"
+echo -e "${CYN}[5/5] Warte auf Annahme in der UI…${NC}"
 for i in $(seq 1 120); do
   COUNT=$(curl -sf "$WALLET/credentials" \
     | python3 -c "import sys,json; print(len(json.load(sys.stdin)))" 2>/dev/null || echo "0")

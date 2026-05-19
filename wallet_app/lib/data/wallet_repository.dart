@@ -104,17 +104,35 @@ class WalletRepository extends ChangeNotifier {
   Future<void> receiveInvitation(String url) =>
       _runCommand(() => _api.receiveInvitation(url));
 
-  Future<void> acceptCredential(String id) =>
-      _runCommand(() => _api.acceptCredential(id));
+  Future<void> acceptCredential(String id) => _runCommand(() async {
+        // Optimistically remove from the pending list so the card disappears
+        // immediately. SSE will reconcile shortly after.
+        pendingCredentials = pendingCredentials.where((c) => c.id != id).toList();
+        notifyListeners();
+        await _api.acceptCredential(id);
+        pendingCredentials = await _api.pendingCredentials();
+      });
 
-  Future<void> declineCredential(String id) =>
-      _runCommand(() => _api.declineCredential(id));
+  Future<void> declineCredential(String id) => _runCommand(() async {
+        pendingCredentials = pendingCredentials.where((c) => c.id != id).toList();
+        notifyListeners();
+        await _api.declineCredential(id);
+        pendingCredentials = await _api.pendingCredentials();
+      });
 
-  Future<void> acceptProof(String id) =>
-      _runCommand(() => _api.acceptProof(id));
+  Future<void> acceptProof(String id) => _runCommand(() async {
+        proofExchanges = proofExchanges.where((p) => p.id != id).toList();
+        notifyListeners();
+        await _api.acceptProof(id);
+        proofExchanges = await _api.proofExchanges();
+      });
 
-  Future<void> declineProof(String id) =>
-      _runCommand(() => _api.declineProof(id));
+  Future<void> declineProof(String id) => _runCommand(() async {
+        proofExchanges = proofExchanges.where((p) => p.id != id).toList();
+        notifyListeners();
+        await _api.declineProof(id);
+        proofExchanges = await _api.proofExchanges();
+      });
 
   Future<void> _runCommand(Future<void> Function() action) async {
     try {
