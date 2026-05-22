@@ -41,17 +41,6 @@ const agent = createAgent();
 await agent.initialize();
 console.log("Issuer Agent initialized");
 
-// TODO NYM
-const outOfBandRecord = await agent.modules.didcomm.oob.createInvitation({
-  label: "Issuer",
-  autoAcceptConnection: true,
-  handshakeProtocols: [DidCommHandshakeProtocol.DidExchange],
-});
-const invitationUrl = outOfBandRecord.outOfBandInvitation.toUrl({
-  domain: ISSUER_HTTP_ENDPOINT,
-});
-console.log(invitationUrl);
-
 const app = express();
 app.use(cors());
 app.use(express.json());
@@ -145,31 +134,17 @@ if (!state) {
   saveState(state);
 }
 
-// ─── Invitation ──────────────────────────────────────────────────────────
-// If /setup has run, the invitation carries the issuer's public did:indy
-// so the holder wallet can resolve and verify it against the ledger
-// before accepting the connection.
-app.get("/invitation", async (_req, res) => {
-  try {
-    const oobRecord = await agent.modules.didcomm.oob.createInvitation({
-      label: "Issuer",
-      invitationDid: state?.issuerDid,
-      autoAcceptConnection: true,
-      handshakeProtocols: [DidCommHandshakeProtocol.Connections],
-    });
-    res.json({
-      invitationUrl: oobRecord.outOfBandInvitation.toUrl({
-        domain: ISSUER_HTTP_ENDPOINT,
-      }),
-      //invitation: oobRecord.outOfBandInvitation.toJSON(),
-      oobId: oobRecord.id,
-      invitationDid: state?.issuerDid ?? null,
-    });
-  } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : String(err);
-    res.status(500).json({ error: message });
-  }
+// TODO NYM
+const outOfBandRecord = await agent.modules.didcomm.oob.createInvitation({
+  label: "Issuer",
+  autoAcceptConnection: true,
+  invitationDid: state.issuerDid,
+  handshakeProtocols: [DidCommHandshakeProtocol.DidExchange],
 });
+const invitationUrl = outOfBandRecord.outOfBandInvitation.toUrl({
+  domain: ISSUER_HTTP_ENDPOINT,
+});
+console.log(invitationUrl);
 
 // ─── Connections ──────────────────────────────────────────────────────────
 app.get("/connections", async (_req, res) => {
