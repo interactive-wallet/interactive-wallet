@@ -9,34 +9,34 @@ importers:
   .:
     dependencies:
       '@credo-ts/anoncreds':
-        specifier: ^0.7.0
+        specifier: 0.7.0
         version: 0.7.0(@hyperledger/anoncreds-shared@0.4.0)(typescript@5.9.3)
       '@credo-ts/askar':
-        specifier: ^0.7.0
+        specifier: 0.7.0
         version: 0.7.0(@openwallet-foundation/askar-shared@0.6.0)(typescript@5.9.3)
       '@credo-ts/core':
-        specifier: ^0.7.0
+        specifier: 0.7.0
         version: 0.7.0(typescript@5.9.3)
       '@credo-ts/didcomm':
-        specifier: ^0.7.0
+        specifier: 0.7.0
         version: 0.7.0(typescript@5.9.3)
       '@credo-ts/indy-vdr':
-        specifier: ^0.7.0
+        specifier: 0.7.0
         version: 0.7.0(@hyperledger/anoncreds-shared@0.4.0)(@hyperledger/indy-vdr-shared@0.3.0)(typescript@5.9.3)
       '@credo-ts/node':
-        specifier: ^0.7.0
+        specifier: 0.7.0
         version: 0.7.0(typescript@5.9.3)
       '@hyperledger/anoncreds-nodejs':
-        specifier: ^0.4.0
+        specifier: 0.4.0
         version: 0.4.0
       '@hyperledger/anoncreds-shared':
-        specifier: ^0.4.0
+        specifier: 0.4.0
         version: 0.4.0
       '@hyperledger/indy-vdr-nodejs':
-        specifier: ^0.3.0
+        specifier: 0.3.0
         version: 0.3.0
       '@hyperledger/indy-vdr-shared':
-        specifier: ^0.3.0
+        specifier: 0.3.0
         version: 0.3.0
       '@openwallet-foundation/askar-nodejs':
         specifier: 0.6.0
@@ -45,13 +45,13 @@ importers:
         specifier: 0.6.0
         version: 0.6.0
       cors:
-        specifier: ^2.8.5
+        specifier: 2.8.6
         version: 2.8.6
       dotenv:
-        specifier: ^16.0.0
+        specifier: 16.6.1
         version: 16.6.1
       express:
-        specifier: ^4.19.0
+        specifier: 4.22.2
         version: 4.22.2
     devDependencies:
       '@types/cors':
@@ -313,7 +313,6 @@ packages:
 
   '@sphereon/kmp-mdoc-core@0.2.0-SNAPSHOT.26':
     resolution: {integrity: sha512-QXJ6R8ENiZV2rPMbn06cw5JKwqUYN1kzVRbYfONqE1PEXx1noQ4md7uxr2zSczi0ubKkNcbyYDNtIMTZIhGzmQ==}
-    bundledDependencies: []
 
   '@sphereon/pex-models@2.3.2':
     resolution: {integrity: sha512-foFxfLkRwcn/MOp/eht46Q7wsvpQGlO7aowowIIb5Tz9u97kYZ2kz6K2h2ODxWuv5CRA7Q0MY8XUBGE2lfOhOQ==}

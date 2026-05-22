@@ -184,12 +184,47 @@ async function main() {
   app.get('/connections', async (_req, res) => {
     try {
       const connections = await agent.modules.didcomm.connections.getAll()
-      res.json(connections.map((c) => ({ id: c.id, state: c.state, theirLabel: c.theirLabel, createdAt: c.createdAt })))
+      res.json(
+        connections.map((c) => ({
+          id: c.id,
+          state: c.state,
+          role: c.role,
+          theirLabel: c.theirLabel,
+          did: c.did,
+          theirDid: c.theirDid,
+          invitationDid: c.invitationDid,
+          outOfBandId: c.outOfBandId,
+          createdAt: c.createdAt,
+        })),
+      )
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err)
       res.status(500).json({ error: message })
     }
   })
+
+  app.get('/connections/:id/services', async (req, res) => {
+  try {
+    const connection = await agent.modules.didcomm.connections.getById(req.params.id)
+
+    if (!connection.theirDid) {
+      res.status(400).json({ error: 'Connection has no theirDid' })
+      return
+    }
+
+    const resolved = await agent.dids.resolve(connection.theirDid)
+
+    res.json({
+      connectionId: connection.id,
+      theirLabel: connection.theirLabel,
+      theirDid: connection.theirDid,
+      services: resolved.didDocument?.service ?? [],
+    })
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : String(err)
+    res.status(500).json({ error: message })
+  }
+})
 
   // ─── Exchanges ───────────────────────────────────────────────────────────
   app.get('/exchanges', async (_req, res) => {
