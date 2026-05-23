@@ -110,7 +110,7 @@ export function createAgent() {
         },
       }),
       mediationRecipient: new DidCommMediationRecipientModule({
-        mediatorPickupStrategy: DidCommMediatorPickupStrategy.Implicit,
+        mediatorPickupStrategy: DidCommMediatorPickupStrategy.PickUpV2,
       }),
     },
   });

@@ -3,6 +3,7 @@ export const {
   MEDIATOR_SEED = "Mediator_00000000000000000000000",
   MEDIATOR_HTTP_PORT = "3007",
   MEDIATOR_WS_PORT = "3008",
+  MEDIATOR_API_PORT = "3006",
   MEDIATOR_DOMAIN = "localhost",
   VON_URL = "http://127.0.0.1:9000",
   INDY_NAMESPACE = "local:test",

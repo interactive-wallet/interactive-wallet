@@ -1,29 +1,33 @@
 # Interactive Wallet
 
-Internet of Services Lab 2026 — Self-Sovereign Identity (SSI) Demo mit drei Akteuren:
+Internet of Services Lab 2026 — Self-Sovereign Identity (SSI) Demo mit vier Akteuren:
 
+- **Mediator** (Port 3006/3007/3008) — DIDComm-Mediator; routet Nachrichten an die Wallet, die keinen öffentlichen Endpoint hat (mobile Architektur)
 - **Issuer** (Port 3002/3003) — registriert sich als `did:indy` auf dem Ledger, stellt Credentials aus (hier: Führerschein)
 - **Verifier** (Port 3004/3005) — registriert sich als `did:indy` auf dem Ledger, prüft Credentials
-- **Holder / Wallet** (Port 3000/3001) — bleibt bewusst anonym (Peer-DIDs pro Verbindung, kein Ledger-Eintrag)
+- **Holder / Wallet** (Port 3000) — bleibt bewusst anonym (Peer-DIDs pro Verbindung, kein Ledger-Eintrag); verbindet sich beim Start automatisch mit dem Mediator
 
-Jeder Akteur läuft als eigener Credo-TS-Agent mit zwei Ports: einem Admin-Port (REST + SSE für die UI/Scripts) und einem DIDComm-Port (für die Kommunikation zwischen Agents).
+Issuer und Verifier haben je zwei Ports: einen Admin-Port (REST für die Scripts) und einen DIDComm-Port. Der Mediator hat drei: REST-API (3006), HTTP-DIDComm (3007) und WebSocket-DIDComm (3008).
 
 ## Architektur
 
 ```
 Flutter App ──┐                     Browser ──┐
-              │ REST + SSE                    │ REST + SSE
+              │ REST + SSE                    │ REST
               ▼                               ▼
-       wallet-agent :3000  ◄── DIDComm ──► issuer-agent  :3002
-              │                              │
-              │                              ▼
-              └────── DIDComm ────► verifier-agent :3004
+       wallet-agent :3000            issuer-agent  :3002
+              │  ▲                            │
+              │  │ DIDComm (via Mediator)     │ DIDComm
+              ▼  │                            ▼
+       mediator  :3007/3008          verifier-agent :3004
                                              │
                               ┌──────────────┤
                               ▼              ▼
                          VON Network (Hyperledger Indy, :9000)
                          NYMs · Schemas · CredDefs
 ```
+
+Die Wallet hat keinen öffentlichen DIDComm-Endpoint (mobile Architektur). Alle eingehenden Nachrichten (Connection Responses, Credential Offers, Proof Requests) werden vom Mediator zwischengespeichert und alle 2 Sekunden per PickUpV2-Protokoll abgeholt.
 
 - **Wallet** speichert in Askar (verschlüsselte SQLite) — Keys, Credentials, Link Secret. Frontends sind nur Anzeige.
 - **Issuer + Verifier** schreiben ihre `did:indy` auf das VON-Network. Schemas + CredDefs nur Issuer-seitig.
@@ -42,6 +46,7 @@ git submodule init
 git submodule update
 
 # Dependencies installieren
+cd mediator       && pnpm install && cd ..
 cd wallet-agent   && pnpm install && cd ..
 cd issuer-agent   && pnpm install && cd ..
 cd verifier-agent && pnpm install && cd ..
@@ -75,10 +80,11 @@ flutter config --enable-linux-desktop
 # 1. VON Network
 cd von-network && ./manage start
 
-# 2. Agents — je ein Terminal
-cd wallet-agent   && pnpm start
+# 2. Agents — je ein Terminal (Reihenfolge beachten: Mediator zuerst!)
+cd mediator       && pnpm start
 cd issuer-agent   && pnpm start
 cd verifier-agent && pnpm start
+cd wallet-agent   && pnpm start   # verbindet sich automatisch mit dem Mediator
 
 # 3. Flutter Wallet App
 cd wallet_app
@@ -179,17 +185,20 @@ Defaults (alle überschreibbar per Environment-Variable):
 | Variable | Default | Wo |
 |---|---|---|
 | `INDY_NAMESPACE` | `local:test` | alle Agents |
-| `VON_NETWORK_URL` | `http://localhost:9000` | Issuer + Verifier |
+| `VON_URL` | `http://127.0.0.1:9000` | alle Agents |
+| `MEDIATOR_API_URL` | `http://localhost:3006` | Wallet |
 | `ISSUER_SEED` | `00000000000000InteractiveIssuer1` (32 Bytes) | Issuer |
 | `VERIFIER_SEED` | `0000000000000InteractiveVerifier` (32 Bytes) | Verifier |
+| `MEDIATOR_SEED` | `00000000000000000000000000Mediator` (32 Bytes) | Mediator |
 | `WALLET_BASE` | `http://localhost:3000` | Flutter (`--dart-define`) |
 
 ## Repository-Layout
 
 ```
+mediator/            Credo-TS Mediator-Agent (REST :3006, HTTP-DIDComm :3007, WS :3008)
 wallet-agent/        Credo-TS Holder-Agent + REST/SSE + HTML-Referenz-UI
-issuer-agent/        Credo-TS Issuer-Agent + Setup-Logik + DID-Registrierung
-verifier-agent/      Credo-TS Verifier-Agent + Setup-Logik + DID-Registrierung
+issuer-agent/        Credo-TS Issuer-Agent + DID-Registrierung + Credential-Ausstellung
+verifier-agent/      Credo-TS Verifier-Agent + DID-Registrierung + Proof-Verifikation
 wallet_app/          Flutter-Desktop-App (Linux)
 scripts/             Bash-Helper für Setup, Issue, Verify, Reissue, Reverify, Reset
 von-network/         Submodule: Hyperledger Indy Test-Ledger

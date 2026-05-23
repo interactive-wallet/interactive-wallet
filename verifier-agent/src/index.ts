@@ -79,14 +79,27 @@ if (!state) {
   Buffer.from(VERIFIER_SEED).copy(seedBuffer);
   const pubKeyBytes = TypedArrayEncoder.fromBase58(verkey);
 
-  const { keyId: kmsKeyId } = await agent.kms.importKey({
-    privateJwk: {
-      kty: "OKP",
-      crv: "Ed25519",
-      x: Buffer.from(pubKeyBytes).toString("base64url"),
-      d: seedBuffer.toString("base64url"),
-    },
-  });
+  // kid = base58 verkey so the legacy DIDComm v1 key lookup finds it by verkey.
+  // If the wallet already has this key (e.g. after a state-file-only reset), skip import.
+  let kmsKeyId: string = verkey;
+  try {
+    const result = await agent.kms.importKey({
+      privateJwk: {
+        kty: "OKP",
+        crv: "Ed25519",
+        kid: verkey,
+        x: Buffer.from(pubKeyBytes).toString("base64url"),
+        d: seedBuffer.toString("base64url"),
+      },
+    });
+    kmsKeyId = result.keyId;
+  } catch (e: unknown) {
+    if (e instanceof Error && e.constructor.name === "KeyManagementKeyExistsError") {
+      console.log("[verifier-agent] Key already in KMS, reusing");
+    } else {
+      throw e;
+    }
+  }
 
   await agent.dids.import({
     did: verifierDid,
@@ -99,6 +112,10 @@ if (!state) {
   saveState(state);
 }
 
+app.get("/health", (_req, res) => {
+  res.json({ status: "ok", hasSetup: state !== null });
+});
+
 // ─── Invitation ──────────────────────────────────────────────────────────
 // If /setup has run, the invitation carries the verifier's public did:indy
 // so that the holder wallet can resolve and verify it against the ledger
@@ -107,13 +124,16 @@ app.get("/invitation", async (_req, res) => {
   try {
     const oobRecord = await agent.modules.didcomm.oob.createInvitation({
       label: "Verifier",
-      invitationDid: state?.verifierDid,
       handshakeProtocols: [DidCommHandshakeProtocol.Connections],
     });
+    // Inject `from` so the wallet app can show "VERIFIED IDENTITY" for the ledger DID.
+    // Do NOT use invitationDid here — Credo's implicit-invitation path sets
+    // autoAcceptConnection=false on the OOB record, which breaks the handshake.
+    const oobJson = oobRecord.outOfBandInvitation.toJSON() as Record<string, unknown>;
+    if (state?.verifierDid) oobJson.from = state.verifierDid;
+    const invitationUrl = `${VERIFIER_HTTP_ENDPOINT}?oob=${Buffer.from(JSON.stringify(oobJson)).toString("base64url")}`;
     res.json({
-      invitationUrl: oobRecord.outOfBandInvitation.toUrl({
-        domain: VERIFIER_HTTP_ENDPOINT,
-      }),
+      invitationUrl,
       oobId: oobRecord.id,
       invitationDid: state?.verifierDid ?? null,
     });

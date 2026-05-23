@@ -83,14 +83,27 @@ if (!state) {
   Buffer.from(ISSUER_SEED).copy(seedBuffer);
   const pubKeyBytes = TypedArrayEncoder.fromBase58(verkey);
 
-  const { keyId: kmsKeyId } = await agent.kms.importKey({
-    privateJwk: {
-      kty: "OKP",
-      crv: "Ed25519",
-      x: Buffer.from(pubKeyBytes).toString("base64url"),
-      d: seedBuffer.toString("base64url"),
-    },
-  });
+  // kid = base58 verkey so the legacy DIDComm v1 key lookup finds it by verkey.
+  // If the wallet already has this key (e.g. after a state-file-only reset), skip import.
+  let kmsKeyId: string = verkey;
+  try {
+    const result = await agent.kms.importKey({
+      privateJwk: {
+        kty: "OKP",
+        crv: "Ed25519",
+        kid: verkey,
+        x: Buffer.from(pubKeyBytes).toString("base64url"),
+        d: seedBuffer.toString("base64url"),
+      },
+    });
+    kmsKeyId = result.keyId;
+  } catch (e: unknown) {
+    if (e instanceof Error && e.constructor.name === "KeyManagementKeyExistsError") {
+      console.log("[issuer-agent] Key already in KMS, reusing");
+    } else {
+      throw e;
+    }
+  }
 
   // 3. Import DID into agent wallet
   await agent.dids.import({
@@ -100,50 +113,67 @@ if (!state) {
   });
   console.log("[issuer-agent] DID imported into wallet");
 
-  // 4. Register schema
-  console.log("[issuer-agent] Registering schema...");
-  const schemaResult = await agent.modules.anoncreds.registerSchema({
-    schema: {
-      attrNames: [
-        "vorname",
-        "nachname",
-        "geburtsdatum",
-        "fuehrerscheinklasse",
-        "ausstellungsdatum",
-      ],
-      issuerId: issuerDid,
-      name: "Fuehrerschein",
-      version: "1.0",
-    },
-    options: {},
-  });
-  if (schemaResult.schemaState.state !== "finished") {
-    throw new Error(
-      `Schema registration failed: ${JSON.stringify(schemaResult.schemaState)}`,
-    );
-  }
-  const schemaId = schemaResult.schemaState.schemaId;
-  console.log(`[issuer-agent] Schema registered: ${schemaId}`);
+  // 4. Register schema (idempotent: reuse if already on ledger)
+  const expectedSchemaId = `${issuerDid}/anoncreds/v0/SCHEMA/Fuehrerschein/1.0`;
+  const schemaLookup = await agent.modules.anoncreds.getSchema(expectedSchemaId);
+  let schemaId: string;
+  let schemaSeqNo: number | undefined;
 
-  // 5. Register credential definition
-  console.log("[issuer-agent] Registering credential definition...");
-  const credDefResult =
-    await agent.modules.anoncreds.registerCredentialDefinition({
+  if (schemaLookup.schema) {
+    console.log("[issuer-agent] Schema already on ledger, reusing");
+    schemaId = schemaLookup.schemaId;
+    schemaSeqNo = (schemaLookup.schemaMetadata as { indyLedgerSeqNo?: number }).indyLedgerSeqNo;
+  } else {
+    console.log("[issuer-agent] Registering schema...");
+    const schemaResult = await agent.modules.anoncreds.registerSchema({
+      schema: {
+        attrNames: ["vorname", "nachname", "geburtsdatum", "fuehrerscheinklasse", "ausstellungsdatum"],
+        issuerId: issuerDid,
+        name: "Fuehrerschein",
+        version: "1.0",
+      },
+      options: {},
+    });
+    if (schemaResult.schemaState.state !== "finished") {
+      throw new Error(`Schema registration failed: ${JSON.stringify(schemaResult.schemaState)}`);
+    }
+    schemaId = schemaResult.schemaState.schemaId;
+    schemaSeqNo = (schemaResult.schemaMetadata as { indyLedgerSeqNo?: number }).indyLedgerSeqNo;
+    console.log(`[issuer-agent] Schema registered: ${schemaId}`);
+  }
+
+  // 5. Register credential definition (idempotent: reuse if already on ledger)
+  const expectedCredDefId = schemaSeqNo !== undefined
+    ? `${issuerDid}/anoncreds/v0/CLAIM_DEF/${schemaSeqNo}/default`
+    : undefined;
+  const credDefLookup = expectedCredDefId
+    ? await agent.modules.anoncreds.getCredentialDefinition(expectedCredDefId)
+    : null;
+  let credDefId: string;
+
+  if (credDefLookup?.credentialDefinition) {
+    console.log("[issuer-agent] CredDef already on ledger, reusing");
+    credDefId = credDefLookup.credentialDefinitionId;
+  } else {
+    console.log("[issuer-agent] Registering credential definition...");
+    const credDefResult = await agent.modules.anoncreds.registerCredentialDefinition({
       credentialDefinition: { issuerId: issuerDid, schemaId, tag: "default" },
       options: { supportRevocation: false },
     });
-  if (credDefResult.credentialDefinitionState.state !== "finished") {
-    throw new Error(
-      `CredDef registration failed: ${JSON.stringify(credDefResult.credentialDefinitionState)}`,
-    );
+    if (credDefResult.credentialDefinitionState.state !== "finished") {
+      throw new Error(`CredDef registration failed: ${JSON.stringify(credDefResult.credentialDefinitionState)}`);
+    }
+    credDefId = credDefResult.credentialDefinitionState.credentialDefinitionId;
+    console.log(`[issuer-agent] CredDef registered: ${credDefId}`);
   }
-  const credDefId =
-    credDefResult.credentialDefinitionState.credentialDefinitionId;
-  console.log(`[issuer-agent] CredDef registered: ${credDefId}`);
 
   state = { issuerDid, schemaId, credDefId };
   saveState(state);
 }
+
+app.get("/health", (_req, res) => {
+  res.json({ status: "ok", hasSetup: state !== null });
+});
 
 // ─── Invitation ──────────────────────────────────────────────────────────
 // If /setup has run, the invitation carries the issuer's public did:indy
@@ -153,15 +183,18 @@ app.get("/invitation", async (_req, res) => {
   try {
     const oobRecord = await agent.modules.didcomm.oob.createInvitation({
       label: "Issuer",
-      invitationDid: state?.issuerDid,
       autoAcceptConnection: true,
       handshakeProtocols: [DidCommHandshakeProtocol.Connections],
     });
+    // Inject `from` so the wallet app can show "VERIFIED IDENTITY" for the ledger DID.
+    // Do NOT use invitationDid here — Credo's implicit-invitation path sets
+    // autoAcceptConnection=false on the OOB record, which breaks the handshake.
+    const oobJson = oobRecord.outOfBandInvitation.toJSON() as Record<string, unknown>;
+    if (state?.issuerDid) oobJson.from = state.issuerDid;
+    const invitationUrl = `${ISSUER_HTTP_ENDPOINT}?oob=${Buffer.from(JSON.stringify(oobJson)).toString("base64url")}`;
     res.json({
-      invitationUrl: oobRecord.outOfBandInvitation.toUrl({
-        domain: ISSUER_HTTP_ENDPOINT,
-      }),
-      //invitation: oobRecord.outOfBandInvitation.toJSON(),
+      invitationUrl,
+      invitation: oobJson,
       oobId: oobRecord.id,
       invitationDid: state?.issuerDid ?? null,
     });

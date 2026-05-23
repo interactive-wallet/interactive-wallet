@@ -5,19 +5,83 @@ import cors from "cors";
 import "dotenv/config";
 import express, { type Response } from "express";
 import * as path from "path";
-import { WALLET_API_PORT, WALLET_DOMAIN } from "./config.js";
+import { MEDIATOR_API_URL, WALLET_API_PORT, WALLET_DOMAIN } from "./config.js";
 
 // Native modules MUST be registered before @credo-ts/* modules are loaded.
 const {
   DidCommConnectionEventTypes,
   DidCommCredentialEventTypes,
   DidCommProofEventTypes,
+  DidCommHandshakeProtocol,
 } = await import("@credo-ts/didcomm");
 const { createAgent } = await import("./agent.js");
 
 const agent = createAgent();
 await agent.initialize();
 console.log("Wallet Agent initialized");
+
+const linkSecretIds = await agent.modules.anoncreds.getLinkSecretIds();
+if (linkSecretIds.length === 0) {
+  await agent.modules.anoncreds.createLinkSecret({ setAsDefault: true });
+  console.log("[wallet-agent] Created default link secret");
+}
+
+// Auto-connect to mediator on startup so all subsequent connections use mediator routing.
+// The mediator is required because the wallet has no public endpoint (mobile architecture).
+async function setupMediator() {
+  try {
+    const existing = await agent.modules.mediationRecipient.findDefaultMediator();
+    if (existing) {
+      console.log("[wallet-agent] Default mediator already set, reconnecting...");
+      await agent.modules.mediationRecipient.initiateMessagePickup(existing);
+      return;
+    }
+
+    console.log(`[wallet-agent] Fetching mediator invitation from ${MEDIATOR_API_URL}...`);
+    const resp = await fetch(`${MEDIATOR_API_URL}/invitation`);
+    if (!resp.ok) {
+      console.warn(`[wallet-agent] Mediator not reachable (${resp.status}), continuing without mediator`);
+      return;
+    }
+    const { invitationUrl } = await resp.json() as { invitationUrl: string };
+
+    const { outOfBandRecord, connectionRecord } =
+      await agent.modules.didcomm.oob.receiveInvitationFromUrl(invitationUrl, {
+        label: "Wallet",
+        autoAcceptInvitation: true,
+        autoAcceptConnection: true,
+      });
+
+    if (!connectionRecord) {
+      console.warn("[wallet-agent] Mediator connection record not created");
+      return;
+    }
+
+    // Wait for connection to complete (up to 15s)
+    let conn = connectionRecord;
+    for (let i = 0; i < 15; i++) {
+      if (conn.state === "completed") break;
+      await new Promise((r) => setTimeout(r, 1000));
+      conn = await agent.modules.didcomm.connections.getById(connectionRecord.id);
+    }
+    if (conn.state !== "completed") {
+      console.warn("[wallet-agent] Mediator connection did not complete in time");
+      return;
+    }
+
+    const mediationRecord = await agent.modules.mediationRecipient.requestAndAwaitGrant(conn);
+    await agent.modules.mediationRecipient.setDefaultMediator(mediationRecord);
+    console.log("[wallet-agent] Mediator set up successfully");
+    // Start active message pickup so the mediator delivers queued messages
+    await agent.modules.mediationRecipient.initiateMessagePickup(mediationRecord);
+    console.log("[wallet-agent] Message pickup initiated");
+  } catch (err) {
+    console.warn("[wallet-agent] Mediator setup failed (continuing without):", err instanceof Error ? err.message : err);
+  }
+}
+
+await setupMediator();
+
 
 // SSE client registry
 const sseClients = new Set<Response>();
@@ -28,6 +92,24 @@ function broadcast(type: string, data: object) {
     client.write(msg);
   }
 }
+
+// TODO: When running wallet-agent embedded inside Flutter via nodejs_mobile_flutter,
+// the process stays alive and the WS outbound transport keeps its connection open.
+// In that case, switch back to DidCommMediatorPickupStrategy.Implicit in agent.ts
+// and remove this polling loop — the mediator will deliver messages live over the
+// persistent WebSocket instead of queuing them for pickup.
+//
+// PickUpV2: wallet polls mediator every 2s for queued messages.
+// Implicit live-delivery doesn't work in standalone Node.js (WS closes after each send).
+(async function pickupLoop() {
+  while (true) {
+    try {
+      const mediator = await agent.modules.mediationRecipient.findDefaultMediator();
+      if (mediator) await agent.modules.mediationRecipient.initiateMessagePickup(mediator);
+    } catch { /* ignore */ }
+    await new Promise((r) => setTimeout(r, 2000));
+  }
+})();
 
 // ─── Event listeners → SSE broadcast ─────────────────────────────────────
 agent.events.on(
@@ -188,12 +270,46 @@ app.post("/receive-invitation", async (req, res) => {
       res.status(400).json({ error: "Missing invitationUrl" });
       return;
     }
-    const { outOfBandRecord, connectionRecord } =
-      await agent.modules.didcomm.oob.receiveInvitationFromUrl(invitationUrl, {
+    // Detect OOB invitations where services[0] is a bare DID string.
+    // In that case use receiveImplicitInvitation so the wallet sets pthid to the
+    // DID itself — the issuer's ConnectionRequestHandler needs pthid to be a DID
+    // to take the createFromImplicitInvitation path (Connections protocol v1).
+    let invitationDid: string | null = null;
+    try {
+      const parsed = new URL(invitationUrl);
+      const oobParam = parsed.searchParams.get("oob");
+      if (oobParam) {
+        const decoded = JSON.parse(Buffer.from(oobParam, "base64url").toString("utf-8"));
+        const first = decoded?.services?.[0];
+        if (typeof first === "string" && first.startsWith("did:")) {
+          invitationDid = first;
+        }
+      }
+    } catch { /* not a standard OOB URL, fall through */ }
+
+    let outOfBandRecord: { id: string };
+    let connectionRecord: { id: string; state: string } | undefined;
+
+    if (invitationDid) {
+      const result = await agent.modules.didcomm.oob.receiveImplicitInvitation({
+        did: invitationDid,
+        label: "Wallet",
+        autoAcceptInvitation: true,
+        autoAcceptConnection: true,
+        handshakeProtocols: [DidCommHandshakeProtocol.Connections],
+      });
+      outOfBandRecord = result.outOfBandRecord;
+      connectionRecord = result.connectionRecord ?? undefined;
+    } else {
+      const result = await agent.modules.didcomm.oob.receiveInvitationFromUrl(invitationUrl, {
         label: "Wallet",
         autoAcceptInvitation: true,
         autoAcceptConnection: true,
       });
+      outOfBandRecord = result.outOfBandRecord;
+      connectionRecord = result.connectionRecord ?? undefined;
+    }
+
     res.json({
       oobId: outOfBandRecord.id,
       connectionId: connectionRecord?.id,
@@ -274,7 +390,7 @@ app.post("/pickup-messages", async (_req, res) => {
 app.get("/pending-credentials", async (_req, res) => {
   try {
     const exchanges = await agent.modules.didcomm.credentials.getAll();
-    const pending = exchanges;
+    const pending = exchanges.filter((e) => e.state === "offer-received");
     const result = await Promise.all(
       pending.map(async (e) => {
         let credDefId: string | null = null;

@@ -24,8 +24,7 @@ import {
   DidCommWsInboundTransport,
 } from "@credo-ts/node";
 import "@hyperledger/anoncreds-nodejs";
-import "@hyperledger/indy-vdr-nodejs";
-import { indyVdr } from "@hyperledger/indy-vdr-shared";
+import { indyVdr } from "@hyperledger/indy-vdr-nodejs";
 import "@openwallet-foundation/askar-nodejs";
 import { NativeAskar } from "@openwallet-foundation/askar-shared";
 import {

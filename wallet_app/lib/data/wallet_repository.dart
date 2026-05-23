@@ -68,15 +68,13 @@ class WalletRepository extends ChangeNotifier {
         _safeUnawaited(() async => connections = await _api.connections());
         break;
       case 'credential':
-        if (ev.state == 'offer-received') {
-          _safeUnawaited(
-              () async => pendingCredentials = await _api.pendingCredentials());
-        } else if (ev.state == 'done') {
+        if (ev.state == 'done') {
           _safeUnawaited(() async {
             credentials = await _api.credentials();
             pendingCredentials = await _api.pendingCredentials();
           });
-        } else if (ev.state == 'declined') {
+        } else {
+          // offer-received, request-sent, credential-received, declined — refresh pending list
           _safeUnawaited(
               () async => pendingCredentials = await _api.pendingCredentials());
         }
