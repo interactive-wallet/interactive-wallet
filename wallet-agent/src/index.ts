@@ -101,15 +101,15 @@ function broadcast(type: string, data: object) {
 //
 // PickUpV2: wallet polls mediator every 2s for queued messages.
 // Implicit live-delivery doesn't work in standalone Node.js (WS closes after each send).
-(async function pickupLoop() {
-  while (true) {
-    try {
-      const mediator = await agent.modules.mediationRecipient.findDefaultMediator();
-      if (mediator) await agent.modules.mediationRecipient.initiateMessagePickup(mediator);
-    } catch { /* ignore */ }
-    await new Promise((r) => setTimeout(r, 2000));
-  }
-})();
+// (async function pickupLoop() {
+//   while (true) {
+//     try {
+//       const mediator = await agent.modules.mediationRecipient.findDefaultMediator();
+//       if (mediator) await agent.modules.mediationRecipient.initiateMessagePickup(mediator);
+//     } catch { /* ignore */ }
+//     await new Promise((r) => setTimeout(r, 2000));
+//   }
+// })();
 
 // ─── Event listeners → SSE broadcast ─────────────────────────────────────
 agent.events.on(

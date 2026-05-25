@@ -17,7 +17,9 @@ await agent.initialize();
 agent.events.on(DidCommEventTypes.DidCommMessageProcessed, (data) => {
   const msg = data.payload.message;
   if (msg instanceof DidCommForwardMessage) {
-    console.log("TODO push notification for:", msg.to);
+    console.log("push notification for:", msg.to);
+    const walletPushEndpoint = `http://localhost:3000/pickup-messages`;
+    fetch(walletPushEndpoint, { method: "POST" });
   }
 });
 
