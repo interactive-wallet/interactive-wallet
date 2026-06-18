@@ -2,6 +2,7 @@ import {
   AnonCredsDidCommCredentialFormatService,
   AnonCredsDidCommProofFormatService,
   AnonCredsModule,
+  BasicTailsFileService,
 } from "@credo-ts/anoncreds";
 import { AskarModule } from "@credo-ts/askar";
 import {
@@ -77,6 +78,7 @@ export function createAgent() {
       anoncreds: new AnonCredsModule({
         anoncreds: NativeAnoncreds.instance,
         registries: [new IndyVdrAnonCredsRegistry()],
+        tailsFileService: new BasicTailsFileService(),
       }),
       didcomm: new DidCommModule({
         endpoints: [],

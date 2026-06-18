@@ -16,7 +16,7 @@ import {
 
 // Native modules MUST be registered before @credo-ts/* modules are loaded.
 const { TypedArrayEncoder } = await import("@credo-ts/core");
-const { DidCommHandshakeProtocol } = await import("@credo-ts/didcomm");
+const { DidCommHandshakeProtocol, DidCommProofEventTypes, DidCommProofState } = await import("@credo-ts/didcomm");
 const { createAgent } = await import("./agent.js");
 
 const STATE_FILE = path.join(import.meta.dirname, "..", "verifier-state.json");
@@ -112,6 +112,22 @@ if (!state) {
   saveState(state);
 }
 
+// ─── Observer: proof event logging ───────────────────────────────────────
+agent.events.on(DidCommProofEventTypes.ProofStateChanged, ({ payload }: any) => {
+  const record = payload.proofRecord;
+  console.log(`Proof state: ${record.state}`);
+  if (record.state === DidCommProofState.Abandoned) {
+    console.log("⚠️  Proof FAILED — credential may be revoked");
+  }
+  if (record.state === DidCommProofState.Done) {
+    if (record.isVerified === true) {
+      console.log("✓ Proof verified — credential is valid");
+    } else if (record.isVerified === false) {
+      console.log("✗ Proof done but NOT verified");
+    }
+  }
+});
+
 app.get("/health", (_req, res) => {
   res.json({ status: "ok", hasSetup: state !== null });
 });
@@ -204,13 +220,17 @@ app.post("/request-proof", async (req, res) => {
           version: "1.0",
           requested_attributes,
           requested_predicates: {},
+          // Triggers revocation check: holder must prove credential was not revoked
+          // at the time of the proof (verifier reads REVOC_REG_ENTRY from the ledger)
+          non_revoked: {
+            from: 0,
+            to: Math.floor(Date.now() / 1000),
+          },
         },
       },
     });
 
-    console.log(
-      `[verifier-agent] Proof request sent to connection ${connectionId}`,
-    );
+    console.log(`Verifier: proof request sent (non_revoked check enabled) to connection ${connectionId}`);
     res.json({ proofExchangeId: proofRecord.id, state: proofRecord.state });
   } catch (err: unknown) {
     console.error("[verifier-agent] request-proof error:", err);
