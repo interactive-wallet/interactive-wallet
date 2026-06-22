@@ -10,12 +10,14 @@
     "dev": "tsc && node --watch dist/index.js"
   },
   "dependencies": {
+    "@credo-ts/anoncreds": "^0.7.0",
     "@credo-ts/askar": "0.7.0",
     "@credo-ts/core": "0.7.0",
     "@credo-ts/didcomm": "0.7.0",
     "@credo-ts/indy-vdr": "^0.7.0",
     "@credo-ts/node": "0.7.0",
     "@hyperledger/anoncreds-nodejs": "^0.4.0",
+    "@hyperledger/anoncreds-shared": "^0.4.0",
     "@hyperledger/indy-vdr-nodejs": "^0.3.0",
     "@openwallet-foundation/askar-nodejs": "0.6.0",
     "@openwallet-foundation/askar-shared": "0.6.0",

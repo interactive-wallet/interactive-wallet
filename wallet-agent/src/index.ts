@@ -82,6 +82,167 @@ async function setupMediator() {
 
 await setupMediator();
 
+const subscribedRevocationRegistryIds =
+  new Set<string>();
+
+const revocationSubscriptionsInProgress =
+  new Set<string>();
+
+async function subscribeToRevocationRegistry(
+  registryId: string,
+): Promise<void> {
+  if (
+    subscribedRevocationRegistryIds.has(registryId) ||
+    revocationSubscriptionsInProgress.has(registryId)
+  ) {
+    return;
+  }
+
+  revocationSubscriptionsInProgress.add(registryId);
+
+  try {
+    const mediatorConnection =
+      await agent.modules.mediationRecipient
+        .findDefaultMediatorConnection();
+
+    if (!mediatorConnection) {
+      throw new Error(
+        "No default mediator connection available",
+      );
+    }
+
+    //connection.did is the local Pairwise-DID of the Holder. On mediator side it's connection.theirDid.
+    const holderDid = mediatorConnection.did;
+
+    if (!holderDid) {
+      throw new Error(
+        "Mediator connection has no local holder DID",
+      );
+    }
+
+    const response = await fetch(
+      `${MEDIATOR_API_URL}/subscribe-revocations`,
+      {
+        method: "POST",
+
+        headers: {
+          "Content-Type": "application/json",
+        },
+
+        body: JSON.stringify({
+          holderDid,
+          registryId,
+        }),
+      },
+    );
+
+    const responseText = await response.text();
+
+    if (!response.ok) {
+      throw new Error(
+        `Mediator rejected revocation subscription: ` +
+          `${response.status} ${responseText}`,
+      );
+    }
+
+    let result: {
+      status?: string;
+      alreadySubscribed?: boolean;
+      mediatorConnectionId?: string;
+    } = {};
+
+    try {
+      result = JSON.parse(responseText);
+    } catch {
+    }
+
+    subscribedRevocationRegistryIds.add(
+      registryId,
+    );
+
+    console.log(
+      "[wallet-agent] Revocation registry subscribed",
+      {
+        registryId,
+        holderDid,
+        alreadySubscribed:
+          result.alreadySubscribed ?? false,
+        mediatorConnectionId:
+          result.mediatorConnectionId,
+      },
+    );
+  } finally {
+    revocationSubscriptionsInProgress.delete(
+      registryId,
+    );
+  }
+}
+
+async function reconcileRevocationSubscriptions():
+  Promise<void> {
+  const credentials =
+    await agent.modules.anoncreds.getCredentials(
+      {},
+    ) as StoredAnonCredsCredential[];
+
+  const registryIds = new Set<string>();
+
+  for (const credential of credentials) {
+    if (
+      typeof credential.revocationRegistryId ===
+        "string" &&
+      credential.revocationRegistryId.length > 0
+    ) {
+      registryIds.add(
+        credential.revocationRegistryId,
+      );
+    }
+  }
+
+  for (const registryId of registryIds) {
+    try {
+      await subscribeToRevocationRegistry(
+        registryId,
+      );
+    } catch (error: unknown) {
+      console.error(
+        "[wallet-agent] Revocation subscription failed",
+        {
+          registryId,
+          error:
+            error instanceof Error
+              ? error.message
+              : String(error),
+        },
+      );
+    }
+  }
+}
+
+let revocationReconciliationTimer:
+  NodeJS.Timeout | undefined;
+
+function scheduleRevocationReconciliation():
+  void {
+  if (revocationReconciliationTimer) {
+    clearTimeout(
+      revocationReconciliationTimer,
+    );
+  }
+
+  revocationReconciliationTimer =
+    setTimeout(() => {
+      void reconcileRevocationSubscriptions()
+        .catch((error: unknown) => {
+          console.error(
+            "[wallet-agent] Revocation reconciliation failed:",
+            error instanceof Error
+              ? error.message
+              : String(error),
+          );
+        });
+    }, 750);
+}
 
 // SSE client registry
 const sseClients = new Set<Response>();
@@ -92,6 +253,26 @@ function broadcast(type: string, data: object) {
     client.write(msg);
   }
 }
+
+type StoredAnonCredsCredential = {
+  credentialId: string;
+  revocationRegistryId?: string;
+  credentialRevocationId?: string;
+};
+
+type LocalCredentialRevocationStatus = {
+  credentialId: string;
+  revocationRegistryId: string;
+  credentialRevocationId: string;
+
+  state: "active" | "revoked";
+
+  checkedAt: string;
+  ledgerTimestamp?: number;
+};
+
+const credentialRevocationStatuses =
+  new Map<string, LocalCredentialRevocationStatus>();
 
 // TODO: When running wallet-agent embedded inside Flutter via nodejs_mobile_flutter,
 // the process stays alive and the WS outbound transport keeps its connection open.
@@ -125,14 +306,30 @@ agent.events.on(
 );
 
 agent.events.on(
-  DidCommCredentialEventTypes.DidCommCredentialStateChanged,
+  DidCommCredentialEventTypes
+    .DidCommCredentialStateChanged,
   ({ payload }: any) => {
-    const e = payload.credentialExchangeRecord;
+    const exchange =
+      payload.credentialExchangeRecord;
+
     broadcast("credential", {
-      state: e.state,
-      role: e.role,
-      credentialId: e.id,
+      state: exchange.state,
+      role: exchange.role,
+      credentialId: exchange.id,
     });
+
+    console.log(
+      "[wallet-agent] Credential state changed",
+      {
+        id: exchange.id,
+        role: exchange.role,
+        state: exchange.state,
+      },
+    );
+
+    if (exchange.role === "holder") {
+      scheduleRevocationReconciliation();
+    }
   },
 );
 
@@ -147,6 +344,187 @@ agent.events.on(
     });
   },
 );
+
+void reconcileRevocationSubscriptions()
+  .then(() => {
+    console.log(
+      "[wallet-agent] Existing revocation subscriptions reconciled",
+    );
+  })
+  .catch((error: unknown) => {
+    console.warn(
+      "[wallet-agent] Initial revocation reconciliation failed:",
+      error instanceof Error
+        ? error.message
+        : String(error),
+    );
+  });
+
+
+async function checkRevocationRegistryForLocalCredentials(
+  registryId: string,
+): Promise<{
+  registryId: string;
+  checkedAt: string;
+  ledgerTimestamp?: number;
+  credentials: LocalCredentialRevocationStatus[];
+}> {
+  const checkedAt = new Date().toISOString();
+  const timestamp = Math.floor(Date.now() / 1000);
+
+  console.log(
+    "[wallet-agent] Checking revocation registry on VON",
+    {
+      registryId,
+      timestamp,
+    },
+  );
+
+  const resolution =
+    await agent.modules.anoncreds.getRevocationStatusList(
+      registryId,
+      timestamp,
+      {
+        useCache: false,
+      },
+    );
+
+  const statusList =
+    resolution.revocationStatusList;
+
+  if (!statusList) {
+    throw new Error(
+      `Could not resolve revocation status list for ${registryId}: ` +
+        JSON.stringify(
+          resolution.resolutionMetadata,
+        ),
+    );
+  }
+
+  const credentials =
+    await agent.modules.anoncreds.getCredentials(
+      {},
+    ) as StoredAnonCredsCredential[];
+
+  const matchingCredentials =
+    credentials.filter(
+      (credential) =>
+        credential.revocationRegistryId ===
+          registryId &&
+        typeof credential.credentialRevocationId ===
+          "string",
+    );
+
+  const checkedCredentials:
+    LocalCredentialRevocationStatus[] = [];
+
+  for (const credential of matchingCredentials) {
+    const credentialRevocationId =
+      credential.credentialRevocationId;
+
+    if (
+      typeof credentialRevocationId !== "string"
+    ) {
+      continue;
+    }
+
+    const revocationIndex =
+      Number(credentialRevocationId);
+
+    if (
+      !Number.isInteger(revocationIndex) ||
+      revocationIndex < 0
+    ) {
+      throw new Error(
+        `Invalid credentialRevocationId ` +
+          `'${credentialRevocationId}' ` +
+          `for credential '${credential.credentialId}'`,
+      );
+    }
+
+    const registryValue =
+      statusList.revocationList[
+        revocationIndex
+      ];
+
+    if (registryValue === undefined) {
+      throw new Error(
+        `Revocation index ${revocationIndex} ` +
+          `is outside the status list for ${registryId}`,
+      );
+    }
+
+    const revoked =
+      Number(registryValue) === 1;
+
+    const localStatus:
+      LocalCredentialRevocationStatus = {
+        credentialId:
+          credential.credentialId,
+
+        revocationRegistryId:
+          registryId,
+
+        credentialRevocationId,
+
+        state:
+          revoked
+            ? "revoked"
+            : "active",
+
+        checkedAt,
+
+        ledgerTimestamp:
+          statusList.timestamp,
+      };
+
+    credentialRevocationStatuses.set(
+      credential.credentialId,
+      localStatus,
+    );
+
+    checkedCredentials.push(
+      localStatus,
+    );
+
+    console.log(
+      "[wallet-agent] Credential revocation status checked",
+      localStatus,
+    );
+
+    broadcast(
+      "credential-revocation-status",
+      {
+        credentialId:
+          localStatus.credentialId,
+
+        registryId:
+          localStatus.revocationRegistryId,
+
+        credentialRevocationId:
+          localStatus.credentialRevocationId,
+
+        state:
+          localStatus.state,
+
+        checkedAt:
+          localStatus.checkedAt,
+
+        ledgerTimestamp:
+          localStatus.ledgerTimestamp,
+      },
+    );
+  }
+
+  return {
+    registryId,
+    checkedAt,
+    ledgerTimestamp:
+      statusList.timestamp,
+    credentials:
+      checkedCredentials,
+  };
+}
 
 const app = express();
 app.use(cors());
@@ -439,15 +817,6 @@ app.post("/accept-credential/:id", async (req, res) => {
       credentialExchangeRecordId: req.params.id,
     });
 
-    // TODO subscribe to revocation notifications at mediator
-    const connectionId = TODO // connection with mediator
-    const registryId = TODO // credential registry id on ledger
-    // record.revocationNotification
-    // record.credentials[0].credentialRecordId
-    const revocSubEndpoint = `${MEDIATOR_API_URL}/subscribe-revocations/`;
-    const body = JSON.stringify({ connectionId, registryId });
-    fetch(revocSubEndpoint, { method: "POST", body });
-
     res.json({ success: true, state: record.state });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err);
@@ -499,26 +868,61 @@ app.post("/decline-proof/:id", async (req, res) => {
   }
 });
 
-app.post("/notify-revocation/:registryId", async (req, res) => {
-  try {
-    const registryId: string = req.params.registryId;
+app.post(
+  "/notify-revocation",
+  async (req, res) => {
+    try {
+      const { registryId } =
+        req.body as {
+          registryId?: string;
+        };
 
-    console.log("Got notified about revocation in registry", registryId);
+      if (
+        typeof registryId !== "string" ||
+        registryId.trim().length === 0
+      ) {
+        res.status(400).json({
+          success: false,
+          error: "registryId is required",
+        });
+        return;
+      }
 
-    const revocStatus = await agent.modules.anoncreds.getRevocationStatusList(
-      registryId,
-      Date.now() / 1000,
-    );
-    const revokedIds = revocStatus.revocationStatusList;
+      console.log(
+        "[wallet-agent] Revocation notification received",
+        {
+          registryId,
+        },
+      );
 
-    // TODO see if any of my credentials were revoked
+      const result =
+        await checkRevocationRegistryForLocalCredentials(
+          registryId,
+        );
 
-    res.json({ status: "ok" });
-  } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : String(err);
-    res.status(500).json({ error: message });
-  }
-});
+      res.json({
+        success: true,
+        ...result,
+      });
+    } catch (err: unknown) {
+      const message =
+        err instanceof Error
+          ? err.message
+          : String(err);
+
+      console.error(
+        "[wallet-agent] Revocation check failed:",
+        message,
+      );
+
+      res.status(500).json({
+        success: false,
+        error: message,
+      });
+    }
+  },
+);
+
 
 app.listen(WALLET_API_PORT, () => {
   console.log(`REST API running on http://${WALLET_DOMAIN}:${WALLET_API_PORT}`);
