@@ -64,7 +64,7 @@ echo ""
 echo -e "${CYN}[2/3] Führerschein-Angebot senden…${NC}"
 CONN=$(curl -sf "$ISSUER/connections" \
   | python3 -c "import sys,json; d=sorted([c for c in json.load(sys.stdin) if c['state']=='completed'], key=lambda x:x['createdAt'], reverse=True); print(d[0]['id'])")
-curl -sf -X POST "$ISSUER/issue" \
+ISSUE_RESP=$(curl -sf -X POST "$ISSUER/issue" \
   -H "Content-Type: application/json" \
   -d "{
     \"connectionId\": \"$CONN\",
@@ -73,8 +73,23 @@ curl -sf -X POST "$ISSUER/issue" \
     \"geburtsdatum\": \"$GEBURTSDATUM\",
     \"fuehrerscheinklasse\": \"$KLASSE\",
     \"ausstellungsdatum\": \"$AUSSTELLUNGSDATUM\"
-  }" > /dev/null
+  }")
+
+CREDENTIAL_EXCHANGE_ID=$(echo "$ISSUE_RESP" |
+  python3 -c "
+import sys, json
+data = json.load(sys.stdin)
+print(data.get('credentialExchangeId', ''))
+")
+
+if [ -z "$CREDENTIAL_EXCHANGE_ID" ]; then
+  echo -e "  ${RED}✗ Issuer hat keine Credential-Exchange-ID zurückgegeben${NC}"
+  echo "$ISSUE_RESP"
+  exit 1
+fi
+
 echo -e "  ${GRN}✓${NC} Angebot gesendet"
+echo -e "  Exchange-ID: ${BLD}$CREDENTIAL_EXCHANGE_ID${NC}"
 echo ""
 
 # ── 3. Warten bis UI akzeptiert ──────────────────────────────────────────────
@@ -83,18 +98,43 @@ echo -e "${YLW}│  👉 AKTION: Wallet-UI → 'Credential-Angebote' → Annehme
 echo -e "${YLW}└─────────────────────────────────────────────────────────┘${NC}"
 echo ""
 
-COUNT_BEFORE=$(curl -sf "$WALLET/credentials" \
-  | python3 -c "import sys,json; print(len(json.load(sys.stdin)))" 2>/dev/null || echo "0")
-
 echo -e "${CYN}[3/3] Warte auf Annahme in der UI…${NC}"
+
 for i in $(seq 1 120); do
-  COUNT=$(curl -sf "$WALLET/credentials" \
-    | python3 -c "import sys,json; print(len(json.load(sys.stdin)))" 2>/dev/null || echo "0")
-  if [ "$COUNT" -gt "$COUNT_BEFORE" ] 2>/dev/null; then
-    echo -e "\r  ${GRN}✓ Credential gespeichert!${NC}                    "; break
+  EXCHANGE_STATE=$(curl -sf "$ISSUER/credential-exchanges" |
+    python3 -c "
+import sys, json
+
+exchange_id = '$CREDENTIAL_EXCHANGE_ID'
+records = json.load(sys.stdin)
+
+record = next(
+    (item for item in records if item.get('id') == exchange_id),
+    None
+)
+
+print(record.get('state', 'not-found') if record else 'not-found')
+" 2>/dev/null || echo "error")
+
+  if [ "$EXCHANGE_STATE" = "done" ]; then
+    echo -e "\r  ${GRN}✓ Credential angenommen und ausgestellt!${NC}             "
+    break
   fi
-  printf "\r  … warte auf UI-Aktion (${i}s)"; sleep 1
-  [ "$i" = "120" ] && echo -e "\n  ${YLW}⚠ Timeout${NC}" && exit 1
+
+  if [ "$EXCHANGE_STATE" = "abandoned" ]; then
+    echo ""
+    echo -e "  ${RED}✗ Credential-Austausch wurde abgebrochen${NC}"
+    exit 1
+  fi
+
+  printf "\r  … Status: %-25s (%ss)" "$EXCHANGE_STATE" "$i"
+  sleep 1
+
+  if [ "$i" = "120" ]; then
+    echo ""
+    echo -e "  ${YLW}⚠ Timeout — letzter Status: $EXCHANGE_STATE${NC}"
+    exit 1
+  fi
 done
 
 echo ""

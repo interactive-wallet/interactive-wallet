@@ -186,6 +186,7 @@ app.get("/connections", async (_req, res) => {
 // ─── Request proof ────────────────────────────────────────────────────────
 // Body: { connectionId, requestedAttributes?: string[] }
 // requestedAttributes: subset of Führerschein fields to request (default: all)
+
 app.post("/request-proof", async (req, res) => {
   try {
     const { connectionId, requestedAttributes } = req.body as {
@@ -194,7 +195,9 @@ app.post("/request-proof", async (req, res) => {
     };
 
     if (!connectionId) {
-      res.status(400).json({ error: "Missing connectionId" });
+      res.status(400).json({
+        error: "Missing connectionId",
+      });
       return;
     }
 
@@ -206,36 +209,62 @@ app.post("/request-proof", async (req, res) => {
       "ausstellungsdatum",
     ];
 
-    const requested_attributes: Record<string, { name: string }> = {};
+    const requested_attributes: Record<
+      string,
+      { name: string }
+    > = {};
+
     for (const attr of attrs) {
-      requested_attributes[`${attr}_referent`] = { name: attr };
+      requested_attributes[`${attr}_referent`] = {
+        name: attr,
+      };
     }
 
-    const proofRecord = await agent.modules.didcomm.proofs.requestProof({
-      connectionId,
-      protocolVersion: "v2",
-      proofFormats: {
-        anoncreds: {
-          name: "Führerschein Verification",
-          version: "1.0",
-          requested_attributes,
-          requested_predicates: {},
-          // Triggers revocation check: holder must prove credential was not revoked
-          // at the time of the proof (verifier reads REVOC_REG_ENTRY from the ledger)
-          non_revoked: {
-            from: 0,
-            to: Math.floor(Date.now() / 1000),
+    // RFC-0441: Non-Revocation wird für einen einzelnen
+    // Zeitpunkt angefragt, nicht für den Zeitraum 0 bis jetzt.
+    const timestamp = Math.floor(Date.now() / 1000);
+
+    const proofRecord =
+      await agent.modules.didcomm.proofs.requestProof({
+        connectionId,
+        protocolVersion: "v2",
+        proofFormats: {
+          anoncreds: {
+            name: "Führerschein Verification",
+            version: "1.0",
+            requested_attributes,
+            requested_predicates: {},
+            non_revoked: {
+              to: timestamp,
+            },
           },
         },
-      },
-    });
+      });
 
-    console.log(`Verifier: proof request sent (non_revoked check enabled) to connection ${connectionId}`);
-    res.json({ proofExchangeId: proofRecord.id, state: proofRecord.state });
+    console.log(
+      `Verifier: proof request sent with non-revocation ` +
+        `timestamp ${timestamp} to connection ${connectionId}`,
+    );
+
+    res.json({
+      proofExchangeId: proofRecord.id,
+      state: proofRecord.state,
+      nonRevocationTimestamp: timestamp,
+    });
   } catch (err: unknown) {
-    console.error("[verifier-agent] request-proof error:", err);
-    const message = err instanceof Error ? err.message : String(err);
-    res.status(500).json({ error: message });
+    console.error(
+      "[verifier-agent] request-proof error:",
+      err,
+    );
+
+    const message =
+      err instanceof Error
+        ? err.message
+        : String(err);
+
+    res.status(500).json({
+      error: message,
+    });
   }
 });
 
