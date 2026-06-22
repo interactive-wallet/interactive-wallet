@@ -1,0 +1,1092 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AnonCreds Revocation — Erklärt</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:ital,wght@0,300;0,400;0,600;1,300&display=swap');
+
+  :root {
+    --bg: #0f1117;
+    --surface: #181c27;
+    --surface2: #1e2436;
+    --border: #2a3050;
+    --text: #c9d1e8;
+    --text-dim: #6a7499;
+    --green: #2ecc71;
+    --green-dim: #1a4a30;
+    --red: #e74c3c;
+    --red-dim: #4a1a1a;
+    --blue: #4a9eff;
+    --blue-dim: #1a2f4a;
+    --gold: #f0c040;
+    --gold-dim: #3a2e10;
+    --mono: 'IBM Plex Mono', monospace;
+    --sans: 'IBM Plex Sans', sans-serif;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    font-weight: 300;
+    line-height: 1.7;
+    padding: 0 1rem 6rem;
+  }
+
+  /* ── Header ─────────────────────────────────────────── */
+  header {
+    max-width: 760px;
+    margin: 0 auto;
+    padding: 4rem 0 2rem;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .tag {
+    font-family: var(--mono);
+    font-size: 0.7rem;
+    letter-spacing: 0.15em;
+    color: var(--blue);
+    text-transform: uppercase;
+    margin-bottom: 0.8rem;
+  }
+
+  h1 {
+    font-size: clamp(1.8rem, 4vw, 2.6rem);
+    font-weight: 600;
+    line-height: 1.2;
+    color: #e8ecf8;
+    margin-bottom: 0.6rem;
+  }
+
+  .subtitle {
+    color: var(--text-dim);
+    font-size: 0.95rem;
+  }
+
+  /* ── Layout ─────────────────────────────────────────── */
+  .content {
+    max-width: 760px;
+    margin: 0 auto;
+  }
+
+  /* ── Section ─────────────────────────────────────────── */
+  .section {
+    margin-top: 3.5rem;
+  }
+
+  .section-label {
+    font-family: var(--mono);
+    font-size: 0.65rem;
+    letter-spacing: 0.2em;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    margin-bottom: 0.5rem;
+  }
+
+  h2 {
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: #e8ecf8;
+    margin-bottom: 1rem;
+  }
+
+  p { color: var(--text); margin-bottom: 0.8rem; }
+  p:last-child { margin-bottom: 0; }
+
+  /* ── Callout ─────────────────────────────────────────── */
+  .callout {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--gold);
+    border-radius: 4px;
+    padding: 1rem 1.2rem;
+    margin: 1.2rem 0;
+  }
+  .callout .callout-label {
+    font-family: var(--mono);
+    font-size: 0.65rem;
+    color: var(--gold);
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    margin-bottom: 0.4rem;
+  }
+  .callout p { color: var(--text); }
+
+  /* ── Flow Diagram ────────────────────────────────────── */
+  .flow-diagram {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 2rem;
+    margin: 1.5rem 0;
+    overflow-x: auto;
+  }
+
+  .flow-actors {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 1rem;
+    min-width: 500px;
+  }
+
+  .actor {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.5rem;
+    flex: 1;
+  }
+
+  .actor-icon {
+    width: 52px;
+    height: 52px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.3rem;
+    border: 2px solid;
+  }
+
+  .actor-icon.issuer  { background: #1a2f1a; border-color: var(--green); }
+  .actor-icon.holder  { background: var(--gold-dim); border-color: var(--gold); }
+  .actor-icon.mediator{ background: #2a1a3a; border-color: #a070d0; font-size:1rem; }
+  .actor-icon.verifier{ background: var(--blue-dim); border-color: var(--blue); }
+  .actor-icon.ledger  { background: #1a1a2a; border-color: var(--text-dim); }
+
+  .actor-name {
+    font-family: var(--mono);
+    font-size: 0.7rem;
+    color: var(--text-dim);
+    text-align: center;
+  }
+
+  /* ── Steps (numbered timeline) ───────────────────────── */
+  .steps { margin: 1.5rem 0; }
+
+  .step {
+    display: flex;
+    gap: 1.2rem;
+    margin-bottom: 0;
+    position: relative;
+  }
+
+  .step:not(:last-child) .step-line {
+    position: absolute;
+    left: 15px;
+    top: 32px;
+    width: 2px;
+    height: calc(100% + 0px);
+    background: var(--border);
+  }
+
+  .step-num {
+    flex-shrink: 0;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: var(--mono);
+    font-size: 0.75rem;
+    color: var(--text-dim);
+    position: relative;
+    z-index: 1;
+  }
+
+  .step.active .step-num { border-color: var(--green); color: var(--green); }
+  .step.revoked .step-num { border-color: var(--red); color: var(--red); }
+  .step.verify  .step-num { border-color: var(--blue); color: var(--blue); }
+
+  .step-body {
+    padding-bottom: 1.8rem;
+    flex: 1;
+  }
+
+  .step-title {
+    font-weight: 600;
+    color: #e8ecf8;
+    font-size: 0.95rem;
+    margin-bottom: 0.3rem;
+    margin-top: 0.35rem;
+  }
+
+  .step-desc { font-size: 0.9rem; color: var(--text); }
+
+  .badge {
+    display: inline-block;
+    font-family: var(--mono);
+    font-size: 0.65rem;
+    padding: 0.15em 0.5em;
+    border-radius: 3px;
+    vertical-align: middle;
+    margin-left: 0.3em;
+  }
+  .badge.green  { background: var(--green-dim); color: var(--green); border: 1px solid var(--green); }
+  .badge.red    { background: var(--red-dim);   color: var(--red);   border: 1px solid var(--red); }
+  .badge.blue   { background: var(--blue-dim);  color: var(--blue);  border: 1px solid var(--blue); }
+  .badge.gray   { background: var(--surface2);  color: var(--text-dim); border: 1px solid var(--border); }
+  .badge.gold   { background: var(--gold-dim);  color: var(--gold);  border: 1px solid var(--gold); }
+
+  /* ── Registry Visualizer ─────────────────────────────── */
+  .registry-box {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1.5rem;
+    margin: 1.5rem 0;
+  }
+
+  .registry-header {
+    font-family: var(--mono);
+    font-size: 0.7rem;
+    color: var(--text-dim);
+    margin-bottom: 1rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .registry-header span { color: var(--blue); }
+
+  .slots {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
+  .slot {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.3rem;
+  }
+
+  .slot-num {
+    font-family: var(--mono);
+    font-size: 0.6rem;
+    color: var(--text-dim);
+  }
+
+  .slot-box {
+    width: 52px;
+    height: 52px;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: var(--mono);
+    font-size: 0.65rem;
+    font-weight: 600;
+    border: 1px solid;
+    transition: all 0.4s ease;
+    position: relative;
+    cursor: default;
+  }
+
+  .slot-box.active   { background: var(--green-dim); border-color: var(--green); color: var(--green); }
+  .slot-box.revoked  { background: var(--red-dim);   border-color: var(--red);   color: var(--red); }
+  .slot-box.holder   { background: var(--gold-dim);  border-color: var(--gold);  color: var(--gold); }
+  .slot-box.empty    { background: var(--surface2);  border-color: var(--border); color: var(--text-dim); }
+
+  .slot-label {
+    font-size: 0.6rem;
+    color: var(--text-dim);
+    font-family: var(--mono);
+    text-align: center;
+    height: 0.8rem;
+  }
+
+  .slot-label.you { color: var(--gold); }
+  .slot-label.rev { color: var(--red); }
+
+  .registry-legend {
+    display: flex;
+    gap: 1.2rem;
+    margin-top: 1rem;
+    flex-wrap: wrap;
+  }
+
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-family: var(--mono);
+    font-size: 0.65rem;
+    color: var(--text-dim);
+  }
+
+  .legend-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 2px;
+    border: 1px solid;
+  }
+
+  /* ── ZKP Proof Box ──────────────────────────────────── */
+  .proof-box {
+    background: var(--surface2);
+    border: 1px dashed var(--border);
+    border-radius: 6px;
+    padding: 1rem 1.2rem;
+    margin: 0.8rem 0;
+    font-family: var(--mono);
+    font-size: 0.8rem;
+    color: var(--text-dim);
+    line-height: 1.8;
+  }
+
+  .proof-box .proof-title {
+    color: var(--text);
+    font-size: 0.7rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    margin-bottom: 0.5rem;
+  }
+
+  .proof-check { color: var(--green); }
+  .proof-cross { color: var(--red); }
+  .proof-hidden { color: #6a7499; font-style: italic; }
+
+  /* ── Summary ────────────────────────────────────────── */
+  .summary {
+    background: linear-gradient(135deg, var(--surface) 0%, var(--surface2) 100%);
+    border: 1px solid var(--border);
+    border-top: 2px solid var(--blue);
+    border-radius: 8px;
+    padding: 1.8rem;
+    margin-top: 3rem;
+  }
+
+  .summary p {
+    font-size: 1.05rem;
+    line-height: 1.8;
+    color: var(--text);
+  }
+
+  .summary strong { color: #e8ecf8; font-weight: 600; }
+
+  /* ── Code inline ────────────────────────────────────── */
+  code {
+    font-family: var(--mono);
+    font-size: 0.82em;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    padding: 0.1em 0.4em;
+    border-radius: 3px;
+    color: var(--blue);
+  }
+
+  /* ── Arrow rows in flow ─────────────────────────────── */
+  .arrow-row {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin: 0.8rem 0;
+    font-size: 0.82rem;
+    color: var(--text);
+    min-width: 500px;
+  }
+
+  .arrow-from, .arrow-to {
+    font-family: var(--mono);
+    font-size: 0.72rem;
+    padding: 0.25em 0.7em;
+    border-radius: 4px;
+    white-space: nowrap;
+  }
+
+  .arrow-from.issuer  { background: #1a2f1a; color: var(--green);  border: 1px solid var(--green); }
+  .arrow-from.holder  { background: var(--gold-dim); color: var(--gold); border: 1px solid var(--gold); }
+  .arrow-from.verifier{ background: var(--blue-dim); color: var(--blue); border: 1px solid var(--blue); }
+
+  .arrow-to.ledger  { background: var(--surface2); color: var(--text-dim); border: 1px solid var(--border); }
+  .arrow-to.holder  { background: var(--gold-dim); color: var(--gold); border: 1px solid var(--gold); }
+  .arrow-to.verifier{ background: var(--blue-dim); color: var(--blue); border: 1px solid var(--blue); }
+
+  .arrow-symbol { color: var(--text-dim); font-size: 1rem; flex-shrink: 0; }
+  .arrow-label  { color: var(--text-dim); font-size: 0.8rem; font-style: italic; }
+
+  /* ── Interactive toggle ─────────────────────────────── */
+  .revoke-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.6rem;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 0.5rem 1rem;
+    cursor: pointer;
+    font-family: var(--mono);
+    font-size: 0.75rem;
+    color: var(--text);
+    margin-top: 1rem;
+    transition: border-color 0.2s;
+    user-select: none;
+  }
+  .revoke-toggle:hover { border-color: var(--red); color: var(--red); }
+  .revoke-toggle.active { border-color: var(--red); color: var(--red); background: var(--red-dim); }
+  .revoke-toggle.active:hover { border-color: var(--green); color: var(--green); background: var(--green-dim); }
+
+  hr { border: none; border-top: 1px solid var(--border); margin: 3rem 0; }
+
+  /* ── Data location map ──────────────────────────────── */
+  .data-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(235px, 1fr));
+    gap: 0.9rem;
+    margin: 1.5rem 0;
+  }
+  .data-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--text-dim);
+    border-radius: 6px;
+    padding: 1rem 1.1rem;
+  }
+  .data-card.ledger   { border-left-color: var(--blue); }
+  .data-card.issuer   { border-left-color: var(--green); }
+  .data-card.holder   { border-left-color: var(--gold); }
+  .data-card.verifier { border-left-color: var(--blue); }
+  .data-card.watcher  { border-left-color: #a070d0; }
+  .data-card.broker   { border-left-color: var(--red); }
+  .data-card.mediator { border-left-color: var(--text-dim); }
+
+  .data-card-title {
+    display: flex; align-items: center; gap: 0.5rem;
+    font-weight: 600; color: #e8ecf8; font-size: 0.95rem; margin-bottom: 0.2rem;
+  }
+  .data-where {
+    font-family: var(--mono); font-size: 0.6rem; letter-spacing: 0.06em;
+    text-transform: uppercase; color: var(--text-dim); margin-bottom: 0.7rem;
+  }
+  .data-list { list-style: none; }
+  .data-list li {
+    font-size: 0.82rem; color: var(--text); padding: 0.28rem 0 0.28rem 1rem;
+    position: relative; line-height: 1.45;
+  }
+  .data-list li::before {
+    content: '▸'; position: absolute; left: 0; color: var(--text-dim); font-size: 0.7rem; top: 0.4rem;
+  }
+  .data-list li .why { display:block; color: var(--text-dim); font-size: 0.72rem; font-style: italic; }
+  .data-not {
+    margin-top: 0.7rem; padding-top: 0.6rem; border-top: 1px dashed var(--border);
+    font-size: 0.74rem; color: var(--red); line-height: 1.4;
+  }
+  .data-not b { color: var(--red); font-weight: 600; }
+
+  /* ── Issuer setup panel ─────────────────────────────── */
+  .setup-panel {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 8px;
+    padding: 1.5rem; margin: 1.5rem 0;
+  }
+  .setup-flow { display: flex; flex-wrap: wrap; gap: 0.8rem; margin-top: 1rem; }
+  .setup-item {
+    flex: 1; min-width: 200px; background: var(--surface2); border: 1px solid var(--border);
+    border-radius: 6px; padding: 1rem;
+  }
+  .setup-item .num {
+    font-family: var(--mono); font-size: 0.9rem; color: var(--green); margin-bottom: 0.4rem;
+  }
+  .setup-item .name { font-weight: 600; color: #e8ecf8; font-size: 0.88rem; margin-bottom: 0.3rem; }
+  .setup-item .desc { font-size: 0.78rem; color: var(--text); line-height: 1.5; }
+  .setup-item .goes {
+    margin-top: 0.6rem; font-family: var(--mono); font-size: 0.65rem;
+    padding: 0.15em 0.5em; border-radius: 3px; display: inline-block;
+  }
+  .setup-item .goes.led { background: var(--blue-dim); color: var(--blue); border: 1px solid var(--blue); }
+  .setup-item .goes.iss { background: var(--green-dim); color: var(--green); border: 1px solid var(--green); }
+
+  /* ── Accumulator / tails viz ────────────────────────── */
+  .accu-box {
+    background: var(--surface2); border: 1px dashed var(--border); border-radius: 6px;
+    padding: 1.3rem; margin: 1rem 0; font-size: 0.86rem; line-height: 1.7;
+  }
+  .accu-row { display: flex; align-items: baseline; gap: 0.8rem; flex-wrap: wrap; margin: 0.7rem 0; }
+  .accu-pill {
+    flex-shrink: 0;
+    font-family: var(--mono); font-size: 0.72rem; padding: 0.3em 0.7em; border-radius: 4px;
+    border: 1px solid var(--border); background: var(--surface); color: var(--text);
+  }
+  .accu-pill.blue { border-color: var(--blue); color: var(--blue); background: var(--blue-dim); }
+  .accu-pill.gold { border-color: var(--gold); color: var(--gold); background: var(--gold-dim); }
+  .accu-pill.red  { border-color: var(--red); color: var(--red); background: var(--red-dim); }
+  .accu-text { color: var(--text); flex: 1; min-width: 220px; }
+  .accu-revoke {
+    margin-top: 0.9rem; padding-top: 0.8rem; border-top: 1px dashed var(--border);
+    color: var(--red); font-size: 0.84rem;
+  }
+
+  /* ── Tails strip ────────────────────────────────────── */
+  .tails-strip { display: flex; gap: 4px; flex-wrap: wrap; margin: 0.8rem 0 0.4rem; }
+  .tails-cell {
+    width: 38px; height: 44px; border-radius: 4px; background: var(--surface);
+    border: 1px solid var(--border); display: flex; flex-direction: column;
+    align-items: center; justify-content: center; gap: 2px;
+  }
+  .tails-cell .ti { font-family: var(--mono); font-size: 0.55rem; color: var(--text-dim); }
+  .tails-cell .tv { font-family: var(--mono); font-size: 0.7rem; color: var(--blue); }
+  .tails-cell.you { border-color: var(--gold); }
+  .tails-cell.you .tv { color: var(--gold); }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="tag">SSI · AnonCreds · Credo-TS</div>
+  <h1>Credential Revocation<br>erklärt</h1>
+  <p class="subtitle">Wie ein ausgestellter Ausweis nachträglich ungültig gemacht wird — ohne Kontakt zum Holder.</p>
+</header>
+
+<div class="content">
+
+  <!-- ── 0. Korrektur ───────────────────────────────────── -->
+  <div class="section">
+    <div class="section-label">Wichtige Korrektur zuerst</div>
+    <h2>Der Verifier bekommt nicht das Credential</h2>
+
+    <div class="callout">
+      <div class="callout-label">Korrektur</div>
+      <p>
+        Der Verifier bekommt <strong>keinen Rohzugriff auf das Credential</strong> des Holders.
+        Er bekommt einen <strong>Zero-Knowledge-Proof (ZKP)</strong> — einen mathematischen Beweis,
+        der sagt: <em>"Ich besitze ein gültiges Credential vom Issuer mit folgenden Eigenschaften"</em>
+        — ohne das Credential selbst zu übergeben.
+      </p>
+      <p style="margin-top:0.5rem;">
+        Der Verifier prüft diesen Beweis mit dem Public Key des Issuers vom Ledger.
+        Das ist der Kernmechanismus von AnonCreds: Beweisen ohne Zeigen.
+      </p>
+    </div>
+  </div>
+
+  <!-- ── 1. Standard Flow ───────────────────────────────── -->
+  <div class="section">
+    <div class="section-label">Rückblick</div>
+    <h2>Der Standard-Flow (kurz)</h2>
+
+    <div class="flow-diagram">
+      <div class="flow-actors">
+        <div class="actor">
+          <div class="actor-icon issuer">🏛️</div>
+          <div class="actor-name">Issuer</div>
+        </div>
+        <div class="actor">
+          <div class="actor-icon mediator">📡</div>
+          <div class="actor-name">Mediator</div>
+        </div>
+        <div class="actor">
+          <div class="actor-icon holder">📱</div>
+          <div class="actor-name">Holder</div>
+        </div>
+        <div class="actor">
+          <div class="actor-icon verifier">🔍</div>
+          <div class="actor-name">Verifier</div>
+        </div>
+        <div class="actor">
+          <div class="actor-icon ledger">📒</div>
+          <div class="actor-name">Ledger</div>
+        </div>
+      </div>
+
+      <div style="margin-top: 1.5rem; overflow-x: auto;">
+        <div class="arrow-row">
+          <span class="arrow-from issuer">Issuer</span>
+          <span class="arrow-symbol">→</span>
+          <span class="arrow-to ledger">Ledger</span>
+          <span class="arrow-label">DID · Schema · CredDef · Public Key</span>
+        </div>
+        <div class="arrow-row">
+          <span class="arrow-from holder">Holder</span>
+          <span class="arrow-symbol">→</span>
+          <span class="arrow-to ledger">Ledger</span>
+          <span class="arrow-label">QR scannen → OOB Invitation → Verbindung mit Issuer (via Mediator)</span>
+        </div>
+        <div class="arrow-row">
+          <span class="arrow-from issuer">Issuer</span>
+          <span class="arrow-symbol">→</span>
+          <span class="arrow-to holder">Holder</span>
+          <span class="arrow-label">Credential Offer → Holder nimmt an → Credential in Wallet</span>
+        </div>
+        <div class="arrow-row">
+          <span class="arrow-from holder">Holder</span>
+          <span class="arrow-symbol">→</span>
+          <span class="arrow-to verifier">Verifier</span>
+          <span class="arrow-label">QR scannen → Verbindung mit Verifier (via Mediator)</span>
+        </div>
+        <div class="arrow-row">
+          <span class="arrow-from verifier">Verifier</span>
+          <span class="arrow-symbol">→</span>
+          <span class="arrow-to holder">Holder</span>
+          <span class="arrow-label">Proof Request → Holder erstellt ZKP → sendet zurück</span>
+        </div>
+        <div class="arrow-row">
+          <span class="arrow-from verifier">Verifier</span>
+          <span class="arrow-symbol">→</span>
+          <span class="arrow-to ledger">Ledger</span>
+          <span class="arrow-label">Public Key + Schema holen → ZKP prüfen → ✓ isVerified: true</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <hr>
+
+  <!-- ── 2. Revocation Konzept ──────────────────────────── -->
+  <div class="section">
+    <div class="section-label">Kernkonzept</div>
+    <h2>Die Revocation Registry — eine nummerierte Sitzplatzliste</h2>
+
+    <p>
+      Stell dir die Revocation Registry als eine <strong>nummerierte Sitzplatzliste</strong> vor.
+      Diese Liste liegt <strong>öffentlich auf dem Ledger</strong> — jeder kann sie lesen.
+    </p>
+    <p>
+      Jeder Platz entspricht einem möglichen Credential-Slot. Bis zu 100 Credentials (in unserem Setup)
+      können in einer Registry registriert sein.
+    </p>
+
+    <!-- Interactive Registry -->
+    <div class="registry-box">
+      <div class="registry-header">
+        <span>Revocation Registry</span>
+        <span style="color: var(--text-dim)">maximumCredentialNumber: 100 · nur Slots 0–7 gezeigt</span>
+      </div>
+
+      <div class="slots" id="slotGrid">
+        <!-- Generated by JS -->
+      </div>
+
+      <div class="registry-legend">
+        <div class="legend-item">
+          <div class="legend-dot" style="background: var(--green-dim); border-color: var(--green)"></div>
+          aktiv
+        </div>
+        <div class="legend-item">
+          <div class="legend-dot" style="background: var(--gold-dim); border-color: var(--gold)"></div>
+          dein Credential
+        </div>
+        <div class="legend-item">
+          <div class="legend-dot" style="background: var(--red-dim); border-color: var(--red)"></div>
+          revoziert
+        </div>
+        <div class="legend-item">
+          <div class="legend-dot" style="background: var(--surface2); border-color: var(--border)"></div>
+          leer
+        </div>
+      </div>
+
+      <button class="revoke-toggle" id="revokeBtn" onclick="toggleRevoke()">
+        <span id="revokeBtnIcon">⚠</span>
+        <span id="revokeBtnText">Credential widerrufen (Slot 2)</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- ── 2b. Daten-Landkarte ────────────────────────────── -->
+  <div class="section">
+    <div class="section-label">Daten-Landkarte</div>
+    <h2>Welche Daten liegen wo?</h2>
+
+    <p>
+      Bevor wir den Ablauf durchgehen — hier sitzt welche Information bei wem.
+      Farbcode: <span style="color:var(--blue)">blau = öffentlich auf dem Ledger</span>,
+      <span style="color:var(--green)">grün = Issuer</span>,
+      <span style="color:var(--gold)">gold = Holder</span>.
+    </p>
+
+    <div class="data-grid">
+
+      <div class="data-card ledger">
+        <div class="data-card-title">📒 Ledger (VON / VDR)</div>
+        <div class="data-where">öffentlich · jeder kann lesen</div>
+        <ul class="data-list">
+          <li>DID + Verkey + Rolle<span class="why">jede Partei — als NYM-Eintrag</span></li>
+          <li>Schema<span class="why">Attributnamen: vorname, fuehrerscheinklasse, …</span></li>
+          <li>Credential Definition<span class="why">öffentl. Schlüssel des Issuers — damit Proofs prüfbar sind</span></li>
+          <li>Revocation Registry Definition<span class="why">Anzahl Plätze + Adresse der Tails-Datei</span></li>
+          <li>Revocation Registry Entry = <b style="color:var(--blue)">der Accumulator</b><span class="why">eine Zahl, die sich bei jedem Widerruf ändert</span></li>
+        </ul>
+        <div class="data-not"><b>NICHT</b> auf dem Ledger: die Credentials selbst · wer welchen Index hat</div>
+      </div>
+
+      <div class="data-card issuer">
+        <div class="data-card-title">🏛️ Issuer</div>
+        <div class="data-where">privat + hostet die Tails-Datei</div>
+        <ul class="data-list">
+          <li>Privater Signaturschlüssel<span class="why">signiert die Credentials</span></li>
+          <li><b style="color:var(--green)">Tails-Datei</b><span class="why">hostet er öffentlich, z.B. /tails/&lt;hash&gt;</span></li>
+          <li><b style="color:var(--green)">Index → Holder-DID</b><span class="why">weiß: Platz 2 = Alice</span></li>
+          <li>Accumulator-Status<span class="why">um Widerrufe zu rechnen</span></li>
+        </ul>
+      </div>
+
+      <div class="data-card holder">
+        <div class="data-card-title">📱 Holder / Wallet</div>
+        <div class="data-where">privat · auf dem Gerät</div>
+        <ul class="data-list">
+          <li>Das Credential selbst<span class="why">vom Issuer signiert, verschlüsselt gespeichert</span></li>
+          <li>Eigener Revocation-Index (z.B. 2)<span class="why">kennt ihn, versteckt ihn aber im ZKP</span></li>
+          <li><b style="color:var(--gold)">Witness</b><span class="why">aus Tails-Datei + Accumulator berechnet</span></li>
+          <li>Eigene DIDs, Audit-Log, Subscriptions</li>
+        </ul>
+      </div>
+
+      <div class="data-card verifier">
+        <div class="data-card-title">🔍 Verifier</div>
+        <div class="data-where">bekommt + liest</div>
+        <ul class="data-list">
+          <li>Den Proof vom Holder<span class="why">Zero-Knowledge — nicht das Credential</span></li>
+          <li>Liest vom Ledger: Cred-Def, Schema, aktueller Accumulator<span class="why">um den Proof zu prüfen</span></li>
+        </ul>
+        <div class="data-not">weiß die Registry-ID, aber <b>NICHT</b> deinen Index</div>
+      </div>
+
+      <div class="data-card watcher">
+        <div class="data-card-title">🐕 Watcher</div>
+        <div class="data-where">privilegiert · beobachtet den VON</div>
+        <ul class="data-list">
+          <li>Eigene DID + Signaturschlüssel<span class="why">signiert jedes Event</span></li>
+          <li>Kopie der <b style="color:#a070d0">Tails-Datei</b><span class="why">um Accumulator-Delta → Index aufzulösen</span></li>
+          <li><b style="color:#a070d0">Index → DID</b><span class="why">um zu wissen, welche DID betroffen ist</span></li>
+          <li>Ledger-Cursor / Cache</li>
+        </ul>
+      </div>
+
+      <div class="data-card broker">
+        <div class="data-card-title">📨 Broker</div>
+        <div class="data-where">untrusted Infrastruktur</div>
+        <ul class="data-list">
+          <li>Subscription-Registry<span class="why">Wallet-DID → abonnierte Topics</span></li>
+        </ul>
+        <div class="data-not">sieht <b>KEINE</b> Inhalte · kann <b>NICHT</b> fälschen (alles signiert)</div>
+      </div>
+
+      <div class="data-card mediator">
+        <div class="data-card-title">📡 Mediator</div>
+        <div class="data-where">Briefkasten der Wallet</div>
+        <ul class="data-list">
+          <li>Verschlüsselte Nachrichten für eine Wallet-DID<span class="why">kennt nur „für wen", nicht den Inhalt</span></li>
+        </ul>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ── 2c. Issuer-Setup ───────────────────────────────── -->
+  <div class="section">
+    <div class="section-label">Beim Erstellen</div>
+    <h2>Was der Issuer aufsetzt, bevor das erste Credential rausgeht</h2>
+
+    <div class="setup-panel">
+      <p style="margin:0">Einmalig entstehen <b>drei Artefakte</b>:</p>
+      <div class="setup-flow">
+        <div class="setup-item">
+          <div class="num">①</div>
+          <div class="name">Revocation Registry Definition</div>
+          <div class="desc">Legt die Registry an: wie viele Plätze (<code>maximumCredentialNumber</code>, z.B. 100) und wo die Tails-Datei liegt.</div>
+          <span class="goes led">→ Ledger</span>
+        </div>
+        <div class="setup-item">
+          <div class="num">②</div>
+          <div class="name">Tails-Datei</div>
+          <div class="desc">Binärdatei mit <b>einem kryptografischen Eintrag pro Platz</b> (0…99). Enthält keine Namen — nur Mathe-Punkte. Öffentlich, aber groß.</div>
+          <span class="goes iss">→ Issuer hostet</span>
+        </div>
+        <div class="setup-item">
+          <div class="num">③</div>
+          <div class="name">Initialer Accumulator</div>
+          <div class="desc">Eine Zahl, die „alle Plätze aktiv" zusammenfasst (die Revocation Status List).</div>
+          <span class="goes led">→ Ledger</span>
+        </div>
+      </div>
+      <p style="margin:1.2rem 0 0; font-size:0.86rem; color:var(--text-dim)">
+        Beim <b style="color:var(--text)">Ausstellen</b> eines Credentials vergibt der Issuer dann den nächsten freien
+        <b style="color:var(--gold)">Platz / Index</b> (z.B. 2) und merkt sich: <code>Index 2 = diese DID</code>.
+      </p>
+    </div>
+  </div>
+
+  <!-- ── 2d. Accumulator & Tails ────────────────────────── -->
+  <div class="section">
+    <div class="section-label">Der Mechanismus</div>
+    <h2>Accumulator, Tails-Datei &amp; Witness — was steckt da drin?</h2>
+
+    <div class="accu-box">
+      <div class="accu-row">
+        <span class="accu-pill blue">Accumulator</span>
+        <span class="accu-text">Eine <b>einzige Zahl</b> auf dem Ledger, die alle aktuell <b>gültigen</b> Plätze mathematisch zusammenfasst. (Stell dir ein Produkt vor, in dem jeder gültige Platz ein Faktor ist.)</span>
+      </div>
+      <div class="accu-row">
+        <span class="accu-pill">Tails-Datei</span>
+        <span class="accu-text">Ein <b>kryptografischer Eintrag pro Platz</b> — keine Namen, keine Credentials, nur ein Mathe-Wert je Slot:</span>
+      </div>
+
+      <div class="tails-strip">
+        <div class="tails-cell"><span class="ti">0</span><span class="tv">g₀</span></div>
+        <div class="tails-cell"><span class="ti">1</span><span class="tv">g₁</span></div>
+        <div class="tails-cell you"><span class="ti">2</span><span class="tv">g₂</span></div>
+        <div class="tails-cell"><span class="ti">3</span><span class="tv">g₃</span></div>
+        <div class="tails-cell"><span class="ti">4</span><span class="tv">g₄</span></div>
+        <div class="tails-cell"><span class="ti">…</span><span class="tv">…</span></div>
+        <div class="tails-cell"><span class="ti">99</span><span class="tv">g₉₉</span></div>
+      </div>
+      <div style="font-size:0.74rem; color:var(--text-dim); font-style:italic">
+        Platz 2 (gold) gehört z.B. dir. Die Datei selbst verrät das aber nicht — jeder Eintrag sieht gleich aus.
+      </div>
+
+      <div class="accu-row" style="margin-top:0.9rem">
+        <span class="accu-pill gold">Witness</span>
+        <span class="accu-text">Dein <b>persönlicher Beweiswert</b>: aus deinem Platz (2) + den anderen Tails-Einträgen berechnet. Damit beweist du: „mein Platz steckt im Accumulator" = <b>nicht widerrufen</b> — <b>ohne deinen Platz zu verraten</b>.</span>
+      </div>
+
+      <div class="accu-revoke">
+        <b>Widerruf:</b> Der Issuer entfernt Platz 2 aus dem Accumulator → schreibt die <b>neue Zahl</b> auf den Ledger.
+        Dein Witness passt jetzt nicht mehr zur neuen Zahl → du kannst den Non-Revocation-Proof <b>nicht mehr bauen</b> → der Proof scheitert.
+      </div>
+    </div>
+
+    <div class="callout">
+      <div class="callout-label">Warum der Watcher die Tails-Datei braucht</div>
+      <p>
+        Auf dem Ledger steht nach einem Widerruf nur die <b>neue Accumulator-Zahl</b> — nicht „Platz 2 wurde widerrufen".
+        Um herauszufinden <em>welcher</em> Platz sich geändert hat, vergleicht der Watcher alte und neue Zahl
+        mithilfe der Tails-Datei. Erst damit kommt er auf den Index — und über die Index→DID-Tabelle auf die betroffene Wallet.
+      </p>
+    </div>
+  </div>
+
+  <!-- ── 3. Schritt für Schritt ─────────────────────────── -->
+  <div class="section">
+    <div class="section-label">Schritt für Schritt</div>
+    <h2>Wie Revocation in den Flow passt</h2>
+
+    <div class="steps">
+
+      <div class="step active">
+        <div class="step-line"></div>
+        <div class="step-num">1</div>
+        <div class="step-body">
+          <div class="step-title">Setup — Issuer registriert Registry + Tails-Datei <span class="badge blue">Ledger</span></div>
+          <div class="step-desc">
+            Zusammen mit Schema und CredentialDefinition erstellt der Issuer eine
+            <strong>Revocation Registry Definition</strong> auf dem Ledger.
+            Dazu gehört eine <strong>Tails-Datei</strong> — eine kryptografische Datei
+            mit einem Eintrag pro möglichem Credential-Slot. Der Issuer hostet sie selbst
+            unter <code>/tails/&lt;hash&gt;</code>. Außerdem schreibt der Issuer eine
+            initiale <strong>Revocation Status List</strong> (alle Slots: aktiv).
+          </div>
+        </div>
+      </div>
+
+      <div class="step active">
+        <div class="step-line"></div>
+        <div class="step-num">2</div>
+        <div class="step-body">
+          <div class="step-title">Ausstellen — Credential bekommt eine Platznummer <span class="badge gold">Holder</span></div>
+          <div class="step-desc">
+            Jedes ausgestellte Credential bekommt automatisch einen <strong>Index</strong>
+            in der Registry (z.B. Slot 2). Dieser Index steckt als Metadatum
+            (<code>credentialRevocationId</code>) im Credential Exchange Record des Issuers.
+            Der Holder weiß seinen Index, gibt ihn aber nie preis.
+          </div>
+        </div>
+      </div>
+
+      <div class="step revoked">
+        <div class="step-line"></div>
+        <div class="step-num">3</div>
+        <div class="step-body">
+          <div class="step-title">Widerrufen — Issuer schreibt neuen Ledger-Eintrag <span class="badge red">REVOC_REG_ENTRY</span></div>
+          <div class="step-desc">
+            Der Issuer ruft <code>updateRevocationStatusList()</code> auf und markiert
+            Slot 2 als revoziert. Das schreibt einen neuen öffentlichen Eintrag auf den Ledger.
+            <strong>Kein Kontakt zum Holder nötig.</strong>
+            Der Holder bemerkt es nicht sofort — erst beim nächsten Proof-Versuch.
+          </div>
+        </div>
+      </div>
+
+      <div class="step verify">
+        <div class="step-num">4</div>
+        <div class="step-body">
+          <div class="step-title">Verifizieren — Verifier fragt mit <code>nonRevoked</code>-Constraint <span class="badge blue">ZKP</span></div>
+          <div class="step-desc">
+            Der Verifier stellt eine erweiterte Proof-Anfrage:
+            <em>"Beweise mir, dass dein Credential gültig ist <strong>und</strong> zum Zeitpunkt X noch aktiv war."</em>
+            <br><br>
+            Der Holder muss jetzt mit Hilfe der Tails-Datei einen ZKP bauen, der zwei Dinge gleichzeitig beweist:
+
+            <div class="proof-box" style="margin-top: 0.8rem;">
+              <div class="proof-title">ZKP — was der Holder beweisen muss</div>
+              <span class="proof-check">✓</span> Credential stammt vom richtigen Issuer (Public Key Check)<br>
+              <span class="proof-check">✓</span> Mein Slot war zum Zeitpunkt T nicht revoziert<br>
+              <span class="proof-hidden">— Welcher Slot das ist, bleibt verborgen</span>
+            </div>
+
+            Wenn Slot 2 revoziert ist, kann der Holder den zweiten Teil mathematisch
+            <strong>nicht mehr erzeugen</strong> → Proof schlägt fehl.
+
+            <div class="proof-box" style="margin-top: 0.8rem;">
+              <div class="proof-title">Ergebnis beim Verifier</div>
+              <span class="proof-cross">✗</span> isVerified: <strong style="color: var(--red)">false</strong>
+              &nbsp;·&nbsp; state: <strong style="color: var(--red)">abandoned</strong>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ── 4. Full Revocation Flow ────────────────────────── -->
+  <div class="section">
+    <div class="section-label">Gesamtbild</div>
+    <h2>Der Revocation-Flow im Überblick</h2>
+
+    <div class="flow-diagram">
+      <div style="overflow-x: auto;">
+        <div class="arrow-row">
+          <span class="arrow-from issuer">Issuer</span>
+          <span class="arrow-symbol">→</span>
+          <span class="arrow-to ledger">Ledger</span>
+          <span class="arrow-label">REVOC_REG_DEF + Tails-Datei-URL (einmalig beim Setup)</span>
+        </div>
+        <div class="arrow-row">
+          <span class="arrow-from issuer">Issuer</span>
+          <span class="arrow-symbol">→</span>
+          <span class="arrow-to ledger">Ledger</span>
+          <span class="arrow-label">REVOC_REG_ENTRY (initial: alle Slots aktiv)</span>
+        </div>
+        <div class="arrow-row">
+          <span class="arrow-from issuer">Issuer</span>
+          <span class="arrow-symbol">→</span>
+          <span class="arrow-to holder">Holder</span>
+          <span class="arrow-label">Credential mit Slot-Nummer (z.B. Index 2)</span>
+        </div>
+
+        <div style="border-left: 2px solid var(--red-dim); padding-left: 1rem; margin: 1rem 0 1rem 15px;">
+          <div style="font-family: var(--mono); font-size: 0.65rem; color: var(--red); text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 0.6rem;">Revocation</div>
+          <div class="arrow-row" style="min-width: auto;">
+            <span class="arrow-from issuer">Issuer</span>
+            <span class="arrow-symbol">→</span>
+            <span class="arrow-to ledger">Ledger</span>
+            <span class="arrow-label" style="color: var(--red)">REVOC_REG_ENTRY: Slot 2 = revoziert ← neuer Eintrag</span>
+          </div>
+        </div>
+
+        <div class="arrow-row">
+          <span class="arrow-from verifier">Verifier</span>
+          <span class="arrow-symbol">→</span>
+          <span class="arrow-to holder">Holder</span>
+          <span class="arrow-label">Proof Request mit nonRevoked-Constraint</span>
+        </div>
+        <div class="arrow-row">
+          <span class="arrow-from holder">Holder</span>
+          <span class="arrow-symbol">→</span>
+          <span class="arrow-to ledger">Ledger</span>
+          <span class="arrow-label">Tails-Datei + aktuelle Status List holen</span>
+        </div>
+        <div class="arrow-row">
+          <span class="arrow-from holder">Holder</span>
+          <span class="arrow-symbol">→</span>
+          <span class="arrow-to verifier">Verifier</span>
+          <span class="arrow-label" style="color: var(--red)">ZKP schlägt fehl → kann nicht gebaut werden</span>
+        </div>
+        <div class="arrow-row">
+          <span class="arrow-from verifier">Verifier</span>
+          <span class="arrow-symbol">→</span>
+          <span class="arrow-to ledger">Ledger</span>
+          <span class="arrow-label" style="color: var(--red)">isVerified: false</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Summary ────────────────────────────────────────── -->
+  <div class="summary">
+    <div class="section-label" style="margin-bottom: 0.8rem;">Zusammenfassung</div>
+    <p>
+      Revocation fügt dem bestehenden ZKP eine <strong>zweite Beweisschicht</strong> hinzu:
+      nicht nur <em>"Ich hab ein echtes Credential"</em>, sondern
+      <em>"Mein Credential ist auch aktuell noch gültig"</em> —
+      und das alles <strong>ohne die Platznummer preiszugeben</strong>.
+      Der Issuer schreibt einen einzigen Ledger-Eintrag;
+      der Rest ergibt sich kryptografisch aus dem ZKP-Protokoll.
+    </p>
+  </div>
+
+</div><!-- /content -->
+
+<script>
+  // ── Slot Grid ───────────────────────────────────────────
+  const HOLDER_SLOT = 2;
+  let isRevoked = false;
+
+  const slotStates = [
+    { label: 'aktiv' },
+    { label: 'aktiv' },
+    { label: 'dein Slot', isHolder: true },
+    { label: 'aktiv' },
+    { label: 'aktiv' },
+    { label: '' },
+    { label: '' },
+    { label: '' },
+  ];
+
+  function renderSlots() {
+    const grid = document.getElementById('slotGrid');
+    grid.innerHTML = '';
+    slotStates.forEach((s, i) => {
+      const isHolder = s.isHolder;
+      const isEmpty = s.label === '';
+      let cls = 'empty';
+      if (!isEmpty) {
+        if (isRevoked && isHolder) cls = 'revoked';
+        else if (isHolder) cls = 'holder';
+        else cls = 'active';
+      }
+
+      const labelCls = isHolder ? (isRevoked ? 'rev' : 'you') : '';
+      const labelText = isRevoked && isHolder ? 'revoziert' : s.label;
+
+      grid.innerHTML += `
+        <div class="slot">
+          <div class="slot-num">${i}</div>
+          <div class="slot-box ${cls}">${isEmpty ? '·' : (isRevoked && isHolder ? '✗' : '✓')}</div>
+          <div class="slot-label ${labelCls}">${labelText}</div>
+        </div>
+      `;
+    });
+  }
+
+  function toggleRevoke() {
+    isRevoked = !isRevoked;
+    renderSlots();
+    const btn = document.getElementById('revokeBtn');
+    const btnText = document.getElementById('revokeBtnText');
+    const btnIcon = document.getElementById('revokeBtnIcon');
+    if (isRevoked) {
+      btn.classList.add('active');
+      btnIcon.textContent = '↩';
+      btnText.textContent = 'Widerruf rückgängig (Slot 2)';
+    } else {
+      btn.classList.remove('active');
+      btnIcon.textContent = '⚠';
+      btnText.textContent = 'Credential widerrufen (Slot 2)';
+    }
+  }
+
+  renderSlots();
+</script>
+
+</body>
+</html>
