@@ -13,6 +13,7 @@ import {
   VERIFIER_SEED,
   VON_URL,
 } from "./config.js";
+import { DidCommProofStateChangedEvent } from "@credo-ts/didcomm";
 
 // Native modules MUST be registered before @credo-ts/* modules are loaded.
 const { TypedArrayEncoder } = await import("@credo-ts/core");
@@ -113,7 +114,7 @@ if (!state) {
 }
 
 // ─── Observer: proof event logging ───────────────────────────────────────
-agent.events.on(DidCommProofEventTypes.ProofStateChanged, ({ payload }: any) => {
+agent.events.on(DidCommProofEventTypes.ProofStateChanged, ({ payload }: DidCommProofStateChangedEvent) => {
   const record = payload.proofRecord;
   console.log(`Proof state: ${record.state}`);
   if (record.state === DidCommProofState.Abandoned) {

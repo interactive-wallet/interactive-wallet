@@ -1,3 +1,4 @@
+import { AnonCredsModule } from "@credo-ts/anoncreds";
 import { AskarModule } from "@credo-ts/askar";
 import {
   Agent,
@@ -14,6 +15,7 @@ import {
   DidCommModule,
 } from "@credo-ts/didcomm";
 import {
+  IndyVdrAnonCredsRegistry,
   IndyVdrIndyDidRegistrar,
   IndyVdrIndyDidResolver,
   IndyVdrModule,
@@ -24,6 +26,7 @@ import {
   DidCommWsInboundTransport,
 } from "@credo-ts/node";
 import "@hyperledger/anoncreds-nodejs";
+import { NativeAnoncreds } from "@hyperledger/anoncreds-shared";
 import { indyVdr } from "@hyperledger/indy-vdr-nodejs";
 import "@openwallet-foundation/askar-nodejs";
 import { NativeAskar } from "@openwallet-foundation/askar-shared";
@@ -64,6 +67,10 @@ export function createMediatorAgent() {
             connectOnStartup: true,
           },
         ],
+      }),
+      anoncreds: new AnonCredsModule({
+        anoncreds: NativeAnoncreds.instance,
+        registries: [new IndyVdrAnonCredsRegistry()],
       }),
       dids: new DidsModule({
         resolvers: [

@@ -1,11 +1,12 @@
-import "@hyperledger/anoncreds-nodejs";
-import "@hyperledger/indy-vdr-nodejs";
-import "@openwallet-foundation/askar-nodejs";
 import {
   AnonCredsCredentialMetadataKey,
   AnonCredsRevocationRegistryDefinitionRecordMetadataKeys,
   AnonCredsRevocationRegistryDefinitionRepository,
 } from "@credo-ts/anoncreds";
+import { DidCommCredentialExchangeRecord } from "@credo-ts/didcomm";
+import "@hyperledger/anoncreds-nodejs";
+import "@hyperledger/indy-vdr-nodejs";
+import "@openwallet-foundation/askar-nodejs";
 import cors from "cors";
 import "dotenv/config";
 import express from "express";
@@ -551,14 +552,14 @@ app.post("/revoke", async (req, res) => {
 
     const { credentialExchangeId } = req.body as { credentialExchangeId?: string };
 
-    let targetExchange: any;
+    let targetExchange: DidCommCredentialExchangeRecord;
     if (credentialExchangeId) {
       targetExchange = await agent.modules.didcomm.credentials.getById(credentialExchangeId);
     } else {
       const all = await agent.modules.didcomm.credentials.getAll();
       targetExchange = all
-        .filter((e: any) => e.state === "done" && e.role === "issuer")
-        .sort((a: any, b: any) => b.createdAt.getTime() - a.createdAt.getTime())[0];
+        .filter((e) => e.state === "done" && e.role === "issuer")
+        .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())[0];
     }
 
     if (!targetExchange) {
