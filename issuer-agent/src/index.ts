@@ -1,7 +1,11 @@
 import "@hyperledger/anoncreds-nodejs";
 import "@hyperledger/indy-vdr-nodejs";
 import "@openwallet-foundation/askar-nodejs";
-import { AnonCredsCredentialMetadataKey } from "@credo-ts/anoncreds";
+import {
+  AnonCredsCredentialMetadataKey,
+  AnonCredsRevocationRegistryDefinitionRecordMetadataKeys,
+  AnonCredsRevocationRegistryDefinitionRepository,
+} from "@credo-ts/anoncreds";
 import cors from "cors";
 import "dotenv/config";
 import express from "express";
@@ -28,6 +32,10 @@ interface IssuerState {
   schemaId: string;
   credDefId: string;
   revocRegDefId: string;
+  
+  // Next free spot in registry
+  // Registry created with max num 100
+  nextRevocationIndex?: number;
 }
 
 let state: IssuerState | null = null;
@@ -40,8 +48,126 @@ function saveState(s: IssuerState) {
   fs.writeFileSync(STATE_FILE, JSON.stringify(s, null, 2));
 }
 
+const MAXIMUM_CREDENTIAL_NUMBER = 100;
+
+function reserveNextRevocationIndex(): number {
+  if (!state) {
+    throw new Error(
+      "Issuer state is not initialized",
+    );
+  }
+
+  const index = state.nextRevocationIndex ?? 1;
+
+  if (index > MAXIMUM_CREDENTIAL_NUMBER) {
+    throw new Error(
+      `Revocation Registry ist voll. ` +
+        `Maximal ${MAXIMUM_CREDENTIAL_NUMBER} Credentials möglich.`,
+    );
+  }
+
+  state.nextRevocationIndex = index + 1;
+  saveState(state);
+
+  return index;
+}
+
 const agent = createAgent();
 await agent.initialize();
+
+async function ensureLocalRevocationRegistryMetadata(
+  revocationRegistryDefinitionId: string,
+): Promise<void> {
+  const repository = agent.dependencyManager.resolve(
+    AnonCredsRevocationRegistryDefinitionRepository,
+  );
+
+  const record =
+    await repository.getByRevocationRegistryDefinitionId(
+      agent.context,
+      revocationRegistryDefinitionId,
+    );
+
+  const metadataKey =
+    AnonCredsRevocationRegistryDefinitionRecordMetadataKeys
+      .RevocationRegistryDefinitionMetadata;
+
+  const existingMetadata =
+    record.metadata.get(metadataKey) ?? {};
+
+  record.metadata.set(metadataKey, {
+    ...existingMetadata,
+
+    // IndyVdrAnonCredsRegistry schreibt die Definition
+    // ausdrücklich als ISSUANCE_BY_DEFAULT.
+    issuanceType: "ISSUANCE_BY_DEFAULT",
+
+    didIndyNamespace: INDY_NAMESPACE,
+  });
+
+  await repository.update(agent.context, record);
+
+  console.log(
+    "[issuer-agent] Local revocation registry metadata updated",
+    {
+      revocationRegistryDefinitionId,
+      issuanceType: "ISSUANCE_BY_DEFAULT",
+    },
+  );
+}
+
+const sleep = (milliseconds: number): Promise<void> =>
+  new Promise((resolve) => setTimeout(resolve, milliseconds));
+
+async function waitForRevocationStatusList(
+  revocationRegistryDefinitionId: string,
+  attempts = 15,
+): Promise<void> {
+  let lastResolutionMetadata: unknown;
+
+  for (let attempt = 1; attempt <= attempts; attempt++) {
+    const timestamp = Math.floor(Date.now() / 1000);
+
+    const result =
+      await agent.modules.anoncreds.getRevocationStatusList(
+        revocationRegistryDefinitionId,
+        timestamp,
+        {
+          useCache: false,
+        },
+      );
+
+    if (result.revocationStatusList) {
+      console.log(
+        "[issuer-agent] Revocation status list readable from VON",
+        {
+          revocationRegistryDefinitionId,
+          timestamp:
+            result.revocationStatusList.timestamp,
+        },
+      );
+
+      return;
+    }
+
+    lastResolutionMetadata = result.resolutionMetadata;
+
+    console.warn(
+      `[issuer-agent] Revocation status list not readable ` +
+        `(attempt ${attempt}/${attempts})`,
+      result.resolutionMetadata,
+    );
+
+    await sleep(1_000);
+  }
+
+  throw new Error(
+    `Revocation status list is still not readable: ${JSON.stringify(
+      lastResolutionMetadata,
+    )}`,
+  );
+}
+
 console.log("Issuer Agent initialized");
 
 // TODO NYM
@@ -63,9 +189,22 @@ app.use(express.json());
 // BasicTailsFileService stores files at ${cacheDir}/anoncreds/tails/<hash>
 // IssuerTailsFileService returns http://localhost:3002/tails/<hash> as the URL
 // embedded in the revoc reg def on the ledger, so the holder can download it.
-const tailsDir = path.join(os.homedir(), ".afj", "data", "anoncreds", "tails");
-fs.mkdirSync(tailsDir, { recursive: true });
-app.use("/tails", express.static(tailsDir));
+const tailsDir = path.join(
+  os.homedir(),
+  ".afj",
+  "cache",
+  "anoncreds",
+  "tails",
+);
+
+fs.mkdirSync(tailsDir, {
+  recursive: true,
+});
+
+app.use(
+  "/tails",
+  express.static(tailsDir),
+);
 
 // ─── Setup (one-time) ────────────────────────────────────────────────────
 if (!state) {
@@ -209,7 +348,7 @@ if (!state) {
   }
   console.log("REVOC_REG_ENTRY (initial) written to VON Ledger ✓");
 
-  state = { issuerDid, schemaId, credDefId, revocRegDefId };
+  state = { issuerDid, schemaId, credDefId, revocRegDefId, nextRevocationIndex: 1 };
   saveState(state);
 } else if (!state.revocRegDefId) {
   // State exists from a previous non-revocable setup — migration not possible.
@@ -217,6 +356,21 @@ if (!state) {
   console.warn("[issuer-agent] WARNING: state file exists without revocRegDefId.");
   console.warn("[issuer-agent] Run ./scripts/reset.sh to enable revocation support.");
 }
+
+if (!state?.issuerDid || !state.revocRegDefId) {
+  throw new Error(
+    "Issuer setup is incomplete: issuerDid or revocRegDefId is missing",
+  );
+}
+
+await ensureLocalRevocationRegistryMetadata(
+  state.revocRegDefId,
+);
+
+await waitForRevocationStatusList(
+  state.revocRegDefId,
+  15,
+);
 
 // ─── Observer: credential and proof event logging ─────────────────────────
 agent.events.on(DidCommCredentialEventTypes.DidCommCredentialStateChanged, ({ payload }: any) => {
@@ -318,22 +472,52 @@ app.post("/issue", async (req, res) => {
       return;
     }
 
+    const revocationRegistryIndex =
+      reserveNextRevocationIndex();
+
+    console.log(
+      `[issuer-agent] Reserving revocation index ` +
+        `${revocationRegistryIndex} in registry ` +
+        `${state.revocRegDefId}`,
+    );
+
     const credentialExchangeRecord =
       await agent.modules.didcomm.credentials.offerCredential({
         connectionId,
         protocolVersion: "v2",
+
         credentialFormats: {
           anoncreds: {
-            credentialDefinitionId: state.credDefId,
+            credentialDefinitionId:
+              state.credDefId,
+
+            revocationRegistryDefinitionId:
+              state.revocRegDefId,
+
+            revocationRegistryIndex,
+
             attributes: [
-              { name: "vorname", value: vorname },
-              { name: "nachname", value: nachname },
-              { name: "geburtsdatum", value: geburtsdatum },
-              { name: "fuehrerscheinklasse", value: fuehrerscheinklasse },
-              { name: "ausstellungsdatum", value: ausstellungsdatum },
+              {
+                name: "vorname",
+                value: vorname,
+              },
+              {
+                name: "nachname",
+                value: nachname,
+              },
+              {
+                name: "geburtsdatum",
+                value: geburtsdatum,
+              },
+              {
+                name: "fuehrerscheinklasse",
+                value: fuehrerscheinklasse,
+              },
+              {
+                name: "ausstellungsdatum",
+                value: ausstellungsdatum,
+              },
             ],
-            // revocationRegistryDefinitionId and index are picked automatically
-            // by Credo because the credDef was created with supportRevocation: true
           },
         },
       });
@@ -342,7 +526,11 @@ app.post("/issue", async (req, res) => {
     res.json({
       success: true,
       message: "Führerschein credential offer sent",
-      credentialExchangeId: credentialExchangeRecord.id,
+      credentialExchangeId:
+        credentialExchangeRecord.id,
+      revocationRegistryDefinitionId:
+        state.revocRegDefId,
+      revocationRegistryIndex,
     });
   } catch (err: unknown) {
     console.error("[issuer-agent] Issue error:", err);
@@ -391,21 +579,40 @@ app.post("/revoke", async (req, res) => {
     const revocationIndex = parseInt(meta.credentialRevocationId, 10);
     console.log(`Issuer: revoking credential index ${revocationIndex} in registry ${meta.revocationRegistryId}`);
 
-    await agent.modules.anoncreds.updateRevocationStatusList({
-      revocationStatusList: {
-        revocationRegistryDefinitionId: meta.revocationRegistryId,
-        revokedCredentialIndexes: [revocationIndex],
-      },
-      options: {},
-    });
+    const revocationResult =
+      await agent.modules.anoncreds.updateRevocationStatusList({
+        revocationStatusList: {
+          revocationRegistryDefinitionId:
+            meta.revocationRegistryId,
+          revokedCredentialIndexes: [revocationIndex],
+        },
+        options: {},
+      });
 
-    console.log(`REVOC_REG_ENTRY written to VON Ledger ✓ (index ${revocationIndex} revoked)`);
+    if (
+      revocationResult.revocationStatusListState.state !==
+      "finished"
+    ) {
+      throw new Error(
+        `Revocation on VON failed: ${JSON.stringify(
+          revocationResult.revocationStatusListState,
+        )}`,
+      );
+    }
+
+    console.log(
+      `REVOC_REG_ENTRY written to VON Ledger ✓ ` +
+        `(index ${revocationIndex} revoked)`,
+    );
+
 
     res.json({
       success: true,
       revokedIndex: revocationIndex,
-      revocationRegistryId: meta.revocationRegistryId,
-      credentialExchangeId: targetExchange.id,
+      revocationRegistryId:
+        meta.revocationRegistryId,
+      credentialExchangeId:
+        targetExchange.id,
     });
   } catch (err: unknown) {
     console.error("[issuer-agent] Revoke error:", err);
@@ -440,8 +647,102 @@ app.get("/credential-exchanges", async (_req, res) => {
   }
 });
 
-app.listen(ISSUER_API_PORT, () => {
+app.post(
+  "/credential-exchanges/:id/accept-request",
+  async (req, res) => {
+    try {
+      const credentialExchangeId = req.params.id;
+
+      const record =
+        await agent.modules.didcomm.credentials.getById(
+          credentialExchangeId,
+        );
+
+      if (record.state !== "request-received") {
+        res.status(400).json({
+          error:
+            `Credential Exchange hat Zustand '${record.state}', ` +
+            `erwartet wurde 'request-received'`,
+        });
+
+        return;
+      }
+
+      const updatedRecord =
+        await agent.modules.didcomm.credentials.acceptRequest({
+          credentialExchangeRecordId:
+            credentialExchangeId,
+        });
+
+      res.json({
+        success: true,
+        credentialExchangeId:
+          updatedRecord.id,
+        state:
+          updatedRecord.state,
+      });
+    } catch (error: unknown) {
+      console.error(
+        "[issuer-agent] acceptRequest failed:",
+        error,
+      );
+
+      const message =
+        error instanceof Error
+          ? error.message
+          : String(error);
+
+      res.status(500).json({
+        success: false,
+        error: message,
+      });
+    }
+  },
+);
+
+const server = app.listen(
+  ISSUER_API_PORT,
+  () => {
+    console.log(
+      `[issuer-agent] REST API running on ` +
+        `http://localhost:${ISSUER_API_PORT}`,
+    );
+  },
+);
+
+let isShuttingDown = false;
+
+async function shutdown(
+  signal: string,
+): Promise<void> {
+  if (isShuttingDown) {
+    return;
+  }
+
+  isShuttingDown = true;
+
   console.log(
-    `[issuer-agent] REST API running on http://localhost:${ISSUER_API_PORT}`,
+    `[issuer-agent] Received ${signal}, shutting down`,
   );
+
+  server.close();
+
+  try {
+    await agent.shutdown();
+  } catch (error) {
+    console.error(
+      "[issuer-agent] Agent shutdown failed:",
+      error,
+    );
+  }
+
+  process.exit(0);
+}
+
+process.once("SIGINT", () => {
+  void shutdown("SIGINT");
+});
+
+process.once("SIGTERM", () => {
+  void shutdown("SIGTERM");
 });
