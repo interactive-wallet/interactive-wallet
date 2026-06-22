@@ -1,53 +1,38 @@
-# Artifact Appendix 
+# Artifact Appendix
 
-Paper title: **Enter the exact title**
+Paper title: **Transparent SSI Wallet**
 
 While this template is provided for artifact review, you should write your
 instructions for someone trying to reuse your artifact in the future (i.e., not
 an artifact reviewer).
 
-## Description 
-Replace this with the following:
+## Description
+This artifact relates to the masters project "Transparent SSI Wallet"
+as part of the "Internet of Services Lab" 2026.
 
-1. List the paper that the artifact relates to (i.e., paper title, authors,
-   year, or even a BibTex cite).
-2. A short description of your artifact and how it is relevant to your paper.
+We provide an Android app that uses DIDComm, AnonCreds, ...
+to issue credentials and present them on demand.
+We also provide the necessary infrastructure to notify the wallet owner when her credentials are requested to be issued, verified, revoked, and checked after revocation.
 
-### Security/Privacy Issues and Ethical Concerns 
+### Security/Privacy Issues and Ethical Concerns
 
-Replace this with a description of security or privacy risks that your artifact
-may hold for the machine of the person trying to evaluate or reuse your
-artifact. This is especially relevant for artifacts that _disable a security
-mechanism_, such as a firewall, ASLR, etc., to demonstrate an attack, as well as
-to artifacts that _run vulnerable code_, such as exploits, malware samples,
-etc., to demonstrate a vulnerability.
+Since this is a proof of concept, it does not provide the necessary security hardening yet to protect real user information.
+During evaluation, you should not enter actual user information.
 
-User study artifacts that include anonymized transcripts or survey responses
-should list the ethical review / IRB process followed to obtain participants'
-consent to publishing this anonymized dataset. They may also list how
-participants were compensated.
-
-## Basic Requirements 
+## Basic Requirements
 
 For both sections below, if you are giving reviewers remote access to special
 hardware (e.g., Intel SGX v2.0) or proprietary software (e.g., Matlab R2025a)
 for the purpose of the artifact evaluation, do not provide these instructions
 here but rather in the corresponding submission field on HotCRP.
 
-### Hardware Requirements 
+### Hardware Requirements
 
-Replace this with the following:
+Can run on a laptop (No special hardware requirements).
 
-1. A list of the _minimal hardware requirements_ to execute your artifact. If no
-   specific hardware is needed, then state "Can run on a laptop (No special
-   hardware requirements)". You may state how a researcher could gain access to
-   that hardware, e.g., by buying, renting, or even emulating it.
-2. When applying for the "Reproduced" badge, list _the specifications of the
-   hardware_ on which the experiments reported in the paper were performed. This
-   is especially relevant in cases were results might be influenced by the
-   hardware used (e.g., latency, bandwidth, throughput experiments, etc.).
+<!-- TODO 2. When applying for the "Reproduced" badge, list _the specifications of the hardware_ on which the experiments reported in the paper were performed. This is especially relevant in cases were results might be influenced by the hardware used (e.g., latency, bandwidth, throughput experiments, etc.). -->
 
-### Software Requirements 
+### Software Requirements
 
 Replace this with the software required to run your artifact and its versions,
 as follows.
@@ -80,6 +65,11 @@ as follows.
    not in your artifact, you should provide a synthetic dataset that showcases
    the expected data format.
 
+Docker 29.5.2
+NodeJS VERSION
+TODO ...
+
+
 ### Estimated Time and Storage Consumption 
 
 Replace the following with estimated values for:
@@ -106,7 +96,7 @@ command one should perform). Be as specific as possible here. If possible, use
 code segments to simplify the workflow, e.g.,
 
 ```bash
-git clone git@github.com:PoPETS-AEC/example-docker-python-pip.git
+git clone git@github.com:interactive-wallet/interactive-wallet.git
 docker build -t example-docker-python-pip:main .
 ```
 
