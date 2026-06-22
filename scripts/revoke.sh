@@ -137,15 +137,6 @@ print(json.load(sys.stdin).get("revocationRegistryId", "?"))
 '
   )
 
-  RABBIT_EVENT_ID=$(
-    printf '%s' "$REVOKE_RESP" |
-      python3 -c '
-import json
-import sys
-print(json.load(sys.stdin).get("rabbitMqEventId", "?"))
-'
-  )
-
   echo -e "  ${GRN}✓ Credential widerrufen${NC}"
   echo ""
   echo -e "  Credential Exchange:"
@@ -154,8 +145,6 @@ print(json.load(sys.stdin).get("rabbitMqEventId", "?"))
   echo -e "    ${BLD}$REVOKED_IDX${NC}"
   echo -e "  Revocation Registry:"
   echo -e "    ${BLD}$REV_REG${NC}"
-  echo -e "  RabbitMQ Event-ID:"
-  echo -e "    ${BLD}$RABBIT_EVENT_ID${NC}"
 else
   ERR=$(
     printf '%s' "$REVOKE_RESP" |
@@ -180,4 +169,3 @@ fi
 echo ""
 echo -e "${GRN}${BLD}✓ Revocation abgeschlossen.${NC}"
 echo -e "  Der Widerruf wurde auf VON geschrieben."
-echo -e "  Das RabbitMQ-Event wurde veröffentlicht."
