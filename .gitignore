@@ -20,4 +20,6 @@ build/
 *.md
 !README.md
 !**/README.md
+!ARTIFACT-APPENDIX.md
+!ARTIFACT-APPENDIX-TEMPLATE.md
 wallet-agent/todo.txt
