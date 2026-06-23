@@ -82,23 +82,6 @@ data = json.load(sys.stdin)
 print(data.get('credentialExchangeId', ''))
 ")
 
-REVOCATION_REGISTRY_ID=$(echo "$ISSUE_RESP" |
-  python3 -c "
-import sys, json
-data = json.load(sys.stdin)
-print(data.get('revocationRegistryDefinitionId', ''))
-")
-
-REVOCATION_INDEX=$(echo "$ISSUE_RESP" |
-  python3 -c "
-import sys, json
-data = json.load(sys.stdin)
-print(data.get('revocationRegistryIndex', ''))
-")
-
-echo -e "  Revocation Registry: ${BLD}$REVOCATION_REGISTRY_ID${NC}"
-echo -e "  Revocation Index: ${BLD}$REVOCATION_INDEX${NC}"
-
 if [ -z "$CREDENTIAL_EXCHANGE_ID" ]; then
   echo -e "  ${RED}✗ Issuer hat keine Credential-Exchange-ID zurückgegeben${NC}"
   echo "$ISSUE_RESP"
@@ -115,13 +98,10 @@ echo -e "${YLW}│  👉 AKTION: Wallet-UI → 'Credential-Angebote' → Annehme
 echo -e "${YLW}└─────────────────────────────────────────────────────────┘${NC}"
 echo ""
 
-echo -e "${CYN}[3/3] Warte auf Annahme und Speicherung…${NC}"
-
-ACCEPT_REQUEST_SENT=0
-ISSUE_COMPLETED=0
+echo -e "${CYN}[3/3] Warte auf Annahme in der UI…${NC}"
 
 for i in $(seq 1 120); do
-  EXCHANGE_STATE=$(curl -sS "$ISSUER/credential-exchanges" |
+  EXCHANGE_STATE=$(curl -sf "$ISSUER/credential-exchanges" |
     python3 -c "
 import sys, json
 
@@ -136,81 +116,8 @@ record = next(
 print(record.get('state', 'not-found') if record else 'not-found')
 " 2>/dev/null || echo "error")
 
-  # Der Holder hat das Angebot angenommen, aber der Issuer muss das eigentliche Credential noch ausstellen.
-  if [ "$EXCHANGE_STATE" = "request-received" ] &&
-     [ "$ACCEPT_REQUEST_SENT" = "0" ]; then
-
-    echo ""
-    echo -e "  ${CYN}Holder-Anfrage empfangen — stelle Credential aus…${NC}"
-
-    ACCEPT_RESP=$(curl -sS -X POST \
-      "$ISSUER/credential-exchanges/$CREDENTIAL_EXCHANGE_ID/accept-request" \
-      2>/dev/null || echo '{"success":false}')
-
-    ACCEPT_REQUEST_SENT=1
-
-    ACCEPT_SUCCESS=$(printf '%s' "$ACCEPT_RESP" |
-      python3 -c "
-import sys, json
-
-try:
-    data = json.load(sys.stdin)
-    print('true' if data.get('success') else 'false')
-except Exception:
-    print('false')
-")
-
-    if [ "$ACCEPT_SUCCESS" = "true" ]; then
-      echo -e "  ${GRN}✓${NC} Credential durch Issuer ausgestellt"
-    else
-      echo -e "  ${YLW}⚠ accept-request wurde nicht bestätigt; Status wird erneut geprüft${NC}"
-    fi
-  fi
-
-  # Prüfen, ob genau dieses Credential im Wallet gespeichert ist.
-  WALLET_HAS_CREDENTIAL=$(
-    curl -sS "$WALLET/credentials" 2>/dev/null |
-      REV_REG_ID="$REVOCATION_REGISTRY_ID" \
-      REV_INDEX="$REVOCATION_INDEX" \
-      python3 -c "
-import json
-import os
-import sys
-
-try:
-    credentials = json.load(sys.stdin)
-except Exception:
-    print('false')
-    raise SystemExit(0)
-
-registry_id = os.environ.get('REV_REG_ID')
-revocation_index = str(os.environ.get('REV_INDEX', ''))
-
-found = any(
-    credential.get('revocationRegistryId') == registry_id
-    and str(credential.get('credentialRevocationId')) == revocation_index
-    for credential in credentials
-)
-
-print('true' if found else 'false')
-"
-  )
-
   if [ "$EXCHANGE_STATE" = "done" ]; then
-    echo -e "\r  ${GRN}✓ Credential angenommen und Austausch abgeschlossen!${NC}       "
-    ISSUE_COMPLETED=1
-    break
-  fi
-
-  if [ "$WALLET_HAS_CREDENTIAL" = "true" ]; then
-    echo ""
-    echo -e "  ${GRN}✓ Credential wurde im Wallet gespeichert!${NC}"
-
-    if [ "$EXCHANGE_STATE" != "done" ]; then
-      echo -e "  ${YLW}Hinweis: Issuer-Zustand ist noch '$EXCHANGE_STATE'; ACK steht noch aus.${NC}"
-    fi
-
-    ISSUE_COMPLETED=1
+    echo -e "\r  ${GRN}✓ Credential angenommen und ausgestellt!${NC}             "
     break
   fi
 
@@ -222,10 +129,13 @@ print('true' if found else 'false')
 
   printf "\r  … Status: %-25s (%ss)" "$EXCHANGE_STATE" "$i"
   sleep 1
+
+  if [ "$i" = "120" ]; then
+    echo ""
+    echo -e "  ${YLW}⚠ Timeout — letzter Status: $EXCHANGE_STATE${NC}"
+    exit 1
+  fi
 done
 
-if [ "$ISSUE_COMPLETED" != "1" ]; then
-  echo ""
-  echo -e "  ${YLW}⚠ Timeout — letzter Issuer-Status: $EXCHANGE_STATE${NC}"
-  exit 1
-fi
+echo ""
+echo -e "${GRN}${BLD}✓ Credential für $VORNAME $NACHNAME ausgestellt.${NC}"

@@ -20,6 +20,12 @@ import {
   VON_URL,
 } from "./config.js";
 
+import {
+  closeRabbitMq,
+  initializeRabbitMq,
+  publishCredentialRevoked
+} from "./rabbitmq.js";
+
 // Native modules MUST be registered before @credo-ts/* modules are loaded.
 const { TypedArrayEncoder } = await import("@credo-ts/core");
 const { DidCommHandshakeProtocol, DidCommCredentialEventTypes, DidCommProofEventTypes } = await import("@credo-ts/didcomm");
@@ -74,6 +80,7 @@ function reserveNextRevocationIndex(): number {
 
 const agent = createAgent();
 await agent.initialize();
+await initializeRabbitMq();
 
 async function ensureLocalRevocationRegistryMetadata(
   revocationRegistryDefinitionId: string,
@@ -168,7 +175,7 @@ async function waitForRevocationStatusList(
   );
 }
 
-console.log("Issuer Agent initialized");
+console.log("Issuer Agent and RabbitMQinitialized");
 
 // TODO NYM
 const outOfBandRecord = await agent.modules.didcomm.oob.createInvitation({
@@ -605,6 +612,13 @@ app.post("/revoke", async (req, res) => {
         `(index ${revocationIndex} revoked)`,
     );
 
+// VON confirms revocation, sending to RabbitMQ
+    const rabbitMqEvent = await publishCredentialRevoked({
+      revocationRegistryDefinitionId:
+        meta.revocationRegistryId,
+      credentialRevocationId:
+        meta.credentialRevocationId,
+    });
 
     res.json({
       success: true,
@@ -613,6 +627,8 @@ app.post("/revoke", async (req, res) => {
         meta.revocationRegistryId,
       credentialExchangeId:
         targetExchange.id,
+      rabbitMqEventId:
+        rabbitMqEvent.eventId,
     });
   } catch (err: unknown) {
     console.error("[issuer-agent] Revoke error:", err);
@@ -726,6 +742,15 @@ async function shutdown(
   );
 
   server.close();
+
+  try {
+    await closeRabbitMq();
+  } catch (error) {
+    console.error(
+      "[issuer-agent] RabbitMQ shutdown failed:",
+      error,
+    );
+  }
 
   try {
     await agent.shutdown();
