@@ -19,4 +19,5 @@ build/
 # Ignore all markdown files except README.md
 *.md
 !README.md
-!**/README.mdwallet-agent/todo.txt
+!**/README.md
+wallet-agent/todo.txt
