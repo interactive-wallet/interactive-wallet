@@ -438,16 +438,6 @@ app.post("/accept-credential/:id", async (req, res) => {
     const record = await agent.modules.didcomm.credentials.acceptOffer({
       credentialExchangeRecordId: req.params.id,
     });
-
-    // TODO subscribe to revocation notifications at mediator
-    const connectionId = TODO // connection with mediator
-    const registryId = TODO // credential registry id on ledger
-    // record.revocationNotification
-    // record.credentials[0].credentialRecordId
-    const revocSubEndpoint = `${MEDIATOR_API_URL}/subscribe-revocations/`;
-    const body = JSON.stringify({ connectionId, registryId });
-    fetch(revocSubEndpoint, { method: "POST", body });
-
     res.json({ success: true, state: record.state });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err);
@@ -493,27 +483,6 @@ app.post("/decline-proof/:id", async (req, res) => {
       proofExchangeRecordId: req.params.id,
     });
     res.json({ success: true });
-  } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : String(err);
-    res.status(500).json({ error: message });
-  }
-});
-
-app.post("/notify-revocation/:registryId", async (req, res) => {
-  try {
-    const registryId: string = req.params.registryId;
-
-    console.log("Got notified about revocation in registry", registryId);
-
-    const revocStatus = await agent.modules.anoncreds.getRevocationStatusList(
-      registryId,
-      Date.now() / 1000,
-    );
-    const revokedIds = revocStatus.revocationStatusList;
-
-    // TODO see if any of my credentials were revoked
-
-    res.json({ status: "ok" });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err);
     res.status(500).json({ error: message });
