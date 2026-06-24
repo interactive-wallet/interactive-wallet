@@ -24,7 +24,8 @@ import {
 import {
   closeRabbitMq,
   initializeRabbitMq,
-  publishCredentialRevoked
+  publishCredentialRevoked,
+  registerCredentialRevocationRoute,
 } from "./rabbitmq.js";
 
 // Native modules MUST be registered before @credo-ts/* modules are loaded.
@@ -270,7 +271,7 @@ if (!state) {
   console.log("[issuer-agent] DID imported into wallet");
 
   // 4. Register schema
-  const expectedSchemaId = `${issuerDid}/anoncreds/v0/SCHEMA/Fuehrerschein/1.0`;
+  const expectedSchemaId = `${issuerDid}/anoncreds/v0/SCHEMA/Fuehrerschein/1.1`;
   const schemaLookup = await agent.modules.anoncreds.getSchema(expectedSchemaId);
   let schemaId: string;
   let schemaSeqNo: number | undefined;
@@ -480,7 +481,12 @@ app.post("/issue", async (req, res) => {
       return;
     }
 
-    const credentialId = uuidv4(); // L
+    const credentialId = uuidv4();
+
+    await registerCredentialRevocationRoute(
+      credentialId,
+    );
+
     const revocationRegistryIndex =
       reserveNextRevocationIndex();
 
@@ -551,8 +557,7 @@ app.post("/issue", async (req, res) => {
 });
 
 // ─── Revoke credential ────────────────────────────────────────────────────
-// Body: { credentialExchangeId?: string }
-// If no ID is given, revokes the most recently issued credential.
+// Body: { credentialExchangeId: string, credentialId: string }
 app.post("/revoke", async (req, res) => {
   try {
     if (!state?.revocRegDefId) {
@@ -560,16 +565,44 @@ app.post("/revoke", async (req, res) => {
       return;
     }
 
-    const { credentialExchangeId } = req.body as { credentialExchangeId?: string };
+    const {
+      credentialExchangeId,
+      credentialId,
+    } = req.body as {
+      credentialExchangeId?: string;
+      credentialId?: string;
+    };
 
-    let targetExchange: any;
-    if (credentialExchangeId) {
-      targetExchange = await agent.modules.didcomm.credentials.getById(credentialExchangeId);
-    } else {
-      const all = await agent.modules.didcomm.credentials.getAll();
-      targetExchange = all
-        .filter((e: any) => e.state === "done" && e.role === "issuer")
-        .sort((a: any, b: any) => b.createdAt.getTime() - a.createdAt.getTime())[0];
+    if (!credentialExchangeId || !credentialId) {
+      res.status(400).json({
+        error:
+          "credentialExchangeId and credentialId are required",
+      });
+
+      return;
+    }
+
+    const targetExchange =
+      await agent.modules.didcomm.credentials.getById(
+        credentialExchangeId,
+      );
+
+    if (
+      targetExchange.state !== "done" ||
+      targetExchange.role !== "issuer"
+    ) {
+      res.status(409).json({
+        error:
+          "Credential wurde noch nicht vollständig ausgestellt",
+
+        state:
+          targetExchange.state,
+
+        role:
+          targetExchange.role,
+      });
+
+      return;
     }
 
     if (!targetExchange) {
@@ -617,12 +650,16 @@ app.post("/revoke", async (req, res) => {
     );
 
 // VON confirms revocation, sending to RabbitMQ
-    const rabbitMqEvent = await publishCredentialRevoked({
-      revocationRegistryDefinitionId:
-        meta.revocationRegistryId,
-      credentialRevocationId:
-        meta.credentialRevocationId,
-    });
+    const rabbitMqEvent =
+      await publishCredentialRevoked({
+        credentialId,
+
+        revocationRegistryDefinitionId:
+          meta.revocationRegistryId,
+
+        credentialRevocationId:
+          meta.credentialRevocationId,
+      });
 
     res.json({
       success: true,
