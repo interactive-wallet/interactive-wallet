@@ -6,6 +6,7 @@ dist/
 build/
 .vscode/
 .idea/
+scripts/.last-issued-credential.json
 
 .AppleDouble
 .LSOverride
