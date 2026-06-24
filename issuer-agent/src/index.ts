@@ -271,7 +271,8 @@ if (!state) {
   console.log("[issuer-agent] DID imported into wallet");
 
   // 4. Register schema
-  const expectedSchemaId = `${issuerDid}/anoncreds/v0/SCHEMA/Fuehrerschein/1.1`;
+  const SCHEMA_VERSION = "1.1";
+  const expectedSchemaId = `${issuerDid}/anoncreds/v0/SCHEMA/Fuehrerschein/${SCHEMA_VERSION}`;
   const schemaLookup = await agent.modules.anoncreds.getSchema(expectedSchemaId);
   let schemaId: string;
   let schemaSeqNo: number | undefined;
@@ -287,7 +288,7 @@ if (!state) {
         attrNames: ["vorname", "nachname", "geburtsdatum", "fuehrerscheinklasse", "ausstellungsdatum", "credential_id"], // L
         issuerId: issuerDid,
         name: "Fuehrerschein",
-        version: "1.1", // L
+        version: SCHEMA_VERSION, // L
       },
       options: {},
     });
@@ -587,19 +588,29 @@ app.post("/revoke", async (req, res) => {
         credentialExchangeId,
       );
 
+    const revocableStates = [
+      "credential-issued",
+      "done",
+    ];
+
     if (
-      targetExchange.state !== "done" ||
+      !revocableStates.includes(
+        targetExchange.state,
+      ) ||
       targetExchange.role !== "issuer"
     ) {
       res.status(409).json({
         error:
-          "Credential wurde noch nicht vollständig ausgestellt",
+          "Credential wurde noch nicht ausgestellt",
 
         state:
           targetExchange.state,
 
         role:
           targetExchange.role,
+
+        allowedStates:
+          revocableStates,
       });
 
       return;

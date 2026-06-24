@@ -7,6 +7,9 @@ GRN='\033[0;32m'; YLW='\033[1;33m'; CYN='\033[0;36m'; RED='\033[0;31m'; BLD='\03
 ISSUER="http://localhost:3002"
 WALLET="http://localhost:3000"
 
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+CREDENTIAL_STATE_FILE="$SCRIPT_DIR/.last-issued-credential.json"
+
 # Optionale Parameter: ./issue.sh "Anna" "Schmidt" "1985-06-20" "A" "2023-01-10"
 VORNAME="${1:-Max}"
 NACHNAME="${2:-Mustermann}"
@@ -75,21 +78,56 @@ ISSUE_RESP=$(curl -sf -X POST "$ISSUER/issue" \
     \"ausstellungsdatum\": \"$AUSSTELLUNGSDATUM\"
   }")
 
-CREDENTIAL_EXCHANGE_ID=$(echo "$ISSUE_RESP" |
+CREDENTIAL_EXCHANGE_ID=$(printf '%s' "$ISSUE_RESP" |
   python3 -c "
 import sys, json
 data = json.load(sys.stdin)
 print(data.get('credentialExchangeId', ''))
 ")
 
-if [ -z "$CREDENTIAL_EXCHANGE_ID" ]; then
-  echo -e "  ${RED}✗ Issuer hat keine Credential-Exchange-ID zurückgegeben${NC}"
+CREDENTIAL_ID=$(printf '%s' "$ISSUE_RESP" |
+  python3 -c "
+import sys, json
+data = json.load(sys.stdin)
+print(data.get('credentialId', ''))
+")
+
+if [ -z "$CREDENTIAL_EXCHANGE_ID" ] || [ -z "$CREDENTIAL_ID" ]; then
+  echo -e "  ${RED}✗ Issuer hat nicht beide Credential-IDs zurückgegeben${NC}"
   echo "$ISSUE_RESP"
   exit 1
 fi
 
 echo -e "  ${GRN}✓${NC} Angebot gesendet"
-echo -e "  Exchange-ID: ${BLD}$CREDENTIAL_EXCHANGE_ID${NC}"
+echo -e "  Exchange-ID:   ${BLD}$CREDENTIAL_EXCHANGE_ID${NC}"
+echo -e "  Credential-ID: ${BLD}$CREDENTIAL_ID${NC}"
+echo ""
+
+python3 - \
+  "$CREDENTIAL_STATE_FILE" \
+  "$CREDENTIAL_EXCHANGE_ID" \
+  "$CREDENTIAL_ID" <<'PY'
+import json
+import sys
+
+state_file = sys.argv[1]
+exchange_id = sys.argv[2]
+credential_id = sys.argv[3]
+
+with open(state_file, "w", encoding="utf-8") as file:
+    json.dump(
+        {
+            "credentialExchangeId": exchange_id,
+            "credentialId": credential_id,
+        },
+        file,
+        indent=2,
+    )
+    file.write("\n")
+PY
+
+echo -e "  ${GRN}✓ Credential-Zuordnung gespeichert${NC}"
+echo -e "    $CREDENTIAL_STATE_FILE"
 echo ""
 
 # ── 3. Warten bis UI akzeptiert ──────────────────────────────────────────────
@@ -116,8 +154,9 @@ record = next(
 print(record.get('state', 'not-found') if record else 'not-found')
 " 2>/dev/null || echo "error")
 
-  if [ "$EXCHANGE_STATE" = "done" ]; then
-    echo -e "\r  ${GRN}✓ Credential angenommen und ausgestellt!${NC}             "
+  if [ "$EXCHANGE_STATE" = "done" ] ||
+    [ "$EXCHANGE_STATE" = "credential-issued" ]; then
+    echo -e "\r  ${GRN}✓ Credential ausgestellt!${NC}                     "
     break
   fi
 
