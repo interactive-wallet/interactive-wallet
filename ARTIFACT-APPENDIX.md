@@ -2,220 +2,156 @@
 
 Paper title: **Transparent SSI Wallet**
 
-While this template is provided for artifact review, you should write your
-instructions for someone trying to reuse your artifact in the future (i.e., not
-an artifact reviewer).
-
 ## Description
-This artifact relates to the masters project "Transparent SSI Wallet"
-as part of the "Internet of Services Lab" 2026.
+This artifact is part of the masters project "Transparent SSI Wallet" done in the "Internet of Services Lab" 2026.
 
-We provide an Android app that uses DIDComm, AnonCreds, ...
-to issue credentials and present them on demand.
-We also provide the necessary infrastructure to notify the wallet owner when her credentials are requested to be issued, verified, revoked, and checked after revocation.
+Most identity wallets just ask the user to tap a button — without really telling them what is about to happen or what just did. This project takes a different approach: the wallet should show its work. The user can see what is being asked of them before they agree, what is happening behind the scenes while it happens, and what was done after it is over.
+
+To achieve this, we built a wallet agent on top of DIDComm and AnonCreds, connected to a local VON Indy ledger. A ledger watcher subscribes to ledger events and republishes them as push notifications through a hierarchical message broker, so only the wallets that care about a specific DID actually get notified. The wallet UI surfaces two transparency channels: an on-request view that explains what is about to happen before a decision, and a behind-the-scenes live log that records every cryptographic operation in a hash-chained audit trail.
 
 ### Security/Privacy Issues and Ethical Concerns
 
-Since this is a proof of concept, it does not provide the necessary security hardening yet to protect real user information.
-During evaluation, you should not enter actual user information.
+This is a proof of concept. It is not hardened for production use and should not be used with real personal data during evaluation.
 
 ## Basic Requirements
 
-For both sections below, if you are giving reviewers remote access to special
-hardware (e.g., Intel SGX v2.0) or proprietary software (e.g., Matlab R2025a)
-for the purpose of the artifact evaluation, do not provide these instructions
-here but rather in the corresponding submission field on HotCRP.
-
 ### Hardware Requirements
 
-Can run on a laptop (No special hardware requirements).
+Can run on a normal laptop. Keep in mind that the VON Network runs several Docker containers, so a very weak machine might struggle.
 
-<!-- TODO 2. When applying for the "Reproduced" badge, list _the specifications of the hardware_ on which the experiments reported in the paper were performed. This is especially relevant in cases were results might be influenced by the hardware used (e.g., latency, bandwidth, throughput experiments, etc.). -->
+<!-- TODO: add specs of the machine we tested on for the "Reproduced" badge -->
 
 ### Software Requirements
 
-Replace this with the software required to run your artifact and its versions,
-as follows.
+1. **OS:** We tested on Arch Linux (kernel 7.0.12) and Ubuntu 24.04. Other modern Linux distributions should work too. Windows and macOS are not supported because of how VON Network and the DIDComm agents work.
+2. **OS packages (only needed for the Flutter UI):** `clang`, `cmake`, `ninja`, `pkg-config`, GTK 3 headers, Mesa.
+   - Ubuntu: `sudo apt install clang cmake ninja-build pkg-config libgtk-3-dev libstdc++-12-dev`
+   - Arch: `sudo pacman -S --needed clang cmake ninja pkgconf gtk3 mesa`
+3. **Docker:** 29.6.0 — needed for VON Network (the Indy ledger) and RabbitMQ.
+4. **Node.js:** 26.3.1 (at least version 18), pnpm 11.8.0.
+5. **Dependencies:** Each agent has its own `package.json`. Run `pnpm install` in each agent folder. Main dependencies are `@credo-ts/*` 0.7.0, `@hyperledger/anoncreds-nodejs` 0.4.0, `amqplib` 2.0.1.
+6. No ML models needed.
+7. No datasets needed.
+8. **Flutter (optional):** The wallet also has an HTML reference UI, so Flutter is not strictly required. If you want the Flutter app, you need Flutter 3.x with `flutter config --enable-linux-desktop`.
 
-1. List the OS you used to run your artifact, along with its version (e.g.,
-   Ubuntu 22.04). If your artifact can only run on a specific OS or a specific
-   OS version, list it and explain why here. In general, your artifact reviewers
-   will probably have access to a machine with a different OS or different OS
-   version than yours; they should still be able to run appropriately packaged
-   artifacts.
-2. List the OS packages that your artifact requires, along with their versions.
-3. Artifact packaging: If you use a container runtime (e.g., Docker) to run the
-   artifact, list the container runtime and its version (e.g., Docker 23.0.3).
-   If you use VMs, list the hypervisor (e.g., VirtualBox) to run the artifact.
-4. List the programming language compiler or interpreter you used to run your
-   artifact (e.g., Python 3.13.7). Your Docker image or VM image should have
-   this version of the programming languages installed already. Your Dockerfile
-   should start from a base image with this programming language version.
-5. List packages that your artifact depends on, along with their versions. For
-   example, Python-based privacy-preserving machine learning artifacts typically
-   require `numpy`, `scipy`, etc. You may point to a file in your artifact with
-   this list, such as a `requirements.txt` file. If you rely on proprietary
-   software (e.g. Matlab R2025a).
-6. List any Machine Learning Models required to run your artifact, along with
-   their versions. If your model is hosted on a different repository, such as on
-   Zenodo, then your artifact should download it automatically (same for
-   datasets). If a required ML model is _not_ in your artifact, provide a dummy
-   model to demonstrate the functionality of the rest of your artifact.
-7. List any datasets required to run your artifact. If any required dataset is
-   not in your artifact, you should provide a synthetic dataset that showcases
-   the expected data format.
+### Estimated Time and Storage Consumption
 
-Docker 29.5.2
-NodeJS VERSION
-TODO ...
+- **First-time setup:** about 10 minutes of your time, ~5 minutes for the VON Network Docker build (one-time).
+- **Per run:** ~5 minutes to get everything started and run through the demo.
+- **Disk space:** ~2GB for Docker images and Node.js dependencies.
 
+## Environment
 
-### Estimated Time and Storage Consumption 
+### Set up the environment
 
-Replace the following with estimated values for:
-
-- The overall human and compute times required to run the artifact.
-- The overall disk space consumed by the artifact.
-
-This helps reviewers schedule the evaluation in their time plan and others in
-general to see if everything is running as intended. This should also be
-specified at a finer granularity for each experiment (see below).
-
-## Environment 
-
-In the following, describe how to access your artifact and all related and
-necessary data and software components. Afterward, describe how to set up
-everything and how to verify that everything is set up correctly.
-
-### Set up the environment 
-
-Replace the following by a description of how one should set up the environment
-for your artifact, including downloading and installing dependencies and the
-installation of the artifact itself (i.e., from the very first download or clone
-command one should perform). Be as specific as possible here. If possible, use
-code segments to simplify the workflow, e.g.,
+> The `README.md` has a more detailed guide with troubleshooting tips and OS-specific instructions.
 
 ```bash
 git clone git@github.com:interactive-wallet/interactive-wallet.git
-docker build -t example-docker-python-pip:main .
+cd interactive-wallet
+
+# Load submodules
+git submodule init && git submodule update
+
+# Install dependencies for all agents
+cd mediator       && pnpm install && cd ..
+cd wallet-agent   && pnpm install && cd ..
+cd issuer-agent   && pnpm install && cd ..
+cd verifier-agent && pnpm install && cd ..
+
+# Build VON Network — only needed once, takes ~5 minutes
+cd von-network && ./manage build && cd ..
+
+# Set up environment variables
+cp .env.example .env
 ```
 
-Describe the expected results where it makes sense to do so.
-
-### Testing the Environment 
-
-Replace the following by a description of the basic functionality tests to check
-if the environment is set up correctly. These tests could be unit tests,
-training an ML model on very low training data, etc. If these tests succeed, all
-required software should be functioning correctly. Use code segments to simplify
-the workflow, e.g.,
-
-Launch the Docker container, attach the current working directory (i.e., run
-from the root of the cloned git repository) as a volume, set the context to be
-that volume, and provide an interactive bash terminal:
+Start all services (mediator has to come first, each in its own terminal):
 
 ```bash
-docker run --rm -it -v ${PWD}:/workspaces/example-docker-python-pip \
-    -w /workspaces/example-docker-python-pip \
-    --entrypoint bash example-docker-python-pip:main
+docker compose up -d                          # RabbitMQ
+cd von-network && ./manage start              # Indy Ledger
+cd mediator       && pnpm start
+cd issuer-agent   && pnpm start
+cd verifier-agent && pnpm start
+cd wallet-agent   && pnpm start
 ```
 
-Then within the Docker container, run:
+### Testing the Environment
+
+Check that all agents are running:
 
 ```bash
-./test.sh
+curl http://localhost:3002/health   # Issuer
+curl http://localhost:3004/health   # Verifier
+curl http://localhost:3000/health   # Wallet
+curl http://localhost:3006/health   # Mediator
 ```
 
-Include the expected output.
+All should return `{"status":"ok"}`. Then run:
 
-## Artifact Evaluation 
+```bash
+./scripts/setup.sh
+```
 
-This section should include all the steps required to evaluate your artifact's
-functionality and validate your paper's key results and claims. Therefore,
-highlight your paper's main results and claims in the first subsection. And
-describe the experiments that support your claims in the subsection after that.
+If it completes all 6 steps and a Führerschein credential shows up in the wallet at `http://localhost:3000`, everything is working.
+
+## Artifact Evaluation
 
 ### Main Results and Claims
 
-List all your paper's results and claims that are supported by your submitted
-artifacts.
+#### Main Result 1: A Wallet That Shows Its Work
 
-#### Main Result 1: Name
+The wallet gives the user visibility into what is happening at every step — before, during, and after a credential interaction. Before agreeing to share a credential, the user sees who is asking, what attributes they want, and what they will be used for. During and after the flow, a live behind-the-scenes log records every cryptographic operation in plain language, hash-chained for tamper-evidence. Credential lifecycle events (issuance, verification, revocation) are pushed to the wallet via a hierarchical broker so the user does not have to check manually.
 
-Describe the results in 1 to 3 sentences. Mention what the independent and
-dependent variables are; independent variables are the ones on the x-axes of
-your figures, whereas the dependent ones are on the y-axes. By varying the
-independent variable (e.g., file size) in a given manner (e.g., linearly), we
-expect to see trends in the dependent variable (e.g., runtime, communication
-overhead) vary in another manner (e.g., exponentially). Refer to the related
-sections, figures, and/or tables in your paper and reference the experiments
-that support this result/claim. See example below.
+#### Main Result 2: Privacy-Preserving Verification with ZKP
 
-#### Main Result 2: Example Name
+Verification uses AnonCreds zero-knowledge proofs. The verifier only sees what was actually requested (selective disclosure), and the issuer is never involved in the verification step.
 
-Our paper claims that when varying the file size linearly, the runtime also
-increases linearly. This claim is reproducible by executing our
-[Experiment 2](#experiment-2-example-name). In this experiment, we change the
-file size linearly, from 2KB to 24KB, at intervals of 2KB each, and we show that
-the runtime also increases linearly, reaching at most 1ms. We report these
-results in "Figure 1a" and "Table 3" (Column 3 or Row 2) of our paper.
+<!-- TODO: add references to specific sections/figures in the paper once it is finalized -->
 
 ### Experiments
-List each experiment to execute to reproduce your results. Describe:
- - How to execute it in detailed steps.
- - What the expected result is.
- - How long it takes to execute in human and compute times (approximately).
- - How much space it consumes on disk (approximately) (omit if <10GB).
- - Which claim and results does it support, and how.
 
-#### Experiment 1: Name
-- Time: replace with estimate in human-minutes/hours + compute-minutes/hours.
-- Storage: replace with estimate for disk space used (omit if <10GB).
-
-Provide a short explanation of the experiment and expected results. Describe
-thoroughly the steps to perform the experiment and to collect and organize the
-results as expected from your paper (see example below). Use code segments to
-simplify the workflow, as follows.
+#### Experiment 1: Credential Issuance and Notification
+- Time: ~5 human-minutes + ~1 compute-minute
 
 ```bash
-python3 experiment_1.py
+./scripts/setup.sh
 ```
 
-#### Experiment 2: Example Name
+The script sets up a connection between wallet and issuer, sends a Führerschein credential offer, and waits for the holder to accept it in the UI at `http://localhost:3000`. Once accepted, the holder gets notified. Supports [Main Result 1](#main-result-1-automatic-notifications-for-credential-events).
 
-- Time: 10 human-minutes + 3 compute-hours
-- Storage: 20GB
-
-This example experiment reproduces
-[Main Result 2: Example Name](#main-result-2-example-name), the following script
-will run the simulation automatically with the different parameters specified in
-the paper. (You may run the following command from the example Docker image.)
+#### Experiment 2: Verification with Selective Disclosure
+- Time: ~3 human-minutes + ~1 compute-minute
 
 ```bash
-python3 main.py
+./scripts/verify.sh
 ```
 
-Results from this example experiment will be aggregated over several iterations
-by the script and output directly in raw format along with variances and
-standard deviations in the `output-folder/` directory. You will also find there
-the plots for "Figure 1a" in `.pdf` format and the table for "Table 3" in `.tex`
-format. These can be directly compared to the results reported in the paper, and
-should not quantitatively vary by more than 5% from expected results.
+The verifier requests specific attributes (e.g. `fuehrerscheinklasse`) and gets back `isVerified: true`. The issuer is not contacted at any point. Supports [Main Result 2](#main-result-2-privacy-preserving-verification-with-zkp).
 
+#### Experiment 3: Revocation and Notification
+- Time: ~2 human-minutes + ~1 compute-minute
 
-## Limitations 
+```bash
+./scripts/revoke.sh
+```
 
-Describe which steps, experiments, results, graphs, tables, etc. are _not
-reproducible_ with the provided artifact. Explain why this is not
-included/possible and argue why the artifact should _still_ be evaluated for the
-respective badges.
+The credential is revoked on the ledger and a revocation event is pushed to RabbitMQ. The verifier gets notified automatically. Supports [Main Result 1](#main-result-1-automatic-notifications-for-credential-events).
 
-## Notes on Reusability 
+<!-- TODO: add notification latency numbers once we have measured them -->
 
-First, this section might not apply to your artifacts. Describe how your
-artifact can be used beyond your research paper, e.g., as a general framework.
-The overall goal of artifact evaluation is not only to reproduce and verify your
-research but also to help other researchers to re-use and extend your artifacts.
-Discuss how your artifacts can be adapted to other settings, e.g., more input
-dimensions, other datasets, and other behavior, through replacing individual
-modules and functionality or running more iterations of a specific module.
+## Limitations
+
+The whole notification system goes through a central RabbitMQ broker. That means you have to trust whoever runs it — which is a problem for a system that is supposed to give users control over their own data. This is a known trade-off in this prototype and not something we solved here.
+
+We also only tested with a small number of credentials. The revocation registry is hardcoded to a maximum of 100. How the system behaves under real load is unknown.
+
+## Notes on Reusability
+
+The main idea of this artifact — that parties can be notified about credential events without polling — can be used as a starting point for other SSI projects. A few things that could be built on top:
+
+- **Better privacy for notifications:** Right now RabbitMQ sees everything. A next step would be to replace it with something decentralized, like DIDComm-based push messages directly between agents, or at least encrypt the event payloads.
+- **Other credential types:** Swapping out the Führerschein for a different credential only requires changing the schema in the issuer agent — the rest of the system stays the same.
+- **Mobile:** The wallet agent runs on Credo-TS, which also has a React Native wrapper. So moving to a real mobile app would not require rewriting the backend.
+- **Scaling:** The 100-credential limit and RabbitMQ throughput are the two main bottlenecks. Both can be improved without touching the overall architecture.
