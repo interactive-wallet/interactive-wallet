@@ -6,6 +6,7 @@ import {
   AnonCredsRevocationRegistryDefinitionRecordMetadataKeys,
   AnonCredsRevocationRegistryDefinitionRepository,
 } from "@credo-ts/anoncreds";
+import { v4 as uuidv4 } from "uuid"; // L
 import cors from "cors";
 import "dotenv/config";
 import express from "express";
@@ -282,10 +283,10 @@ if (!state) {
     console.log("[issuer-agent] Registering schema...");
     const schemaResult = await agent.modules.anoncreds.registerSchema({
       schema: {
-        attrNames: ["vorname", "nachname", "geburtsdatum", "fuehrerscheinklasse", "ausstellungsdatum"],
+        attrNames: ["vorname", "nachname", "geburtsdatum", "fuehrerscheinklasse", "ausstellungsdatum", "credential_id"], // L
         issuerId: issuerDid,
         name: "Fuehrerschein",
-        version: "1.0",
+        version: "1.1", // L
       },
       options: {},
     });
@@ -479,6 +480,7 @@ app.post("/issue", async (req, res) => {
       return;
     }
 
+    const credentialId = uuidv4(); // L
     const revocationRegistryIndex =
       reserveNextRevocationIndex();
 
@@ -524,6 +526,7 @@ app.post("/issue", async (req, res) => {
                 name: "ausstellungsdatum",
                 value: ausstellungsdatum,
               },
+              { name: "credential_id", value: credentialId }, // L
             ],
           },
         },
@@ -538,6 +541,7 @@ app.post("/issue", async (req, res) => {
       revocationRegistryDefinitionId:
         state.revocRegDefId,
       revocationRegistryIndex,
+      credentialId, // L
     });
   } catch (err: unknown) {
     console.error("[issuer-agent] Issue error:", err);

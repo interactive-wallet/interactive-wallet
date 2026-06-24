@@ -20,3 +20,7 @@ build/
 *.md
 !README.md
 !**/README.md
+!ARTIFACT-APPENDIX.md
+!ARTIFACT-APPENDIX-TEMPLATE.md
+PLEASE_DO.txt
+wallet-agent/todo.txt
