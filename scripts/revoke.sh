@@ -17,82 +17,79 @@ NC='\033[0m'
 
 ISSUER="http://localhost:3002"
 
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+CREDENTIAL_STATE_FILE="$SCRIPT_DIR/.last-issued-credential.json"
+
 EXCHANGE_ID="${1:-}"
+CREDENTIAL_ID="${2:-}"
 
 echo -e "${BLD}┌─────────────────────────────────────┐${NC}"
 echo -e "${BLD}│   Interactive Wallet — Revocation   │${NC}"
 echo -e "${BLD}└─────────────────────────────────────┘${NC}"
 echo ""
 
-# ── 1. Credential Exchange bestimmen ─────────────────────────────────────────
-echo -e "${CYN}[1/2] Suche widerrufbares Credential…${NC}"
+# ── 1. Credential bestimmen ───────────────────────────────────────────────────
+echo -e "${CYN}[1/2] Lade zuletzt ausgestelltes Credential…${NC}"
 
-if [ -z "$EXCHANGE_ID" ]; then
-  if ! EXCHANGES=$(curl -sS "$ISSUER/credential-exchanges"); then
-    echo -e "  ${RED}✗ Issuer nicht erreichbar${NC}"
+if [ -n "$EXCHANGE_ID" ] || [ -n "$CREDENTIAL_ID" ]; then
+  if [ -z "$EXCHANGE_ID" ] || [ -z "$CREDENTIAL_ID" ]; then
+    echo -e "  ${RED}✗ Bei manueller Angabe werden beide IDs benötigt${NC}"
+    echo ""
+    echo "Verwendung:"
+    echo "  ./scripts/revoke.sh <credentialExchangeId> <credentialId>"
+    exit 1
+  fi
+else
+  if [ ! -f "$CREDENTIAL_STATE_FILE" ]; then
+    echo -e "  ${RED}✗ Keine gespeicherte Credential-Zuordnung gefunden${NC}"
+    echo ""
+    echo "Bitte zuerst ausführen:"
+    echo "  ./scripts/issue.sh"
     exit 1
   fi
 
-  EXCHANGE_ID=$(
-    printf '%s' "$EXCHANGES" |
-      python3 -c '
+  EXCHANGE_ID=$(python3 - "$CREDENTIAL_STATE_FILE" <<'PY'
 import json
 import sys
 
-try:
-    records = json.load(sys.stdin)
-except Exception:
-    print("")
-    raise SystemExit(0)
+with open(sys.argv[1], encoding="utf-8") as file:
+    data = json.load(file)
 
-if not isinstance(records, list):
-    print("")
-    raise SystemExit(0)
-
-candidates = [
-    record
-    for record in records
-    if record.get("role") == "issuer"
-    and record.get("state") in ("credential-issued", "done")
-    and record.get("credentialRevocationId")
-    and record.get("revocationRegistryId")
-]
-
-candidates.sort(
-    key=lambda record: record.get("createdAt", ""),
-    reverse=True,
-)
-
-print(candidates[0].get("id", "") if candidates else "")
-'
+print(data.get("credentialExchangeId", ""))
+PY
   )
 
-  if [ -z "$EXCHANGE_ID" ]; then
-    echo -e "  ${RED}✗ Kein widerrufbares Credential gefunden${NC}"
-    echo ""
-    echo -e "  Benötigt wird ein Issuer-Exchange mit:"
-    echo -e "    state: ${BLD}credential-issued${NC} oder ${BLD}done${NC}"
-    echo -e "    vorhandener Revocation-Metadata"
-    exit 1
-  fi
+  CREDENTIAL_ID=$(python3 - "$CREDENTIAL_STATE_FILE" <<'PY'
+import json
+import sys
 
-  echo -e "  ${GRN}✓${NC} Neuesten widerrufbaren Exchange gefunden:"
-else
-  echo -e "  ${GRN}✓${NC} Angegebenen Exchange verwenden:"
+with open(sys.argv[1], encoding="utf-8") as file:
+    data = json.load(file)
+
+print(data.get("credentialId", ""))
+PY
+  )
 fi
 
-echo -e "    ${BLD}$EXCHANGE_ID${NC}"
+if [ -z "$EXCHANGE_ID" ] || [ -z "$CREDENTIAL_ID" ]; then
+  echo -e "  ${RED}✗ Credential-Zuordnung ist unvollständig${NC}"
+  exit 1
+fi
+
+echo -e "  ${GRN}✓${NC} Credential-Zuordnung gefunden:"
+echo -e "    Exchange-ID:   ${BLD}$EXCHANGE_ID${NC}"
+echo -e "    Credential-ID: ${BLD}$CREDENTIAL_ID${NC}"
 echo ""
 
-BODY=$(
-  python3 -c '
+BODY=$(python3 - "$EXCHANGE_ID" "$CREDENTIAL_ID" <<'PY'
 import json
 import sys
 
 print(json.dumps({
-    "credentialExchangeId": sys.argv[1]
+    "credentialExchangeId": sys.argv[1],
+    "credentialId": sys.argv[2],
 }))
-' "$EXCHANGE_ID"
+PY
 )
 
 # ── 2. Credential widerrufen ──────────────────────────────────────────────────
