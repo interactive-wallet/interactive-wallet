@@ -1,6 +1,7 @@
 import "@hyperledger/anoncreds-nodejs";
 import "@hyperledger/indy-vdr-nodejs";
 import "@openwallet-foundation/askar-nodejs";
+import * as amqp from "amqplib";
 import cors from "cors";
 import "dotenv/config";
 import express, { type Response } from "express";
@@ -147,6 +148,50 @@ agent.events.on(
     });
   },
 );
+
+// ─── RabbitMQ revocation consumer ────────────────────────────────────────
+async function setupRabbitMqConsumer(): Promise<void> {
+  const { RABBITMQ_USER, RABBITMQ_PASSWORD, RABBITMQ_URL } = process.env;
+  const url =
+    RABBITMQ_URL ??
+    (RABBITMQ_USER && RABBITMQ_PASSWORD
+      ? `amqp://${RABBITMQ_USER}:${RABBITMQ_PASSWORD}@localhost:5672`
+      : null);
+
+  if (!url) {
+    console.log("[wallet-agent] RabbitMQ not configured — revocation SSE notifications disabled");
+    return;
+  }
+
+  try {
+    const conn = await amqp.connect(url);
+    const ch = await conn.createChannel();
+    const REVOCATION_QUEUE = "holder.wallet.revocations";
+    await ch.assertQueue(REVOCATION_QUEUE, { durable: true });
+    ch.consume(REVOCATION_QUEUE, (msg) => {
+      if (!msg) return;
+      try {
+        const event = JSON.parse(msg.content.toString("utf-8")) as { credentialId?: string };
+        broadcast("revocation", {
+          state: "revoked",
+          credentialId: event.credentialId ?? null,
+        });
+        console.log(`[wallet-agent] [OBSERVER] Revocation SSE broadcast — credentialId: ${event.credentialId}`);
+      } catch {
+        // ignore malformed messages
+      }
+      ch.ack(msg);
+    });
+    console.log("[wallet-agent] RabbitMQ consumer started on queue:", REVOCATION_QUEUE);
+  } catch (err) {
+    console.warn(
+      "[wallet-agent] RabbitMQ consumer setup failed (continuing without):",
+      err instanceof Error ? err.message : err,
+    );
+  }
+}
+
+void setupRabbitMqConsumer();
 
 const app = express();
 app.use(cors());

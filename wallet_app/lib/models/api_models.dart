@@ -118,7 +118,7 @@ class WalletConnection {
 
 /// A single live event from SSE (/events).
 class WalletEvent {
-  /// One of: 'system', 'connection', 'credential', 'proof'.
+  /// One of: 'system', 'connection', 'credential', 'proof', 'revocation'.
   final String type;
 
   /// Protocol state at the time the event fired, e.g. 'offer-received', 'done'.
@@ -130,6 +130,9 @@ class WalletEvent {
   /// Proof verification result, when applicable.
   final bool? isVerified;
 
+  /// UUID of the credential (credential and revocation events).
+  final String? credentialId;
+
   final DateTime timestamp;
   final Map<String, dynamic> raw;
 
@@ -138,6 +141,7 @@ class WalletEvent {
     required this.state,
     required this.theirLabel,
     required this.isVerified,
+    this.credentialId,
     required this.timestamp,
     required this.raw,
   });
@@ -147,6 +151,7 @@ class WalletEvent {
         state: j['state'] as String?,
         theirLabel: j['theirLabel'] as String?,
         isVerified: j['isVerified'] as bool?,
+        credentialId: j['credentialId'] as String?,
         timestamp: _parseDate(j['ts']),
         raw: j,
       );
