@@ -1,12 +1,105 @@
 services:
+  mediator:
+    image: mediator
+    build:
+      context: ./mediator/
+      dockerfile: ../scripts/Dockerfile
+      args:
+        - DOCKER_BUILDKIT=1
+
+    environment:
+      MEDIATOR_DOMAIN: mediator # same as service name
+      MEDIATOR_WALLET_ID: Mediator
+      MEDIATOR_SEED: Mediator_00000000000000000000000
+      MEDIATOR_HTTP_PORT: 3007
+      MEDIATOR_WS_PORT: 3008
+      MEDIATOR_API_PORT: 3006
+      VON_URL: http://host.docker.internal:9000
+
+    ports:
+      - "127.0.0.1:3006:3006"
+      - "127.0.0.1:3007:3007"
+      - "127.0.0.1:3008:3008"
+
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  wallet:
+    image: wallet-agent
+    build:
+      context: ./wallet-agent/
+      dockerfile: ../scripts/Dockerfile
+      args:
+        - DOCKER_BUILDKIT=1
+
+    environment:
+      WALLET_DOMAIN: wallet # same as service name
+      WALLET_ID: Wallet
+      WALLET_SEED: Wallet_0000000000000000000000000
+      WALLET_API_PORT: 3000
+      MEDIATOR_API_URL: http://mediator:3006
+      VON_URL: http://host.docker.internal:9000
+
+    ports:
+      - "127.0.0.1:3000:3000"
+
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  verifier:
+    image: wallet-agent
+    build:
+      context: ./wallet-agent/
+      dockerfile: ../scripts/Dockerfile
+      args:
+        - DOCKER_BUILDKIT=1
+
+    environment:
+      WALLET_DOMAIN: verifier # same as service name
+      WALLET_ID: Verifier
+      WALLET_SEED: Verifier_00000000000000000000000
+      WALLET_API_PORT: 3004
+      VERIFIER_HTTP_PORT: 3005
+      VON_URL: http://host.docker.internal:9000
+
+    ports:
+      - "127.0.0.1:3004:3004"
+      - "127.0.0.1:3005:3005"
+
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  issuer:
+    image: issuer-agent
+    build:
+      context: ./issuer-agent/
+      dockerfile: ../scripts/Dockerfile
+      args:
+        - DOCKER_BUILDKIT=1
+
+    environment:
+      ISSUER_DOMAIN: issuer # same as service name
+      ISSUER_WALLET_ID: Issuer
+      ISSUER_SEED: Issuer_0000000000000000000000000
+      ISSUER_HTTP_PORT: 3003
+      ISSUER_API_PORT: 3002
+      VON_URL: http://host.docker.internal:9000
+
+    ports:
+      - "127.0.0.1:3002:3002"
+      - "127.0.0.1:3003:3003"
+
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
   rabbitmq:
     image: rabbitmq:4-management
     container_name: ssi-rabbitmq
     restart: unless-stopped
 
     environment:
-      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER}
-      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD}
+      RABBITMQ_DEFAULT_USER: rabbitmq_walletApp
+      RABBITMQ_DEFAULT_PASS: 1234
       RABBITMQ_DEFAULT_VHOST: ssi
 
     ports:

@@ -10,22 +10,22 @@ importers:
     dependencies:
       '@credo-ts/anoncreds':
         specifier: 0.7.0
-        version: 0.7.0(@hyperledger/anoncreds-shared@0.4.0)(typescript@5.9.3)
+        version: 0.7.0(@hyperledger/anoncreds-shared@0.4.0)(typescript@6.0.3)
       '@credo-ts/askar':
         specifier: 0.7.0
-        version: 0.7.0(@openwallet-foundation/askar-shared@0.6.0)(typescript@5.9.3)
+        version: 0.7.0(@openwallet-foundation/askar-shared@0.6.0)(typescript@6.0.3)
       '@credo-ts/core':
         specifier: 0.7.0
-        version: 0.7.0(typescript@5.9.3)
+        version: 0.7.0(typescript@6.0.3)
       '@credo-ts/didcomm':
         specifier: 0.7.0
-        version: 0.7.0(typescript@5.9.3)
+        version: 0.7.0(typescript@6.0.3)
       '@credo-ts/indy-vdr':
         specifier: 0.7.0
-        version: 0.7.0(@hyperledger/anoncreds-shared@0.4.0)(@hyperledger/indy-vdr-shared@0.3.0)(typescript@5.9.3)
+        version: 0.7.0(@hyperledger/anoncreds-shared@0.4.0)(@hyperledger/indy-vdr-shared@0.3.0)(typescript@6.0.3)
       '@credo-ts/node':
         specifier: 0.7.0
-        version: 0.7.0(typescript@5.9.3)
+        version: 0.7.0(typescript@6.0.3)
       '@hyperledger/anoncreds-nodejs':
         specifier: 0.4.0
         version: 0.4.0
@@ -45,7 +45,7 @@ importers:
         specifier: 0.6.0
         version: 0.6.0
       amqplib:
-        specifier: ^2.0.1
+        specifier: 2.0.1
         version: 2.0.1
       cors:
         specifier: 2.8.6
@@ -61,20 +61,20 @@ importers:
         version: 11.1.1
     devDependencies:
       '@types/amqplib':
-        specifier: ^0.10.8
+        specifier: 0.10.8
         version: 0.10.8
       '@types/cors':
-        specifier: ^2.8.0
-        version: 2.8.19
+        specifier: 2.8.0
+        version: 2.8.0
       '@types/express':
-        specifier: ^4.17.0
-        version: 4.17.25
+        specifier: 4.17.0
+        version: 4.17.0
       '@types/node':
-        specifier: ^20.19.41
+        specifier: 20.19.41
         version: 20.19.41
       typescript:
-        specifier: ^5.4.0
-        version: 5.9.3
+        specifier: 6.0.3
+        version: 6.0.3
 
 packages:
 
@@ -359,26 +359,20 @@ packages:
   '@types/connect@3.4.38':
     resolution: {integrity: sha512-K6uROf1LD88uDQqJCktA4yzL1YYAK6NgfsI0v/mTgyPKWsX1CnJ0XPSDhViejru1GcRkLWb8RlzFYJRqGUbaug==}
 
-  '@types/cors@2.8.19':
-    resolution: {integrity: sha512-mFNylyeyqN93lfe/9CSxOGREz8cpzAhH+E93xJ4xWQf62V8sQ/24reV2nyzUWM6H6Xji+GGHpkbLe7pVoUEskg==}
-
-  '@types/express-serve-static-core@4.19.8':
-    resolution: {integrity: sha512-02S5fmqeoKzVZCHPZid4b8JH2eM5HzQLZWN2FohQEy/0eXTq8VXZfSN6Pcr3F6N9R/vNrj7cpgbhjie6m/1tCA==}
+  '@types/cors@2.8.0':
+    resolution: {integrity: sha512-7SRdTQ2FB+A/pI6J77vVbKQwJySOGpBi8RdRxUEg/fVMORDgesWCaaRD1t++IvELP48O008spWujyakb4mAewg==}
 
   '@types/express-serve-static-core@5.1.1':
     resolution: {integrity: sha512-v4zIMr/cX7/d2BpAEX3KNKL/JrT1s43s96lLvvdTmza1oEvDudCqK9aF/djc/SWgy8Yh0h30TZx5VpzqFCxk5A==}
 
-  '@types/express@4.17.25':
-    resolution: {integrity: sha512-dVd04UKsfpINUnK0yBoYHDF3xu7xVH4BuDotC/xGuycx4CgbP48X/KF/586bcObxT0HENHXEU8Nqtu6NR+eKhw==}
+  '@types/express@4.17.0':
+    resolution: {integrity: sha512-CjaMu57cjgjuZbh9DpkloeGxV45CnMGlVd+XpG7Gm9QgVrd7KFq+X4HY0vM+2v0bczS48Wg7bvnMY5TN+Xmcfw==}
 
   '@types/express@5.0.6':
     resolution: {integrity: sha512-sKYVuV7Sv9fbPIt/442koC7+IIwK5olP1KWeD88e/idgoJqDm3JV/YUiPwkoKK92ylff2MGxSz1CSjsXelx0YA==}
 
   '@types/http-errors@2.0.5':
     resolution: {integrity: sha512-r8Tayk8HJnX0FztbZN7oVqGccWgw98T/0neJphO91KkmOzug1KkofZURD4UaD5uH8AqcFLfdPErnBod0u71/qg==}
-
-  '@types/mime@1.3.5':
-    resolution: {integrity: sha512-/pyBZWSLD2n0dcHE3hq8s8ZvcETHtEuF+3E7XVt0Ig2nvsVQXdghHVcEkIWjy9A0wKfTn97a/PSDYohKIlnP/w==}
 
   '@types/node@20.19.41':
     resolution: {integrity: sha512-ECymXOukMnOoVkC2bb1Vc/w/836DXncOg5m8Xj1RH7xSHZJWNYY6Zh7EH477vcnD5egKNNfy2RpNOmuChhFPgQ==}
@@ -389,14 +383,8 @@ packages:
   '@types/range-parser@1.2.7':
     resolution: {integrity: sha512-hKormJbkJqzQGhziax5PItDUTMAM9uE2XXQmM37dyd4hVM+5aVl7oVxMVUiVQn2oCQFN/LKCZdvSM0pFRqbSmQ==}
 
-  '@types/send@0.17.6':
-    resolution: {integrity: sha512-Uqt8rPBE8SY0RK8JB1EzVOIZ32uqy8HwdxCnoCOsYrvnswqmFZ/k+9Ikidlk/ImhsdvBsloHbAlewb2IEBV/Og==}
-
   '@types/send@1.2.1':
     resolution: {integrity: sha512-arsCikDvlU99zl1g69TcAB3mzZPpxgw0UQnaHeC1Nwb015xp8bknZv5rIfri9xTOcMuaVgvabfIRA7PSZVuZIQ==}
-
-  '@types/serve-static@1.15.10':
-    resolution: {integrity: sha512-tRs1dB+g8Itk72rlSI2ZrW6vZg0YrLI81iQSTkMmOqnqCaNr/8Ek4VwWcN5vZgCYWbg/JJSGBlUaYGAOP73qBw==}
 
   '@types/serve-static@2.2.0':
     resolution: {integrity: sha512-8mam4H1NHLtu7nmtalF7eyBH14QyOASmcxHhSfEoRyr0nP/YdoesEtU+uSRvMe96TW/HPTtkoKqQLl53N7UXMQ==}
@@ -1040,8 +1028,8 @@ packages:
     resolution: {integrity: sha512-OZs6gsjF4vMp32qrCbiVSkrFmXtG/AZhY3t0iAMrMBiAZyV9oALtXO8hsrHbMXF9x6L3grlFuwW2oAz7cav+Gw==}
     engines: {node: '>= 0.6'}
 
-  typescript@5.9.3:
-    resolution: {integrity: sha512-jl1vZzPDinLr9eUt3J/t7V6FgNEw9QjvBPdysz9KfQDD41fQrC2Y4vKQdiaUpFT4bXlb1RHhLpp8wtm6M5TgSw==}
+  typescript@6.0.3:
+    resolution: {integrity: sha512-y2TvuxSZPDyQakkFRPZHKFm+KKVqIisdg9/CZwm9ftvKXLP8NRWj38/ODjNbr43SsoXqNuAisEf1GdCxqWcdBw==}
     engines: {node: '>=14.17'}
     hasBin: true
 
@@ -1182,11 +1170,11 @@ snapshots:
   '@cbor-extract/cbor-extract-win32-x64@2.2.2':
     optional: true
 
-  '@credo-ts/anoncreds@0.7.0(@hyperledger/anoncreds-shared@0.4.0)(typescript@5.9.3)':
+  '@credo-ts/anoncreds@0.7.0(@hyperledger/anoncreds-shared@0.4.0)(typescript@6.0.3)':
     dependencies:
       '@astronautlabs/jsonpath': 1.1.2
-      '@credo-ts/core': 0.7.0(typescript@5.9.3)
-      '@credo-ts/didcomm': 0.7.0(typescript@5.9.3)
+      '@credo-ts/core': 0.7.0(typescript@6.0.3)
+      '@credo-ts/didcomm': 0.7.0(typescript@6.0.3)
       '@hyperledger/anoncreds-shared': 0.4.0
       '@sphereon/pex-models': 2.3.2
       class-transformer: 0.5.1
@@ -1197,9 +1185,9 @@ snapshots:
       - supports-color
       - typescript
 
-  '@credo-ts/askar@0.7.0(@openwallet-foundation/askar-shared@0.6.0)(typescript@5.9.3)':
+  '@credo-ts/askar@0.7.0(@openwallet-foundation/askar-shared@0.6.0)(typescript@6.0.3)':
     dependencies:
-      '@credo-ts/core': 0.7.0(typescript@5.9.3)
+      '@credo-ts/core': 0.7.0(typescript@6.0.3)
       '@openwallet-foundation/askar-shared': 0.6.0
       class-transformer: 0.5.1
       class-validator: 0.14.4
@@ -1210,7 +1198,7 @@ snapshots:
       - supports-color
       - typescript
 
-  '@credo-ts/core@0.7.0(typescript@5.9.3)':
+  '@credo-ts/core@0.7.0(typescript@6.0.3)':
     dependencies:
       '@animo-id/pex': 6.1.1
       '@astronautlabs/jsonpath': 1.1.2
@@ -1238,10 +1226,10 @@ snapshots:
       '@sphereon/ssi-types': 0.33.0
       '@stablelib/ed25519': 2.1.0
       '@types/ws': 8.18.1
-      '@verifiables/request-converter': 0.2.0(dcql@3.0.0(typescript@5.9.3))
+      '@verifiables/request-converter': 0.2.0(dcql@3.0.0(typescript@6.0.3))
       class-transformer: 0.5.1
       class-validator: 0.14.4
-      dcql: 3.0.0(typescript@5.9.3)
+      dcql: 3.0.0(typescript@6.0.3)
       did-resolver: 4.1.0
       ec-compression: 0.0.1-alpha.12
       lru_map: 0.4.1
@@ -1260,9 +1248,9 @@ snapshots:
       - supports-color
       - typescript
 
-  '@credo-ts/didcomm@0.7.0(typescript@5.9.3)':
+  '@credo-ts/didcomm@0.7.0(typescript@6.0.3)':
     dependencies:
-      '@credo-ts/core': 0.7.0(typescript@5.9.3)
+      '@credo-ts/core': 0.7.0(typescript@6.0.3)
       class-transformer: 0.5.1
       class-validator: 0.14.4
       luxon: 3.7.2
@@ -1273,10 +1261,10 @@ snapshots:
       - supports-color
       - typescript
 
-  '@credo-ts/indy-vdr@0.7.0(@hyperledger/anoncreds-shared@0.4.0)(@hyperledger/indy-vdr-shared@0.3.0)(typescript@5.9.3)':
+  '@credo-ts/indy-vdr@0.7.0(@hyperledger/anoncreds-shared@0.4.0)(@hyperledger/indy-vdr-shared@0.3.0)(typescript@6.0.3)':
     dependencies:
-      '@credo-ts/anoncreds': 0.7.0(@hyperledger/anoncreds-shared@0.4.0)(typescript@5.9.3)
-      '@credo-ts/core': 0.7.0(typescript@5.9.3)
+      '@credo-ts/anoncreds': 0.7.0(@hyperledger/anoncreds-shared@0.4.0)(typescript@6.0.3)
+      '@credo-ts/core': 0.7.0(typescript@6.0.3)
       '@hyperledger/indy-vdr-shared': 0.3.0
     transitivePeerDependencies:
       - '@hyperledger/anoncreds-shared'
@@ -1284,10 +1272,10 @@ snapshots:
       - supports-color
       - typescript
 
-  '@credo-ts/node@0.7.0(typescript@5.9.3)':
+  '@credo-ts/node@0.7.0(typescript@6.0.3)':
     dependencies:
-      '@credo-ts/core': 0.7.0(typescript@5.9.3)
-      '@credo-ts/didcomm': 0.7.0(typescript@5.9.3)
+      '@credo-ts/core': 0.7.0(typescript@6.0.3)
+      '@credo-ts/didcomm': 0.7.0(typescript@6.0.3)
       '@types/express': 5.0.6
       express: 5.2.1
       rxjs: 7.8.2
@@ -1615,16 +1603,9 @@ snapshots:
     dependencies:
       '@types/node': 20.19.41
 
-  '@types/cors@2.8.19':
+  '@types/cors@2.8.0':
     dependencies:
-      '@types/node': 20.19.41
-
-  '@types/express-serve-static-core@4.19.8':
-    dependencies:
-      '@types/node': 20.19.41
-      '@types/qs': 6.15.1
-      '@types/range-parser': 1.2.7
-      '@types/send': 1.2.1
+      '@types/express': 5.0.6
 
   '@types/express-serve-static-core@5.1.1':
     dependencies:
@@ -1633,12 +1614,11 @@ snapshots:
       '@types/range-parser': 1.2.7
       '@types/send': 1.2.1
 
-  '@types/express@4.17.25':
+  '@types/express@4.17.0':
     dependencies:
       '@types/body-parser': 1.19.6
-      '@types/express-serve-static-core': 4.19.8
-      '@types/qs': 6.15.1
-      '@types/serve-static': 1.15.10
+      '@types/express-serve-static-core': 5.1.1
+      '@types/serve-static': 2.2.0
 
   '@types/express@5.0.6':
     dependencies:
@@ -1648,8 +1628,6 @@ snapshots:
 
   '@types/http-errors@2.0.5': {}
 
-  '@types/mime@1.3.5': {}
-
   '@types/node@20.19.41':
     dependencies:
       undici-types: 6.21.0
@@ -1658,20 +1636,9 @@ snapshots:
 
   '@types/range-parser@1.2.7': {}
 
-  '@types/send@0.17.6':
-    dependencies:
-      '@types/mime': 1.3.5
-      '@types/node': 20.19.41
-
   '@types/send@1.2.1':
     dependencies:
       '@types/node': 20.19.41
-
-  '@types/serve-static@1.15.10':
-    dependencies:
-      '@types/http-errors': 2.0.5
-      '@types/node': 20.19.41
-      '@types/send': 0.17.6
 
   '@types/serve-static@2.2.0':
     dependencies:
@@ -1684,9 +1651,9 @@ snapshots:
     dependencies:
       '@types/node': 20.19.41
 
-  '@verifiables/request-converter@0.2.0(dcql@3.0.0(typescript@5.9.3))':
+  '@verifiables/request-converter@0.2.0(dcql@3.0.0(typescript@6.0.3))':
     optionalDependencies:
-      dcql: 3.0.0(typescript@5.9.3)
+      dcql: 3.0.0(typescript@6.0.3)
 
   accepts@1.3.8:
     dependencies:
@@ -1826,9 +1793,9 @@ snapshots:
     transitivePeerDependencies:
       - encoding
 
-  dcql@3.0.0(typescript@5.9.3):
+  dcql@3.0.0(typescript@6.0.3):
     dependencies:
-      valibot: 1.2.0(typescript@5.9.3)
+      valibot: 1.2.0(typescript@6.0.3)
     transitivePeerDependencies:
       - typescript
 
@@ -2372,7 +2339,7 @@ snapshots:
       media-typer: 1.1.0
       mime-types: 3.0.2
 
-  typescript@5.9.3: {}
+  typescript@6.0.3: {}
 
   uint8arrays@3.1.1:
     dependencies:
@@ -2390,9 +2357,9 @@ snapshots:
 
   uuid@13.0.2: {}
 
-  valibot@1.2.0(typescript@5.9.3):
+  valibot@1.2.0(typescript@6.0.3):
     optionalDependencies:
-      typescript: 5.9.3
+      typescript: 6.0.3
 
   validator@13.15.35: {}
 
