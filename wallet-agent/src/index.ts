@@ -4,7 +4,7 @@ import "@openwallet-foundation/askar-nodejs";
 import cors from "cors";
 import "dotenv/config";
 import express, { type Response } from "express";
-import * as path from "path";
+import path from "path";
 import { MEDIATOR_API_URL, WALLET_API_PORT, WALLET_DOMAIN } from "./config.js";
 
 // Native modules MUST be registered before @credo-ts/* modules are loaded.
@@ -15,6 +15,7 @@ const {
   DidCommHandshakeProtocol,
 } = await import("@credo-ts/didcomm");
 const { createAgent } = await import("./agent.js");
+const { setUpVerifier } = await import("./verifier.js");
 
 const agent = createAgent();
 await agent.initialize();
@@ -152,6 +153,8 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 app.use(express.static(path.join(import.meta.dirname, "..", "public")));
+
+setUpVerifier(app, agent);
 
 // ─── Health ───────────────────────────────────────────────────────────────
 app.get("/health", (_req, res) => {
@@ -489,6 +492,6 @@ app.post("/decline-proof/:id", async (req, res) => {
   }
 });
 
-app.listen(WALLET_API_PORT, () => {
+app.listen(+WALLET_API_PORT, '0.0.0.0', () => {
   console.log(`REST API running on http://${WALLET_DOMAIN}:${WALLET_API_PORT}`);
 });

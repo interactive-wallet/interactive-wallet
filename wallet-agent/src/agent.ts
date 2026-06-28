@@ -24,10 +24,11 @@ import {
 } from "@credo-ts/didcomm";
 import {
   IndyVdrAnonCredsRegistry,
+  IndyVdrIndyDidRegistrar,
   IndyVdrIndyDidResolver,
   IndyVdrModule,
 } from "@credo-ts/indy-vdr";
-import { agentDependencies } from "@credo-ts/node";
+import { agentDependencies, DidCommHttpInboundTransport } from "@credo-ts/node";
 import "@hyperledger/anoncreds-nodejs";
 import { NativeAnoncreds } from "@hyperledger/anoncreds-shared";
 import "@hyperledger/indy-vdr-nodejs";
@@ -36,9 +37,11 @@ import "@openwallet-foundation/askar-nodejs";
 import { NativeAskar } from "@openwallet-foundation/askar-shared";
 import {
   INDY_NAMESPACE,
+  VERIFIER_HTTP_ENDPOINT,
+  VERIFIER_HTTP_PORT,
   VON_URL,
+  WALLET_ID,
   WALLET_SEED,
-  WALLET_WALLET_ID,
 } from "./config.js";
 
 const genesisTransactions = await fetch(`${VON_URL}/genesis`).then((res) =>
@@ -53,7 +56,7 @@ export function createAgent() {
       askar: new AskarModule({
         askar: NativeAskar.instance,
         store: {
-          id: WALLET_WALLET_ID,
+          id: WALLET_ID,
           key: WALLET_SEED,
         },
       }),
@@ -74,6 +77,7 @@ export function createAgent() {
           new PeerDidResolver(),
           new KeyDidResolver(),
         ],
+        registrars: [new IndyVdrIndyDidRegistrar()],
       }),
       anoncreds: new AnonCredsModule({
         anoncreds: NativeAnoncreds.instance,
@@ -81,9 +85,11 @@ export function createAgent() {
         tailsFileService: new BasicTailsFileService(),
       }),
       didcomm: new DidCommModule({
-        endpoints: [],
+        endpoints: VERIFIER_HTTP_PORT ? [VERIFIER_HTTP_ENDPOINT] : [],
         transports: {
-          inbound: [],
+          inbound: VERIFIER_HTTP_PORT
+            ? [new DidCommHttpInboundTransport({ port: +VERIFIER_HTTP_PORT })]
+            : [],
           outbound: [
             new DidCommHttpOutboundTransport(),
             new DidCommWsOutboundTransport(),
