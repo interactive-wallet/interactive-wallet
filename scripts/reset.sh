@@ -24,11 +24,6 @@ for i in $(seq 1 60); do
 done
 
 echo ""
-echo "=== 3. Refreshing genesis.txn ==="
-curl -s "$VON_URL/genesis" -o "$ROOT/wallet-agent/genesis.txn"
-echo "  Wrote $ROOT/wallet-agent/genesis.txn"
-
-echo ""
 echo "=== 4. Deleting wallet stores ==="
 rm -rf "$HOME/.afj/data/wallet/Issuer"
 rm -rf "$HOME/.afj/data/wallet/Wallet"
