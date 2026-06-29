@@ -33,6 +33,12 @@ _EventStyle _styleFor(WalletEvent e) {
         Icons.link_rounded,
         'Connection',
       );
+    case 'revocation':
+      return _EventStyle(
+        AppColors.error,
+        Icons.block_rounded,
+        'Revocation',
+      );
     case 'system':
     case 'connected':
     case 'disconnected':
@@ -104,6 +110,8 @@ String _describe(WalletEvent e) {
         default:
           return 'Proof state: $state';
       }
+    case 'revocation':
+      return 'Credential wurde widerrufen';
     default:
       return 'Event: ${e.type}${state == null ? '' : ' / $state'}';
   }
