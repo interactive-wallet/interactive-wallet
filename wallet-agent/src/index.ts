@@ -164,8 +164,16 @@ async function setupRabbitMqConsumer(): Promise<void> {
   try {
     const conn = await amqp.connect(url);
     const ch = await conn.createChannel();
-    const REVOCATION_QUEUE = "holder.wallet.revocations";
+    // Each agent (holder, verifier, …) needs its OWN queue, otherwise they become competing
+    // consumers on a shared queue and RabbitMQ round-robins events to only one of them.
+    // The queue binds itself to the topic exchange with a wildcard so every agent gets every
+    // revocation event independently.
+    const EXCHANGE_NAME = "ssi.events";
+    const agentName = process.env.WALLET_DOMAIN ?? "wallet";
+    const REVOCATION_QUEUE = `holder.${agentName}.revocations`;
+    await ch.assertExchange(EXCHANGE_NAME, "topic", { durable: true });
     await ch.assertQueue(REVOCATION_QUEUE, { durable: true });
+    await ch.bindQueue(REVOCATION_QUEUE, EXCHANGE_NAME, "credential.revoked.#");
     ch.consume(REVOCATION_QUEUE, (msg) => {
       if (!msg) return;
       try {

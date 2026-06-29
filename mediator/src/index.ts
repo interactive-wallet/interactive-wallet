@@ -14,12 +14,21 @@ const { createMediatorAgent } = await import("./agent.js");
 const agent = createMediatorAgent();
 await agent.initialize();
 
+// Wallet reachable via docker service name by default; override with WALLET_API_URL for local runs.
+const WALLET_API_URL = process.env.WALLET_API_URL ?? "http://wallet:3000";
+
 agent.events.on(DidCommEventTypes.DidCommMessageProcessed, (data) => {
   const msg = data.payload.message;
   if (msg instanceof DidCommForwardMessage) {
     console.log("push notification for:", msg.to);
-    const walletPushEndpoint = `http://localhost:3000/pickup-messages`;
-    fetch(walletPushEndpoint, { method: "POST" });
+    const walletPushEndpoint = `${WALLET_API_URL}/pickup-messages`;
+    // Fire-and-forget, but never let a failed push crash the mediator process.
+    fetch(walletPushEndpoint, { method: "POST" }).catch((err) => {
+      console.warn(
+        `[mediator] wallet push to ${walletPushEndpoint} failed:`,
+        err?.message ?? err,
+      );
+    });
   }
 });
 

@@ -15,6 +15,7 @@ services:
       MEDIATOR_WS_PORT: 3008
       MEDIATOR_API_PORT: 3006
       VON_URL: http://host.docker.internal:9000
+      WALLET_API_URL: http://wallet:3000
 
     ports:
       - "127.0.0.1:3006:3006"
