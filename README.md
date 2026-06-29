@@ -1,40 +1,24 @@
 # Interactive Wallet
 
-Internet of Services Lab 2026 — Self-Sovereign Identity (SSI) Demo mit vier Akteuren:
+Internet of Services Lab 2026: Self-Sovereign Identity (SSI) Demo mit vier Akteuren:
 
-- **Mediator** (Port 3006/3007/3008) — DIDComm-Mediator; routet Nachrichten an die Wallet, die keinen öffentlichen Endpoint hat (mobile Architektur)
-- **Issuer** (Port 3002/3003) — registriert sich als `did:indy` auf dem Ledger, stellt Credentials aus (hier: Führerschein)
-- **Verifier** (Port 3004/3005) — registriert sich als `did:indy` auf dem Ledger, prüft Credentials
-- **Holder / Wallet** (Port 3000) — bleibt bewusst anonym (Peer-DIDs pro Verbindung, kein Ledger-Eintrag); verbindet sich beim Start automatisch mit dem Mediator
+- **Mediator** (Port 3006/3007/3008): DIDComm-Mediator; routet Nachrichten an die Wallet, die keinen öffentlichen Endpoint hat (mobile Architektur)
+- **Issuer** (Port 3002/3003): registriert sich als `did:indy` auf dem Ledger, stellt Credentials aus (hier: Führerschein)
+- **Verifier** (Port 3004/3005): registriert sich als `did:indy` auf dem Ledger, prüft Credentials
+- **Holder / Wallet** (Port 3000): bleibt bewusst anonym (Peer-DIDs pro Verbindung, kein Ledger-Eintrag); verbindet sich beim Start automatisch mit dem Mediator
 
 Issuer und Verifier haben je zwei Ports: einen Admin-Port (REST für die Scripts) und einen DIDComm-Port. Der Mediator hat drei: REST-API (3006), HTTP-DIDComm (3007) und WebSocket-DIDComm (3008).
 
 ## Architektur
 
-```
-Flutter App ──┐                     Browser ──┐
-              │ REST + SSE                    │ REST
-              ▼                               ▼
-       wallet-agent :3000            issuer-agent  :3002
-              │  ▲                            │
-              │  │ DIDComm (via Mediator)     │ DIDComm
-              ▼  │                            ▼
-       mediator  :3007/3008          verifier-agent :3004
-                                             │
-                              ┌──────────────┤
-                              ▼              ▼
-                         VON Network (Hyperledger Indy, :9000)
-                         NYMs · Schemas · CredDefs
-```
+Die Wallet hat keinen öffentlichen DIDComm-Endpoint (mobile Architektur). Alle eingehenden Nachrichten (Connection Responses, Credential Offers, Proof Requests) werden vom Mediator zwischengespeichert. Der Mediator benachrichtigt das Wallet, welchest die Nachrichten per PickUpV2-Protokoll abholt.
 
-Die Wallet hat keinen öffentlichen DIDComm-Endpoint (mobile Architektur). Alle eingehenden Nachrichten (Connection Responses, Credential Offers, Proof Requests) werden vom Mediator zwischengespeichert und alle 2 Sekunden per PickUpV2-Protokoll abgeholt.
-
-- **Wallet** speichert in Askar (verschlüsselte SQLite) — Keys, Credentials, Link Secret. Frontends sind nur Anzeige.
+- **Wallet** speichert in Askar (verschlüsselte SQLite) Keys, Credentials, Link Secret. Frontends sind nur Anzeige.
 - **Issuer + Verifier** schreiben ihre `did:indy` auf das VON-Network. Schemas + CredDefs nur Issuer-seitig.
-- **Holder** schreibt nichts auf den Ledger (Privacy by Design — sonst Korrelation über Sessions hinweg).
+- **Holder** schreibt nichts auf den Ledger (Privacy by Design, sonst Korrelation über Sessions hinweg).
 - **DIDComm-Verbindungen** sind asymmetrisch: Institution mit Public DID, Holder mit Peer-DID.
 
-Credentials werden als **AnonCreds ZKP** ausgestellt — der Verifier sieht nur die angefragten Attribute, kryptografisch verifizierbar ohne Rückfrage beim Issuer.
+Credentials werden als **AnonCreds ZKP** ausgestellt. Der Verifier sieht nur die angefragten Attribute, kryptografisch verifizierbar ohne Rückfrage beim Issuer.
 
 ## Ersteinrichtung
 
@@ -45,17 +29,15 @@ Nach dem Klonen einmalig ausführen:
 git submodule init
 git submodule update
 
-# Dependencies installieren
-cd mediator       && pnpm install && cd ..
-cd wallet-agent   && pnpm install && cd ..
-cd issuer-agent   && pnpm install && cd ..
-cd verifier-agent && pnpm install && cd ..
+# VON Network bauen (Indy Ledger, einmalig)
+cd von-network && ./manage build && cd ..
+
+# Agents bauen (Issuer, Mediator, Wallet, Verifier)
+# zuerst nur ein Service, um Dependencies zu cachen, dann alle anderen Services
+docker compose build mediator && docker compose build
 
 # Flutter-Pakete
 cd wallet_app && flutter pub get && cd ..
-
-# VON Network bauen (Indy Ledger, einmalig)
-cd von-network && ./manage build && cd ..
 ```
 
 Für die Flutter-App unter Linux werden zusätzlich Build-Tools benötigt. Installiere `clang`, `cmake`, `ninja`, `pkg-config`, GTK 3 Headers und Mesa über deinen Paketmanager. Beispiele:
@@ -80,11 +62,8 @@ flutter config --enable-linux-desktop
 # 1. VON Network
 cd von-network && ./manage start
 
-# 2. Agents — je ein Terminal (Reihenfolge beachten: Mediator zuerst!)
-cd mediator       && pnpm start
-cd issuer-agent   && pnpm start
-cd verifier-agent && pnpm start
-cd wallet-agent   && pnpm start   # verbindet sich automatisch mit dem Mediator
+# 2. Agents
+docker compose up
 
 # 3. Flutter Wallet App
 cd wallet_app
@@ -93,12 +72,12 @@ flutter run -d linux
 
 Es gibt **zwei austauschbare Frontends** auf demselben wallet-agent:
 
-- **Flutter App** — primäre UI mit Ledger-Identitätsanzeige, läuft nativ unter Linux
-- **HTML Referenz-UI** unter <http://localhost:3000> — direkt vom wallet-agent ausgeliefert, kein Flutter nötig, gleicher State
+- **Flutter App**: primäre UI mit Ledger-Identitätsanzeige, läuft nativ unter Linux
+- **HTML Referenz-UI** unter <http://localhost:3000>, direkt vom wallet-agent ausgeliefert, kein Flutter nötig, gleicher State
 
 ## Demo-Flow
 
-### 1. `setup.sh` — Erstmalige Einrichtung (einmalig pro VON-Instanz)
+### 1. `setup.sh`: Erstmalige Einrichtung (einmalig pro VON-Instanz)
 
 Registriert Issuer **und** Verifier auf dem Ledger und stellt das erste Credential aus.
 
@@ -111,10 +90,10 @@ Registriert Issuer **und** Verifier auf dem Ledger und stellt das erste Credenti
 1. Issuer registriert DID + Schema + CredDef auf dem Ledger
 2. Verifier registriert seine `did:indy` auf dem Ledger
 3. Script gibt eine OOB-URL aus und kopiert sie in die Zwischenablage → in der App unter **Network → 🔗** einfügen
-4. Im Connect-Dialog zeigt die Wallet **VERIFIED IDENTITY** — die DID wurde vom Ledger aufgelöst
+4. Im Connect-Dialog zeigt die Wallet **VERIFIED IDENTITY**, die DID wurde vom Ledger aufgelöst
 5. Script sendet ein Führerschein-Angebot, Wallet zeigt es in der **Inbox** → **Accept**
 
-### 2. `verify.sh` — Verifikation
+### 2. `verify.sh`: Verifikation
 
 Setzt voraus, dass der Holder einen Führerschein hat.
 
@@ -138,7 +117,7 @@ Ohne erneuten OOB-Handshake:
 ./scripts/reissue.sh "Anna" "Schmidt" "1985-06-20" "A" "2023-01-10"
 
 ./scripts/reverify.sh                             # alle Attribute anfragen
-./scripts/reverify.sh fuehrerscheinklasse         # nur eine Klasse — Selective Disclosure Demo
+./scripts/reverify.sh fuehrerscheinklasse         # nur eine Klasse. Selective Disclosure Demo
 ```
 
 ### 4. `issue.sh` / `verify.sh` (mit Handshake)
@@ -162,15 +141,15 @@ OPEN_BROWSER=1 ./scripts/setup.sh
 
 An zwei Stellen sichtbar:
 
-1. **Connect-Dialog (vor Verbindung)** — dekodiert die OOB und zeigt ob die Gegenseite eine Ledger-DID enthält
-2. **Connection-Liste (nach Verbindung)** — kleines ✓-Icon neben dem Label, sobald `theirDid` ein `did:indy` ist
+1. **Connect-Dialog (vor Verbindung)**: dekodiert die OOB und zeigt ob die Gegenseite eine Ledger-DID enthält
+2. **Connection-Liste (nach Verbindung)**: kleines ✓-Icon neben dem Label, sobald `theirDid` ein `did:indy` ist
 
-Das Badge bedeutet: *"Diese Identität existiert auf einem Indy-Ledger und der DIDComm-Handshake hat gegen den dort registrierten Schlüssel funktioniert."* Eine Trust-Registry-Schicht (TAO/TI-Akkreditierung wie bei EBSI) ist nicht implementiert — siehe `planned.md` für die Roadmap.
+Das Badge bedeutet: *"Diese Identität existiert auf einem Indy-Ledger und der DIDComm-Handshake hat gegen den dort registrierten Schlüssel funktioniert."*
 
 ## Stoppen / Zurücksetzen
 
 ```bash
-# Nur stoppen — Ledger-Daten und Wallet-State bleiben
+# Nur stoppen, Ledger-Daten und Wallet-State bleiben
 cd von-network && ./manage stop
 
 # Komplett zurücksetzen (Ledger + alle Wallets)
@@ -178,30 +157,14 @@ cd von-network && ./manage stop
 # danach Agents neustarten und ./scripts/setup.sh
 ```
 
-## Wichtige Konfiguration
-
-Defaults (alle überschreibbar per Environment-Variable):
-
-| Variable | Default | Wo |
-|---|---|---|
-| `INDY_NAMESPACE` | `local:test` | alle Agents |
-| `VON_URL` | `http://127.0.0.1:9000` | alle Agents |
-| `MEDIATOR_API_URL` | `http://localhost:3006` | Wallet |
-| `ISSUER_SEED` | `00000000000000InteractiveIssuer1` (32 Bytes) | Issuer |
-| `VERIFIER_SEED` | `0000000000000InteractiveVerifier` (32 Bytes) | Verifier |
-| `MEDIATOR_SEED` | `00000000000000000000000000Mediator` (32 Bytes) | Mediator |
-| `WALLET_BASE` | `http://localhost:3000` | Flutter (`--dart-define`) |
-
 ## Repository-Layout
 
 ```
 mediator/            Credo-TS Mediator-Agent (REST :3006, HTTP-DIDComm :3007, WS :3008)
-wallet-agent/        Credo-TS Holder-Agent + REST/SSE + HTML-Referenz-UI
+wallet-agent/        Credo-TS Holder-Agent + REST/SSE + HTML-Referenz-UI; beinhaltet auch Verifier-Agent + DID-Registrierung + Proof-Verifikation
 issuer-agent/        Credo-TS Issuer-Agent + DID-Registrierung + Credential-Ausstellung
-verifier-agent/      Credo-TS Verifier-Agent + DID-Registrierung + Proof-Verifikation
-wallet_app/          Flutter-Desktop-App (Linux)
+wallet_app/          Flutter-App (Desktop/Android)
 scripts/             Bash-Helper für Setup, Issue, Verify, Reissue, Reverify, Reset
 von-network/         Submodule: Hyperledger Indy Test-Ledger
 documentation/       Slides, Skizzen, Whiteboard-Exporte
-planned.md           Roadmap für Phase 3 (Trust Registry, etc.)
 ```
