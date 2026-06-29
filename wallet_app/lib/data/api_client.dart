@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io' show Platform;
 import 'package:http/http.dart' as http;
 
 import '../models/api_models.dart';
@@ -13,13 +14,19 @@ class ApiException implements Exception {
 
 /// Thin REST client for the wallet-agent.
 ///
-/// Base URL is configurable via --dart-define=WALLET_BASE=http://host:port
-/// and defaults to http://localhost:3000 (the agent's ADMIN_PORT default).
+/// Base URL is read at RUNTIME from the WALLET_BASE env var, so a single build can serve
+/// both windows (holder :3000 / verifier :3004) — just launch the binary twice with a
+/// different WALLET_BASE. Falls back to the compile-time --dart-define, then to
+/// http://localhost:3000 (the agent's ADMIN_PORT default).
+/// Note: dart:io Platform → desktop/mobile, not web.
 class ApiClient {
-  static const _defaultBase = String.fromEnvironment(
-    'WALLET_BASE',
-    defaultValue: 'http://localhost:3000',
-  );
+  static String get _defaultBase {
+    const compiled = String.fromEnvironment(
+      'WALLET_BASE',
+      defaultValue: 'http://localhost:3000',
+    );
+    return Platform.environment['WALLET_BASE'] ?? compiled;
+  }
 
   final String baseUrl;
   final http.Client _http;

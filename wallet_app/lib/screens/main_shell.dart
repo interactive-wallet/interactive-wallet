@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../data/wallet_repository.dart';
 import '../theme/app_theme.dart';
 import 'dashboard_screen.dart';
 import 'inbox_screen.dart';
@@ -28,9 +30,16 @@ class _MainShellState extends State<MainShell> {
   Widget build(BuildContext context) {
     final wc = context.wc;
     return Scaffold(
-      body: IndexedStack(
-        index: _selectedIndex,
-        children: _screens,
+      body: Column(
+        children: [
+          const _RoleBanner(),
+          Expanded(
+            child: IndexedStack(
+              index: _selectedIndex,
+              children: _screens,
+            ),
+          ),
+        ],
       ),
       bottomNavigationBar: Container(
         decoration: BoxDecoration(
@@ -66,6 +75,68 @@ class _MainShellState extends State<MainShell> {
               label: 'Audit',
             ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Identifies which backend this window is bound to (HOLDER :3000 / VERIFIER :3004),
+/// so two windows from the same build are easy to tell apart.
+class _RoleBanner extends StatelessWidget {
+  const _RoleBanner();
+
+  @override
+  Widget build(BuildContext context) {
+    final baseUrl = context.read<WalletRepository>().baseUrl;
+    final lower = baseUrl.toLowerCase();
+    final String label;
+    final Color color;
+    if (lower.contains(':3004')) {
+      label = 'VERIFIER';
+      color = AppColors.warning;
+    } else if (lower.contains(':3000')) {
+      label = 'HOLDER';
+      color = AppColors.primary;
+    } else {
+      label = 'WALLET';
+      color = AppColors.success;
+    }
+    final shown = baseUrl.replaceFirst(RegExp(r'^https?://'), '');
+
+    return Material(
+      color: color.withValues(alpha: 0.12),
+      child: SafeArea(
+        bottom: false,
+        child: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+          decoration: BoxDecoration(
+            border: Border(
+              bottom: BorderSide(color: color.withValues(alpha: 0.4), width: 1),
+            ),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.circle, size: 8, color: color),
+              const SizedBox(width: 8),
+              Text(
+                label,
+                style: TextStyle(
+                  color: color,
+                  fontWeight: FontWeight.w800,
+                  fontSize: 12,
+                  letterSpacing: 1.5,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Text(
+                shown,
+                style: TextStyle(color: context.wc.textTertiary, fontSize: 11),
+              ),
+            ],
+          ),
         ),
       ),
     );
