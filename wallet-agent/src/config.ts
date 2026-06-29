@@ -7,6 +7,7 @@ export const {
   MEDIATOR_API_URL = "http://localhost:3006",
   VON_URL = "http://127.0.0.1:9000",
   INDY_NAMESPACE = "local:test",
+  ISSUER_API_URL= "http://issuer:3002",
 } = process.env;
 
 if (WALLET_SEED.length !== 32) {
