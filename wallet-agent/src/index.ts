@@ -5,7 +5,7 @@ import cors from "cors";
 import "dotenv/config";
 import express, { type Response } from "express";
 import path from "path";
-import { MEDIATOR_API_URL, WALLET_API_PORT, WALLET_DOMAIN } from "./config.js";
+import { MEDIATOR_API_URL, VERIFIER_HTTP_PORT, WALLET_API_PORT, WALLET_DOMAIN } from "./config.js";
 
 // Native modules MUST be registered before @credo-ts/* modules are loaded.
 const {
@@ -81,9 +81,6 @@ async function setupMediator() {
   }
 }
 
-await setupMediator();
-
-
 // SSE client registry
 const sseClients = new Set<Response>();
 
@@ -154,7 +151,11 @@ app.use(cors());
 app.use(express.json());
 app.use(express.static(path.join(import.meta.dirname, "..", "public")));
 
-setUpVerifier(app, agent);
+if (VERIFIER_HTTP_PORT) {
+  await setUpVerifier(app, agent);
+} else {
+  await setupMediator();
+}
 
 // ─── Health ───────────────────────────────────────────────────────────────
 app.get("/health", (_req, res) => {
@@ -317,31 +318,6 @@ app.post("/receive-invitation", async (req, res) => {
       oobId: outOfBandRecord.id,
       connectionId: connectionRecord?.id,
       connectionState: connectionRecord?.state,
-    });
-  } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : String(err);
-    res.status(500).json({ error: message });
-  }
-});
-
-app.post("/request-mediation/:connectionId", async (req, res) => {
-  try {
-    const connectionRecord = await agent.modules.didcomm.connections.getById(
-      req.params.connectionId,
-    );
-
-    const mediationRecord =
-      await agent.modules.mediationRecipient.requestAndAwaitGrant(
-        connectionRecord,
-      );
-
-    await agent.modules.mediationRecipient.setDefaultMediator(mediationRecord);
-
-    res.json({
-      mediationRecordId: mediationRecord.id,
-      state: mediationRecord.state,
-      connectionId: mediationRecord.connectionId,
-      defaultMediatorSet: true,
     });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err);
