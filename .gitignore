@@ -15,6 +15,10 @@ scripts/.last-issued-credential.json
 .~lock.*
 
 genesis.txn
+*.bak
+
+# graphify output — never commit
+graphify-out/
 
 # Flutter
 **/devtools_options.yaml

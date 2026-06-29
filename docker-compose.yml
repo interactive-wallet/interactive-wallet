@@ -39,12 +39,17 @@ services:
       WALLET_API_PORT: 3000
       MEDIATOR_API_URL: http://mediator:3006
       VON_URL: http://host.docker.internal:9000
+      RABBITMQ_URL: amqp://rabbitmq_walletApp:1234@rabbitmq:5672/ssi
 
     ports:
       - "127.0.0.1:3000:3000"
 
     extra_hosts:
       - "host.docker.internal:host-gateway"
+
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
 
   verifier:
     image: wallet-agent
@@ -61,6 +66,7 @@ services:
       WALLET_API_PORT: 3004
       VERIFIER_HTTP_PORT: 3005
       VON_URL: http://host.docker.internal:9000
+      RABBITMQ_URL: amqp://rabbitmq_walletApp:1234@rabbitmq:5672/ssi
 
     ports:
       - "127.0.0.1:3004:3004"
@@ -68,6 +74,10 @@ services:
 
     extra_hosts:
       - "host.docker.internal:host-gateway"
+
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
 
   issuer:
     image: issuer-agent
@@ -84,6 +94,7 @@ services:
       ISSUER_HTTP_PORT: 3003
       ISSUER_API_PORT: 3002
       VON_URL: http://host.docker.internal:9000
+      RABBITMQ_URL: amqp://rabbitmq_walletApp:1234@rabbitmq:5672/ssi
 
     ports:
       - "127.0.0.1:3002:3002"
@@ -91,6 +102,10 @@ services:
 
     extra_hosts:
       - "host.docker.internal:host-gateway"
+
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
 
   rabbitmq:
     image: rabbitmq:4-management
