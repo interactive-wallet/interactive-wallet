@@ -5,7 +5,7 @@ import cors from "cors";
 import "dotenv/config";
 import express, { type Response } from "express";
 import path from "path";
-import { MEDIATOR_API_URL, VERIFIER_HTTP_PORT, WALLET_API_PORT, WALLET_DOMAIN } from "./config.js";
+import { AGENT_ROLE, EFFECTIVE_WALLET_API_PORT, MEDIATOR_API_URL, WALLET_DOMAIN } from "./config.js";
 
 // Native modules MUST be registered before @credo-ts/* modules are loaded.
 const {
@@ -151,7 +151,7 @@ app.use(cors());
 app.use(express.json());
 app.use(express.static(path.join(import.meta.dirname, "..", "public")));
 
-if (VERIFIER_HTTP_PORT) {
+if (AGENT_ROLE === "verifier") {
   await setUpVerifier(app, agent);
 } else {
   await setupMediator();
@@ -468,6 +468,12 @@ app.post("/decline-proof/:id", async (req, res) => {
   }
 });
 
-app.listen(+WALLET_API_PORT, '0.0.0.0', () => {
-  console.log(`REST API running on http://${WALLET_DOMAIN}:${WALLET_API_PORT}`);
-});
+app.listen(
+  +EFFECTIVE_WALLET_API_PORT,
+  "0.0.0.0",
+  () => {
+    console.log(
+      `REST API running on http://${WALLET_DOMAIN}:${EFFECTIVE_WALLET_API_PORT}`,
+    );
+  },
+);

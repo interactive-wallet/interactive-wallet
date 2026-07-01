@@ -25,7 +25,6 @@ import {
   closeRabbitMq,
   initializeRabbitMq,
   publishCredentialRevoked,
-  registerCredentialRevocationRoute,
 } from "./rabbitmq.js";
 
 // Native modules MUST be registered before @credo-ts/* modules are loaded.
@@ -549,10 +548,6 @@ app.post("/issue", async (req, res) => {
 
     const credentialId = uuidv4();
 
-    await registerCredentialRevocationRoute(
-      credentialId,
-    );
-
     const revocationRegistryIndex =
       reserveNextRevocationIndex();
 
@@ -859,6 +854,13 @@ app.post("/revoke", async (req, res) => {
     const rabbitMqEvent =
       await publishCredentialRevoked({
         credentialId,
+
+        issuerId:
+          state.issuerDid,
+
+        credentialDefinitionId:
+          issuedCredential
+            .credentialDefinitionId,
 
         revocationRegistryDefinitionId:
           meta.revocationRegistryId,

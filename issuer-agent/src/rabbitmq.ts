@@ -1,13 +1,12 @@
 import { randomUUID } from "node:crypto";
 import * as amqp from "amqplib";
 import type { ConfirmChannel } from "amqplib";
+import {
+  CREDENTIAL_TYPE,
+  ISSUER_ROUTING_ID,
+} from "./config.js";
 
 const EXCHANGE_NAME = "ssi.events";
-
-const HOLDER_ID = "wallet";
-
-const REVOCATION_QUEUE =
-  `holder.${HOLDER_ID}.revocations`;
 
 let connection:
   | Awaited<ReturnType<typeof amqp.connect>>
@@ -22,7 +21,12 @@ export interface CredentialRevokedEvent {
   occurredAt: string;
 
   credentialId: string;
-  holderId: string;
+  credentialType: string;
+
+  issuerId: string;
+  issuerRoutingId: string;
+
+  credentialDefinitionId: string;
 
   revocationRegistryDefinitionId: string;
   credentialRevocationId: string;
@@ -31,7 +35,14 @@ export interface CredentialRevokedEvent {
 function getRevocationRoutingKey(
   credentialId: string,
 ): string {
-  return `credential.revoked.${credentialId}`;
+  return [
+    "credential",
+    "revoked",
+    "v1",
+    ISSUER_ROUTING_ID,
+    CREDENTIAL_TYPE,
+    credentialId,
+  ].join(".");
 }
 
 export async function initializeRabbitMq(): Promise<void> {
@@ -69,56 +80,10 @@ export async function initializeRabbitMq(): Promise<void> {
     },
   );
 
-  await channel.assertQueue(
-    REVOCATION_QUEUE,
-    {
-      durable: true,
-    },
-  );
-
   console.log(
-    "RabbitMQ Publisher initialisiert",
+    "RabbitMQ Publisher initialized",
     {
       exchange: EXCHANGE_NAME,
-      queue: REVOCATION_QUEUE,
-    },
-  );
-}
-
-export async function registerCredentialRevocationRoute(
-  credentialId: string,
-): Promise<void> {
-  if (!channel) {
-    throw new Error(
-      "RabbitMQ ist nicht initialisiert",
-    );
-  }
-
-  const routingKey =
-    getRevocationRoutingKey(
-      credentialId,
-    );
-
-
-  await channel.assertQueue(
-    REVOCATION_QUEUE,
-    {
-      durable: true,
-    },
-  );
-
-  await channel.bindQueue(
-    REVOCATION_QUEUE,
-    EXCHANGE_NAME,
-    routingKey,
-  );
-
-  console.log(
-    "Credential-spezifische Revocation-Route registriert",
-    {
-      credentialId,
-      queue: REVOCATION_QUEUE,
-      routingKey,
     },
   );
 }
@@ -127,9 +92,12 @@ export async function publishCredentialRevoked(
   input: {
     credentialId: string;
 
+    issuerId: string;
+    credentialDefinitionId: string;
+
     revocationRegistryDefinitionId: string;
     credentialRevocationId: string | number;
-  },
+  }
 ): Promise<CredentialRevokedEvent> {
   if (!channel) {
     throw new Error(
@@ -140,16 +108,32 @@ export async function publishCredentialRevoked(
   const currentChannel = channel;
 
   const event: CredentialRevokedEvent = {
-    eventId: randomUUID(),
-    type: "credential.revoked",
-    version: 1,
-    occurredAt: new Date().toISOString(),
+    eventId:
+      randomUUID(),
+
+    type:
+      "credential.revoked",
+
+    version:
+      1,
+
+    occurredAt:
+      new Date().toISOString(),
 
     credentialId:
       input.credentialId,
 
-    holderId:
-      HOLDER_ID,
+    credentialType:
+      CREDENTIAL_TYPE,
+
+    issuerId:
+      input.issuerId,
+
+    issuerRoutingId:
+      ISSUER_ROUTING_ID,
+
+    credentialDefinitionId:
+      input.credentialDefinitionId,
 
     revocationRegistryDefinitionId:
       input.revocationRegistryDefinitionId,

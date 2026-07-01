@@ -1,18 +1,89 @@
 export const {
+  AGENT_ROLE = "holder",
+
+  AGENT_LABEL = "interactive-wallet-agent",
+  AGENT_ENDPOINT = "http://localhost:3001",
+
   WALLET_ID = "Wallet",
-  WALLET_SEED = "Wallet_0000000000000000000000000",
+  WALLET_KEY = "interactive-wallet-key-change-in-prod",
+
   WALLET_API_PORT = "3000",
-  VERIFIER_HTTP_PORT = null, // this decides whether the instance runs in holder mode or verifier mode
+  ADMIN_PORT,
+  INBOUND_PORT = "3001",
+
+  HOLDER_DIDCOMM_MODE = "onboarding",
+
   WALLET_DOMAIN = "localhost",
   MEDIATOR_API_URL = "http://localhost:3006",
+
   VON_URL = "http://127.0.0.1:9000",
   INDY_NAMESPACE = "local:test",
-  ISSUER_API_URL= "http://issuer:3002",
+  ISSUER_API_URL = "http://issuer:3002",
+
+  RABBITMQ_URL = "amqp://localhost",
+  ISSUER_ROUTING_ID = "fuehrerscheinstelle",
+  CREDENTIAL_TYPE = "drivers-license",
+
+  HOLDER_ID = "wallet",
+  VERIFIER_ID = "autovermietung",
+
+  VERIFIER_SEED = "Verifier_00000000000000000000000",
 } = process.env;
 
-if (WALLET_SEED.length !== 32) {
-  console.log(`WALLET_SEED must be 32 characters:`, WALLET_SEED);
+if (
+  AGENT_ROLE !== "holder" &&
+  AGENT_ROLE !== "verifier"
+) {
+  throw new Error(
+    "AGENT_ROLE muss 'holder' oder 'verifier' sein",
+  );
+}
+
+if (VERIFIER_SEED.length !== 32) {
+  console.log(
+    "VERIFIER_SEED must be 32 characters:",
+    VERIFIER_SEED,
+  );
+
   process.exit(1);
 }
 
-export const VERIFIER_HTTP_ENDPOINT = `http://${WALLET_DOMAIN}:${VERIFIER_HTTP_PORT}`;
+function validateRoutingSegment(
+  name: string,
+  value: string,
+): void {
+  if (!/^[A-Za-z0-9_-]+$/.test(value)) {
+    throw new Error(
+      `${name} enthält ungültige Zeichen: ${value}. ` +
+        "Erlaubt sind Buchstaben, Zahlen, _ und -.",
+    );
+  }
+}
+
+validateRoutingSegment(
+  "ISSUER_ROUTING_ID",
+  ISSUER_ROUTING_ID,
+);
+
+validateRoutingSegment(
+  "CREDENTIAL_TYPE",
+  CREDENTIAL_TYPE,
+);
+
+validateRoutingSegment(
+  "HOLDER_ID",
+  HOLDER_ID,
+);
+
+validateRoutingSegment(
+  "VERIFIER_ID",
+  VERIFIER_ID,
+);
+
+// Für bestehenden Code kompatibel lassen:
+export const VERIFIER_HTTP_ENDPOINT =
+  AGENT_ENDPOINT;
+
+// ADMIN_PORT alias, falls dein index.ts noch WALLET_API_PORT nutzt:
+export const EFFECTIVE_WALLET_API_PORT =
+  ADMIN_PORT ?? WALLET_API_PORT;

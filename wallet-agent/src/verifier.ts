@@ -13,8 +13,11 @@ import {
   ISSUER_API_URL,
   VERIFIER_HTTP_ENDPOINT,
   VON_URL,
-  WALLET_SEED,
+  VERIFIER_SEED,
 } from "./config.js";
+import {
+  initializeVerifierConsumer,
+} from "./verifier-consumer.js";
 
 export async function setUpVerifier(
   app: Express,
@@ -228,7 +231,7 @@ export async function setUpVerifier(
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        seed: WALLET_SEED,
+        seed: VERIFIER_SEED,
         role: "ENDORSER",
         alias: "Interactive Verifier",
       }),
@@ -244,7 +247,7 @@ export async function setUpVerifier(
 
     // Import private key into KMS using JWK
     const seedBuffer = Buffer.alloc(32);
-    Buffer.from(WALLET_SEED).copy(seedBuffer);
+    Buffer.from(VERIFIER_SEED).copy(seedBuffer);
     const pubKeyBytes = TypedArrayEncoder.fromBase58(verkey);
 
     // kid = base58 verkey so the legacy DIDComm v1 key lookup finds it by verkey.
@@ -444,6 +447,8 @@ export async function setUpVerifier(
         "verified",
     };
 
+    saveVerifiedCredentials();
+
     console.log(
       "[Verifier] Credential registered for revocation notifications",
       {
@@ -537,6 +542,103 @@ export async function setUpVerifier(
       }
     },
   );
+
+  await initializeVerifierConsumer({
+  trustedIssuerId:
+    issuerCredentialConfig.issuerDid,
+
+  trustedCredentialDefinitionId:
+    issuerCredentialConfig
+      .credentialDefinitionId,
+
+  trustedRevocationRegistryDefinitionId:
+    issuerCredentialConfig
+      .revocationRegistryDefinitionId,
+
+  onCredentialRevoked:
+    async (event) => {
+      const verifiedCredential =
+        verifiedCredentials[
+          event.credentialId
+        ];
+
+      if (!verifiedCredential) {
+        console.log(
+          "[Verifier] Revocation ignoriert: Credential wurde von diesem Verifier nicht geprüft",
+          {
+            credentialId:
+              event.credentialId,
+
+            eventId:
+              event.eventId,
+          },
+        );
+
+        return;
+      }
+
+      if (
+        verifiedCredential
+          .credentialDefinitionId !==
+        event.credentialDefinitionId
+      ) {
+        throw new Error(
+          "Credential Definition stimmt nicht mit dem gespeicherten Proof überein",
+        );
+      }
+
+      if (
+        verifiedCredential
+          .revocationRegistryDefinitionId !==
+        event
+          .revocationRegistryDefinitionId
+      ) {
+        throw new Error(
+          "Revocation Registry stimmt nicht mit dem gespeicherten Proof überein",
+        );
+      }
+
+      if (
+        verifiedCredential.status ===
+        "revoked-after-verification"
+      ) {
+        console.log(
+          "[Verifier] Revocation wurde bereits verarbeitet",
+          {
+            credentialId:
+              event.credentialId,
+
+            eventId:
+              event.eventId,
+          },
+        );
+
+        return;
+      }
+
+      verifiedCredential.status =
+        "revoked-after-verification";
+
+      verifiedCredential.revokedAt =
+        event.occurredAt;
+
+      saveVerifiedCredentials();
+
+      console.log(
+        "[Verifier] Verifiziertes Credential wurde nachträglich widerrufen",
+        {
+          credentialId:
+            event.credentialId,
+
+          eventId:
+            event.eventId,
+
+          revokedAt:
+            event.occurredAt,
+        },
+      );
+    },
+});
 
   // === Verifier actions ====================================================
 
