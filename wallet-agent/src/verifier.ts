@@ -37,8 +37,8 @@ export async function setUpVerifier(
   // start order between issuer and verifier no longer matters.
   async function fetchIssuerConfig(
     url: string,
-    attempts = 30,
-    delayMs = 2000,
+    attempts = 60,
+    delayMs = 3000,
   ): Promise<Response> {
     let lastError: unknown;
     for (let attempt = 1; attempt <= attempts; attempt++) {
