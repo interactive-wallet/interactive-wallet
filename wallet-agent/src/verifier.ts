@@ -22,8 +22,9 @@ import {
 export async function setUpVerifier(
   app: Express,
   agent: ReturnType<typeof createAgent>,
+  broadcast: (type: string, data: object) => void = () => {},
 ) {
-  
+
   interface IssuerCredentialConfig {
   issuerDid: string;
   schemaId: string;
@@ -623,6 +624,12 @@ export async function setUpVerifier(
         event.occurredAt;
 
       saveVerifiedCredentials();
+
+      // Surface only this relevant revocation to the verifier UI via SSE.
+      broadcast("revocation", {
+        state: "revoked",
+        credentialId: event.credentialId,
+      });
 
       console.log(
         "[Verifier] Verifiziertes Credential wurde nachträglich widerrufen",

@@ -147,7 +147,10 @@ agent.events.on(
   },
 );
 
-// ─── RabbitMQ revocation consumer ────────────────────────────────────────
+// ─── RabbitMQ revocation consumer (HOLDER role only) ─────────────────────
+// The verifier uses its own validating consumer in verifier.ts, which only
+// surfaces revocations of credentials it actually verified. This lightweight
+// consumer is for the holder, whose UI wants to hear about any revocation.
 async function setupRabbitMqConsumer(): Promise<void> {
   const { RABBITMQ_USER, RABBITMQ_PASSWORD, RABBITMQ_URL } = process.env;
   const url =
@@ -197,17 +200,18 @@ async function setupRabbitMqConsumer(): Promise<void> {
   }
 }
 
-void setupRabbitMqConsumer();
-
 const app = express();
 app.use(cors());
 app.use(express.json());
 app.use(express.static(path.join(import.meta.dirname, "..", "public")));
 
 if (AGENT_ROLE === "verifier") {
-  await setUpVerifier(app, agent);
+  // The verifier's own consumer broadcasts only revocations of verified credentials.
+  await setUpVerifier(app, agent, broadcast);
 } else {
   await setupMediator();
+  // Holder: surface revocations of its own credentials in the UI.
+  void setupRabbitMqConsumer();
 }
 
 // ─── Health ───────────────────────────────────────────────────────────────
