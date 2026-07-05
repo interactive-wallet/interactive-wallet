@@ -40,6 +40,9 @@ services:
       WALLET_KEY: Wallet_0000000000000000000000000
       WALLET_API_PORT: 3000
       MEDIATOR_API_URL: http://mediator:3006
+      HOLDER_ID: wallet
+      ISSUER_ROUTING_ID: fuehrerscheinstelle
+      CREDENTIAL_TYPE: drivers-license
       VON_URL: http://host.docker.internal:9000
       RABBITMQ_URL: amqp://rabbitmq_walletApp:1234@rabbitmq:5672/ssi
 

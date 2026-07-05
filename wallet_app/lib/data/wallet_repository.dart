@@ -23,6 +23,11 @@ class WalletRepository extends ChangeNotifier {
   /// Log of WalletEvents in chronological order (most recent first when shown).
   final List<WalletEvent> log = [];
 
+  /// App-level credential_id values that the backend reported as revoked via SSE.
+  /// The wallet still physically holds these credentials; this only tracks the
+  /// revocation status the UI should surface.
+  final Set<String> revokedCredentialIds = {};
+
   /// True once the live stream has confirmed connectivity.
   bool isLive = false;
 
@@ -83,8 +88,22 @@ class WalletRepository extends ChangeNotifier {
         _safeUnawaited(
             () async => proofExchanges = await _api.proofExchanges());
         break;
+      case 'revocation':
+        // The backend only broadcasts revocations for credentials this wallet
+        // actually holds, so we can mark it revoked without further filtering.
+        if (ev.credentialId != null && ev.credentialId!.isNotEmpty) {
+          revokedCredentialIds.add(ev.credentialId!);
+        }
+        break;
     }
     notifyListeners();
+  }
+
+  /// Whether the given stored credential has been revoked (matched via the
+  /// issuer-stamped `credential_id` attribute against SSE revocation events).
+  bool isCredentialRevoked(StoredCredential c) {
+    final appId = c.attributes['credential_id'];
+    return appId != null && revokedCredentialIds.contains(appId);
   }
 
   void clearLog() {

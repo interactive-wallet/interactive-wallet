@@ -78,7 +78,10 @@ class WalletScreen extends StatelessWidget {
             else ...[
               _Label(text: 'Active Credentials', context: context),
               const SizedBox(height: 12),
-              ...credentials.map((c) => _CredentialCard(credential: c)),
+              ...credentials.map((c) => _CredentialCard(
+                    credential: c,
+                    revoked: repo.isCredentialRevoked(c),
+                  )),
             ],
           ],
         ),
@@ -268,8 +271,9 @@ class _EmptyState extends StatelessWidget {
 
 class _CredentialCard extends StatefulWidget {
   final StoredCredential credential;
+  final bool revoked;
 
-  const _CredentialCard({required this.credential});
+  const _CredentialCard({required this.credential, this.revoked = false});
 
   @override
   State<_CredentialCard> createState() => _CredentialCardState();
@@ -280,7 +284,7 @@ class _CredentialCardState extends State<_CredentialCard> {
 
   @override
   Widget build(BuildContext context) {
-    final color = AppColors.success;
+    final color = widget.revoked ? AppColors.error : AppColors.success;
     final c = widget.credential;
     final schema = _schemaName(c.schemaId);
     final issuerDid = _issuerDidFromCredDef(c.credentialDefinitionId);
@@ -345,7 +349,10 @@ class _CredentialCardState extends State<_CredentialCard> {
                       Column(
                         crossAxisAlignment: CrossAxisAlignment.end,
                         children: [
-                          _StatusPill(label: 'AnonCreds', color: color),
+                          _StatusPill(
+                            label: widget.revoked ? 'REVOKED' : 'AnonCreds',
+                            color: color,
+                          ),
                           const SizedBox(height: 6),
                           Icon(
                             _expanded

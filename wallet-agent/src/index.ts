@@ -1,12 +1,12 @@
 import "@hyperledger/anoncreds-nodejs";
 import "@hyperledger/indy-vdr-nodejs";
 import "@openwallet-foundation/askar-nodejs";
-import * as amqp from "amqplib";
 import cors from "cors";
 import "dotenv/config";
 import express, { type Response } from "express";
 import path from "path";
 import { AGENT_ROLE, EFFECTIVE_WALLET_API_PORT, MEDIATOR_API_URL, WALLET_DOMAIN } from "./config.js";
+import { initializeHolderConsumer } from "./holder-consumer.js";
 
 // Native modules MUST be registered before @credo-ts/* modules are loaded.
 const {
@@ -147,54 +147,41 @@ agent.events.on(
   },
 );
 
-// ─── RabbitMQ revocation consumer (HOLDER role only) ─────────────────────
-// The verifier uses its own validating consumer in verifier.ts, which only
-// surfaces revocations of credentials it actually verified. This lightweight
-// consumer is for the holder, whose UI wants to hear about any revocation.
-async function setupRabbitMqConsumer(): Promise<void> {
-  const { RABBITMQ_USER, RABBITMQ_PASSWORD, RABBITMQ_URL } = process.env;
-  const url =
-    RABBITMQ_URL ??
-    (RABBITMQ_USER && RABBITMQ_PASSWORD
-      ? `amqp://${RABBITMQ_USER}:${RABBITMQ_PASSWORD}@localhost:5672`
-      : null);
-
-  if (!url) {
-    console.log("[wallet-agent] RabbitMQ not configured — revocation SSE notifications disabled");
-    return;
-  }
-
+// ─── Holder revocation consumer (HOLDER role only) ───────────────────────
+// Mirror of the verifier's consumer, but filtered on wallet membership: only
+// revocations of credentials THIS wallet actually holds are surfaced to the
+// UI. The verifier has its own validating consumer in verifier.ts that filters
+// on "did I verify this?" instead.
+async function setupHolderRevocationConsumer(): Promise<void> {
   try {
-    const conn = await amqp.connect(url);
-    const ch = await conn.createChannel();
-    // Each agent (holder, verifier, …) needs its OWN queue, otherwise they become competing
-    // consumers on a shared queue and RabbitMQ round-robins events to only one of them.
-    // The queue binds itself to the topic exchange with a wildcard so every agent gets every
-    // revocation event independently.
-    const EXCHANGE_NAME = "ssi.events";
-    const agentName = process.env.WALLET_DOMAIN ?? "wallet";
-    const REVOCATION_QUEUE = `holder.${agentName}.revocations`;
-    await ch.assertExchange(EXCHANGE_NAME, "topic", { durable: true });
-    await ch.assertQueue(REVOCATION_QUEUE, { durable: true });
-    await ch.bindQueue(REVOCATION_QUEUE, EXCHANGE_NAME, "credential.revoked.#");
-    ch.consume(REVOCATION_QUEUE, (msg) => {
-      if (!msg) return;
-      try {
-        const event = JSON.parse(msg.content.toString("utf-8")) as { credentialId?: string };
+    await initializeHolderConsumer({
+      onCredentialRevoked: async (event) => {
+        const credentials = await agent.modules.anoncreds.getCredentials({});
+        // The issuer stamps the app-level credential_id as a credential attribute,
+        // which is exactly what the revocation event carries as credentialId.
+        const held = credentials.find(
+          (c: any) => c.attributes?.credential_id === event.credentialId,
+        );
+
+        if (!held) {
+          console.log(
+            `[wallet-agent] Revocation ignored — credential not in this wallet: ${event.credentialId}`,
+          );
+          return;
+        }
+
         broadcast("revocation", {
           state: "revoked",
-          credentialId: event.credentialId ?? null,
+          credentialId: event.credentialId,
         });
-        console.log(`[wallet-agent] [OBSERVER] Revocation SSE broadcast — credentialId: ${event.credentialId}`);
-      } catch {
-        // ignore malformed messages
-      }
-      ch.ack(msg);
+        console.log(
+          `[wallet-agent] Revocation SSE broadcast for held credential — credentialId: ${event.credentialId}`,
+        );
+      },
     });
-    console.log("[wallet-agent] RabbitMQ consumer started on queue:", REVOCATION_QUEUE);
   } catch (err) {
     console.warn(
-      "[wallet-agent] RabbitMQ consumer setup failed (continuing without):",
+      "[wallet-agent] Holder revocation consumer setup failed (continuing without):",
       err instanceof Error ? err.message : err,
     );
   }
@@ -210,8 +197,8 @@ if (AGENT_ROLE === "verifier") {
   await setUpVerifier(app, agent, broadcast);
 } else {
   await setupMediator();
-  // Holder: surface revocations of its own credentials in the UI.
-  void setupRabbitMqConsumer();
+  // Holder: surface revocations of its OWN credentials in the UI.
+  void setupHolderRevocationConsumer();
 }
 
 // ─── Health ───────────────────────────────────────────────────────────────
