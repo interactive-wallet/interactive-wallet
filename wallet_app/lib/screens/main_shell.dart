@@ -29,6 +29,7 @@ class _MainShellState extends State<MainShell> {
   @override
   Widget build(BuildContext context) {
     final wc = context.wc;
+    final isVerifier = context.watch<WalletRepository>().isVerifier;
     return Scaffold(
       body: Column(
         children: [
@@ -48,28 +49,32 @@ class _MainShellState extends State<MainShell> {
         child: BottomNavigationBar(
           currentIndex: _selectedIndex,
           onTap: (i) => setState(() => _selectedIndex = i),
-          items: const [
-            BottomNavigationBarItem(
+          items: [
+            const BottomNavigationBarItem(
               icon: Icon(Icons.dashboard_outlined),
               activeIcon: Icon(Icons.dashboard),
               label: 'Dashboard',
             ),
-            BottomNavigationBarItem(
+            const BottomNavigationBarItem(
               icon: Icon(Icons.mail_outline_rounded),
               activeIcon: Icon(Icons.mail_rounded),
               label: 'Inbox',
             ),
             BottomNavigationBarItem(
-              icon: Icon(Icons.account_balance_wallet_outlined),
-              activeIcon: Icon(Icons.account_balance_wallet),
-              label: 'Wallet',
+              icon: Icon(isVerifier
+                  ? Icons.verified_user_outlined
+                  : Icons.account_balance_wallet_outlined),
+              activeIcon: Icon(isVerifier
+                  ? Icons.verified_user
+                  : Icons.account_balance_wallet),
+              label: isVerifier ? 'Verified' : 'Wallet',
             ),
-            BottomNavigationBarItem(
+            const BottomNavigationBarItem(
               icon: Icon(Icons.hub_outlined),
               activeIcon: Icon(Icons.hub),
               label: 'Network',
             ),
-            BottomNavigationBarItem(
+            const BottomNavigationBarItem(
               icon: Icon(Icons.history_rounded),
               activeIcon: Icon(Icons.history_rounded),
               label: 'Audit',

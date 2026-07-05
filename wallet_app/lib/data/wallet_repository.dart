@@ -40,6 +40,11 @@ class WalletRepository extends ChangeNotifier {
 
   String get baseUrl => _api.baseUrl;
 
+  /// True when this window is bound to the verifier agent (:3004). Used to
+  /// relabel the credential view ("Checked Credentials") since the verifier
+  /// holds no AnonCreds itself — it lists what it has verified.
+  bool get isVerifier => _api.baseUrl.contains(':3004');
+
   Future<void> start() async {
     _eventSub = _events.stream.listen(_onEvent);
     await refreshAll();

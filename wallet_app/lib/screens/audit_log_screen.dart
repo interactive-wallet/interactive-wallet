@@ -22,6 +22,22 @@ _EventStyle _styleFor(WalletEvent e) {
         'Credential',
       );
     case 'proof':
+      // A completed proof that failed verification (e.g. the presented
+      // credential was revoked) is surfaced in red so it stands out in the log.
+      if (e.state == 'done' && e.isVerified == false) {
+        return _EventStyle(
+          AppColors.error,
+          Icons.gpp_bad_rounded,
+          'Verification failed',
+        );
+      }
+      if (e.state == 'done' && e.isVerified == true) {
+        return _EventStyle(
+          AppColors.success,
+          Icons.verified_rounded,
+          'Verified',
+        );
+      }
       return _EventStyle(
         AppColors.warning,
         Icons.policy_rounded,

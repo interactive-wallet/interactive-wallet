@@ -53,12 +53,13 @@ class WalletScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final repo = context.watch<WalletRepository>();
     final credentials = repo.credentials;
+    final isVerifier = repo.isVerifier;
     final wc = context.wc;
 
     return Scaffold(
       backgroundColor: wc.background,
       appBar: AppBar(
-        title: const Text('Wallet'),
+        title: Text(isVerifier ? 'Checked Credentials' : 'Wallet'),
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh_rounded),
@@ -74,12 +75,19 @@ class WalletScreen extends StatelessWidget {
           physics: const AlwaysScrollableScrollPhysics(),
           padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
           children: [
-            _WalletSummary(count: credentials.length, isLive: repo.isLive),
+            _WalletSummary(
+              count: credentials.length,
+              isLive: repo.isLive,
+              isVerifier: isVerifier,
+            ),
             const SizedBox(height: 24),
             if (credentials.isEmpty)
-              _EmptyState()
+              _EmptyState(isVerifier: isVerifier)
             else ...[
-              _Label(text: 'Active Credentials', context: context),
+              _Label(
+                text: isVerifier ? 'Verified Credentials' : 'Active Credentials',
+                context: context,
+              ),
               const SizedBox(height: 12),
               ...credentials.map((c) => _CredentialCard(
                     credential: c,
@@ -96,8 +104,13 @@ class WalletScreen extends StatelessWidget {
 class _WalletSummary extends StatelessWidget {
   final int count;
   final bool isLive;
+  final bool isVerifier;
 
-  const _WalletSummary({required this.count, required this.isLive});
+  const _WalletSummary({
+    required this.count,
+    required this.isLive,
+    this.isVerifier = false,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -155,7 +168,7 @@ class _WalletSummary extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'My Credentials',
+                  isVerifier ? 'Verified by me' : 'My Credentials',
                   style: TextStyle(
                     color: wc.textSecondary,
                     fontSize: 12,
@@ -164,7 +177,7 @@ class _WalletSummary extends StatelessWidget {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  'Identity Wallet',
+                  isVerifier ? 'Checked Credentials' : 'Identity Wallet',
                   style: TextStyle(
                     color: wc.textPrimary,
                     fontSize: 16,
@@ -177,7 +190,10 @@ class _WalletSummary extends StatelessWidget {
           Column(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              _SummaryBadge('$count Stored', AppColors.success),
+              _SummaryBadge(
+                isVerifier ? '$count Checked' : '$count Stored',
+                AppColors.success,
+              ),
               const SizedBox(height: 4),
               _SummaryBadge(
                 isLive ? 'Live' : 'Offline',
@@ -238,6 +254,10 @@ class _Label extends StatelessWidget {
 }
 
 class _EmptyState extends StatelessWidget {
+  final bool isVerifier;
+
+  const _EmptyState({this.isVerifier = false});
+
   @override
   Widget build(BuildContext context) {
     final wc = context.wc;
@@ -253,7 +273,7 @@ class _EmptyState extends StatelessWidget {
           Icon(Icons.inbox_rounded, color: wc.textTertiary, size: 48),
           const SizedBox(height: 12),
           Text(
-            'No credentials yet',
+            isVerifier ? 'No verified credentials yet' : 'No credentials yet',
             style: TextStyle(
               color: wc.textPrimary,
               fontSize: 14,
@@ -262,7 +282,9 @@ class _EmptyState extends StatelessWidget {
           ),
           const SizedBox(height: 6),
           Text(
-            'Accept a credential offer to see it here.',
+            isVerifier
+                ? 'Request a proof to see verified credentials here.'
+                : 'Accept a credential offer to see it here.',
             textAlign: TextAlign.center,
             style: TextStyle(color: wc.textSecondary, fontSize: 12),
           ),
