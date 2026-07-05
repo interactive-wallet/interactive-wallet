@@ -119,7 +119,15 @@ export function createAgent() {
           ],
         },
         proofs: {
-          autoAcceptProofs: DidCommAutoAcceptProof.Never,
+          // Holder keeps manual control (explicit "Share Proof" in the UI).
+          // The verifier has no human-approval step for an incoming
+          // presentation — it must auto-acknowledge it so the exchange reaches
+          // `done` (otherwise it sticks at `presentation-received`, and the
+          // verified-credential registration + revocation matching never run).
+          autoAcceptProofs:
+            AGENT_ROLE === "verifier"
+              ? DidCommAutoAcceptProof.Always
+              : DidCommAutoAcceptProof.Never,
           proofProtocols: [
             new DidCommProofV2Protocol({
               proofFormats: [new AnonCredsDidCommProofFormatService()],

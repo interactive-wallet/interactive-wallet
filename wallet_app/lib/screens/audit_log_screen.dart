@@ -127,7 +127,7 @@ String _describe(WalletEvent e) {
           return 'Proof state: $state';
       }
     case 'revocation':
-      return 'Credential wurde widerrufen';
+      return 'Credential has been revoked';
     default:
       return 'Event: ${e.type}${state == null ? '' : ' / $state'}';
   }
