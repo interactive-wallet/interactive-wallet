@@ -25,7 +25,6 @@ import {
   closeRabbitMq,
   initializeRabbitMq,
   publishCredentialRevoked,
-  registerCredentialRevocationRoute,
 } from "./rabbitmq.js";
 
 // Native modules MUST be registered before @credo-ts/* modules are loaded.
@@ -34,6 +33,71 @@ const { DidCommHandshakeProtocol, DidCommCredentialEventTypes, DidCommProofEvent
 const { createAgent } = await import("./agent.js");
 
 const STATE_FILE = path.join(import.meta.dirname, "..", "issuer-state.json");
+
+const ISSUED_CREDENTIALS_FILE =
+  path.join(
+    import.meta.dirname,
+    "..",
+    "issued-credentials.json",
+  );
+
+interface IssuedCredentialRecord {
+  credentialId: string;
+  credentialExchangeId: string;
+
+  connectionId: string;
+
+  credentialDefinitionId: string;
+
+  revocationRegistryDefinitionId:
+    string;
+
+  credentialRevocationId:
+    string;
+
+  createdAt: string;
+
+  status:
+    | "offered"
+    | "revoked";
+
+  revokedAt?: string;
+}
+
+type IssuedCredentialStore =
+  Record<
+    string,
+    IssuedCredentialRecord
+  >;
+
+function loadIssuedCredentials():
+  IssuedCredentialStore {
+  try {
+    return JSON.parse(
+      fs.readFileSync(
+        ISSUED_CREDENTIALS_FILE,
+        "utf-8",
+      ),
+    ) as IssuedCredentialStore;
+  } catch {
+    return {};
+  }
+}
+
+const issuedCredentials =
+  loadIssuedCredentials();
+
+function saveIssuedCredentials():
+  void {
+  fs.writeFileSync(
+    ISSUED_CREDENTIALS_FILE,
+    JSON.stringify(
+      issuedCredentials,
+      null,
+      2,
+    ),
+  );
+}
 
 interface IssuerState {
   issuerDid: string;
@@ -484,10 +548,6 @@ app.post("/issue", async (req, res) => {
 
     const credentialId = uuidv4();
 
-    await registerCredentialRevocationRoute(
-      credentialId,
-    );
-
     const revocationRegistryIndex =
       reserveNextRevocationIndex();
 
@@ -539,22 +599,76 @@ app.post("/issue", async (req, res) => {
         },
       });
 
-    console.log(`[issuer-agent] Credential offer sent to connection ${connectionId}`);
-    res.json({
-      success: true,
-      message: "Führerschein credential offer sent",
-      credentialExchangeId:
-        credentialExchangeRecord.id,
-      revocationRegistryDefinitionId:
-        state.revocRegDefId,
-      revocationRegistryIndex,
-      credentialId, // L
+      issuedCredentials[
+        credentialId
+      ] = {
+        credentialId,
+
+        credentialExchangeId:
+          credentialExchangeRecord.id,
+
+        connectionId,
+
+        credentialDefinitionId:
+          state.credDefId,
+
+        revocationRegistryDefinitionId:
+          state.revocRegDefId,
+
+        credentialRevocationId:
+          String(
+            revocationRegistryIndex,
+          ),
+
+        createdAt:
+          new Date().toISOString(),
+
+        status:
+          "offered",
+      };
+
+      saveIssuedCredentials();
+
+      console.log(`[issuer-agent] Credential offer sent to connection ${connectionId}`);
+      res.json({
+        success: true,
+        message: "Führerschein credential offer sent",
+        credentialExchangeId:
+          credentialExchangeRecord.id,
+        revocationRegistryDefinitionId:
+          state.revocRegDefId,
+        revocationRegistryIndex,
+        credentialId, // L
+      });
+    } catch (err: unknown) {
+      console.error("[issuer-agent] Issue error:", err);
+      const message = err instanceof Error ? err.message : String(err);
+      res.status(500).json({ error: message });
+    }
+});
+
+// ─── Public Credential Config ────────────────────────────────────────────
+
+app.get("/public-credential-config", (_req, res) => {
+  if (
+    !state?.issuerDid ||
+    !state.schemaId ||
+    !state.credDefId ||
+    !state.revocRegDefId
+  ) {
+    res.status(503).json({
+      error: "Issuer credential configuration is incomplete",
     });
-  } catch (err: unknown) {
-    console.error("[issuer-agent] Issue error:", err);
-    const message = err instanceof Error ? err.message : String(err);
-    res.status(500).json({ error: message });
+    return;
   }
+
+  res.json({
+    issuerDid: state.issuerDid,
+    schemaId: state.schemaId,
+    credentialDefinitionId: state.credDefId,
+    revocationRegistryDefinitionId:
+      state.revocRegDefId,
+  });
 });
 
 // ─── Revoke credential ────────────────────────────────────────────────────
@@ -567,21 +681,52 @@ app.post("/revoke", async (req, res) => {
     }
 
     const {
-      credentialExchangeId,
       credentialId,
     } = req.body as {
-      credentialExchangeId?: string;
       credentialId?: string;
     };
 
-    if (!credentialExchangeId || !credentialId) {
+    if (!credentialId) {
       res.status(400).json({
         error:
-          "credentialExchangeId and credentialId are required",
+          "credentialId is required",
       });
 
       return;
     }
+
+    const issuedCredential =
+      issuedCredentials[
+        credentialId
+      ];
+
+    if (!issuedCredential) {
+      res.status(404).json({
+        error:
+          "Unknown credentialId",
+      });
+
+      return;
+    }
+
+    if (
+      issuedCredential.status ===
+      "revoked"
+    ) {
+      res.status(409).json({
+        error:
+          "Credential is already revoked",
+
+        revokedAt:
+          issuedCredential.revokedAt,
+      });
+
+      return;
+    }
+
+    const credentialExchangeId =
+      issuedCredential
+        .credentialExchangeId;
 
     const targetExchange =
       await agent.modules.didcomm.credentials.getById(
@@ -626,8 +771,53 @@ app.post("/revoke", async (req, res) => {
       revocationRegistryId?: string;
     } | null;
 
-    if (!meta?.credentialRevocationId || !meta?.revocationRegistryId) {
-      res.status(400).json({ error: "Credential has no revocation metadata — was it issued with supportRevocation: true?" });
+    if (
+      !meta?.credentialRevocationId || !meta?.revocationRegistryId
+    ) {
+      res.status(400).json({ 
+        error: 
+          "Credential has no revocation metadata — was it issued with supportRevocation: true?" 
+      });
+      return;
+    }
+
+    if (
+      meta.credentialRevocationId !==
+      issuedCredential
+        .credentialRevocationId
+    ) {
+      res.status(409).json({
+        error:
+          "Credential revocation index mismatch",
+
+        stored:
+          issuedCredential
+            .credentialRevocationId,
+
+        credo:
+          meta.credentialRevocationId,
+      });
+
+      return;
+    }
+
+    if (
+      meta.revocationRegistryId !==
+      issuedCredential
+        .revocationRegistryDefinitionId
+    ) {
+      res.status(409).json({
+        error:
+          "Revocation registry mismatch",
+
+        stored:
+          issuedCredential
+            .revocationRegistryDefinitionId,
+
+        credo:
+          meta.revocationRegistryId,
+      });
+
       return;
     }
 
@@ -665,12 +855,27 @@ app.post("/revoke", async (req, res) => {
       await publishCredentialRevoked({
         credentialId,
 
+        issuerId:
+          state.issuerDid,
+
+        credentialDefinitionId:
+          issuedCredential
+            .credentialDefinitionId,
+
         revocationRegistryDefinitionId:
           meta.revocationRegistryId,
 
         credentialRevocationId:
           meta.credentialRevocationId,
       });
+
+      issuedCredential.status =
+        "revoked";
+
+      issuedCredential.revokedAt =
+        new Date().toISOString();
+
+      saveIssuedCredentials();
 
     res.json({
       success: true,
