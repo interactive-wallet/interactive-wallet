@@ -787,6 +787,31 @@ export async function setUpVerifier(
     }
   });
 
+  // ─── Verified credentials (drives the verifier's Wallet view) ─────────────
+  // The verifier holds no AnonCreds of its own; instead it lists the credentials
+  // it has verified, so the UI can show — and turn red — a credential that was
+  // revoked *after* this verifier checked it. Registered here so it takes
+  // precedence over the generic /credentials route in index.ts when
+  // AGENT_ROLE=verifier. Revocation surfaces two ways: live via the SSE
+  // `revocation` broadcast, and persistently via the `widerrufen_am` attribute
+  // (set once status flips to "revoked-after-verification").
+  app.get("/credentials", (_req, res) => {
+    const list = Object.values(verifiedCredentials).map((rec) => ({
+      credentialId: rec.credentialId,
+      schemaId: rec.schemaId,
+      credentialDefinitionId: rec.credentialDefinitionId,
+      attributes: {
+        credential_id: rec.credentialId,
+        geprueft_am: rec.verifiedAt,
+        ...(rec.status === "revoked-after-verification"
+          ? { widerrufen_am: rec.revokedAt ?? "" }
+          : {}),
+      },
+      createdAt: rec.verifiedAt,
+    }));
+    res.json(list);
+  });
+
   // ─── Get single proof exchange ────────────────────────────────────────────
   app.get("/proofs/:id", async (req, res) => {
     try {

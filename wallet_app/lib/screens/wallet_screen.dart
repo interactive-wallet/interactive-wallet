@@ -11,6 +11,9 @@ const _attrLabels = <String, String>{
   'geburtsdatum': 'Geburtsdatum',
   'fuehrerscheinklasse': 'Klasse',
   'ausstellungsdatum': 'Ausgestellt am',
+  'credential_id': 'Credential-ID',
+  'geprueft_am': 'Geprüft am',
+  'widerrufen_am': 'Widerrufen am',
 };
 
 String _schemaName(String? schemaId) {

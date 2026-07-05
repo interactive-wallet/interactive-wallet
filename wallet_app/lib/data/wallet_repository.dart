@@ -102,6 +102,9 @@ class WalletRepository extends ChangeNotifier {
   /// Whether the given stored credential has been revoked (matched via the
   /// issuer-stamped `credential_id` attribute against SSE revocation events).
   bool isCredentialRevoked(StoredCredential c) {
+    // Verifier view: revocation is persisted on the record itself, so it
+    // survives a refresh/restart even without a live SSE event.
+    if (c.attributes.containsKey('widerrufen_am')) return true;
     final appId = c.attributes['credential_id'];
     return appId != null && revokedCredentialIds.contains(appId);
   }
