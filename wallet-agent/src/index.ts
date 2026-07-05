@@ -16,6 +16,12 @@ const {
 } = await import("@credo-ts/didcomm");
 const { createAgent } = await import("./agent.js");
 const { setUpVerifier } = await import("./verifier.js");
+const {
+  initializeHolderConsumer,
+  getHolderRevocationStatuses,
+} = await import(
+  "./holder-consumer.js"
+);
 
 const agent = createAgent();
 await agent.initialize();
@@ -126,11 +132,19 @@ agent.events.on(
   DidCommCredentialEventTypes.DidCommCredentialStateChanged,
   ({ payload }: any) => {
     const e = payload.credentialExchangeRecord;
-    broadcast("credential", {
-      state: e.state,
-      role: e.role,
-      credentialId: e.id,
-    });
+    broadcast(
+      "credential",
+      {
+        state:
+          e.state,
+
+        role:
+          e.role,
+
+        credentialExchangeId:
+          e.id,
+      },
+    );
   },
 );
 
@@ -151,16 +165,79 @@ app.use(cors());
 app.use(express.json());
 app.use(express.static(path.join(import.meta.dirname, "..", "public")));
 
-if (AGENT_ROLE === "verifier") {
-  await setUpVerifier(app, agent);
+if (
+  AGENT_ROLE ===
+  "verifier"
+) {
+  await setUpVerifier(
+    app,
+    agent,
+  );
 } else {
   await setupMediator();
+
+  await initializeHolderConsumer({
+    agent,
+
+    onCredentialRevoked:
+      async (
+        record,
+        event,
+      ) => {
+        broadcast(
+          "credential-revoked",
+          {
+            credentialId:
+              record.credentialId,
+
+            localCredentialId:
+              record.localCredentialId,
+
+            status:
+              record.status,
+
+            revokedAt:
+              record.occurredAt,
+
+            confirmedAt:
+              record.confirmedAt,
+
+            ledgerTimestamp:
+              record.ledgerTimestamp,
+
+            eventId:
+              event.eventId,
+          },
+        );
+      },
+  });
 }
 
 // ─── Health ───────────────────────────────────────────────────────────────
 app.get("/health", (_req, res) => {
   res.json({ status: "ok" });
 });
+
+app.get(
+  "/holder-revocations",
+  (_req, res) => {
+    if (
+      AGENT_ROLE !==
+      "holder"
+    ) {
+      res.status(404).json({
+        error:
+          "This endpoint is only available in holder mode",
+      });
+
+      return;
+    }
+
+    res.json(
+      getHolderRevocationStatuses(),
+    );
+  },
+);
 
 // ─── SSE — live activity stream ───────────────────────────────────────────
 app.get("/events", (req, res) => {

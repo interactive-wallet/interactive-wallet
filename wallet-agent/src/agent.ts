@@ -45,9 +45,28 @@ import {
   WALLET_KEY,
 } from "./config.js";
 
-const genesisTransactions = await fetch(`${VON_URL}/genesis`).then((res) =>
-  res.text(),
+const genesisTransactions = await fetch(`${VON_URL}/genesis`).then((response) =>
+  response.text(),
 );
+
+const inboundPort =
+  Number(INBOUND_PORT);
+
+if (
+  AGENT_ROLE === "verifier" &&
+  (
+    !Number.isInteger(inboundPort) ||
+    inboundPort <= 0 ||
+    inboundPort > 65535
+  )
+) {
+  throw new Error(
+    `INBOUND_PORT ist ungültig: ${INBOUND_PORT}`,
+  );
+}
+
+const isVerifier =
+  AGENT_ROLE === "verifier";
 
 export function createAgent() {
   return new Agent({
@@ -87,13 +106,13 @@ export function createAgent() {
       }),
       didcomm: new DidCommModule({
         endpoints:
-          AGENT_ROLE === "verifier"
+          isVerifier
             ? [AGENT_ENDPOINT]
             : [],
 
         transports: {
           inbound:
-            AGENT_ROLE === "verifier"
+            isVerifier
               ? [
                   new DidCommHttpInboundTransport({
                     port: +INBOUND_PORT,
