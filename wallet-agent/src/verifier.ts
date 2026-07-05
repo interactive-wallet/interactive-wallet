@@ -780,6 +780,11 @@ export async function setUpVerifier(
               cred_def_id:
                 issuerCredentialConfig
                   .credentialDefinitionId,
+              // schema_id makes the requested credential type explicit so the
+              // holder UI can show "Führerschein" alongside the attributes.
+              schema_id:
+                issuerCredentialConfig
+                  .schemaId,
             },
           ],
         },

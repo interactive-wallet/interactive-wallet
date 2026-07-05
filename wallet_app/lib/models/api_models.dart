@@ -67,6 +67,7 @@ class ProofExchange {
   final bool? isVerified;
   final String? connectionId;
   final List<String> requestedAttributes;
+  final String? credentialType;
   final DateTime createdAt;
 
   const ProofExchange({
@@ -75,6 +76,7 @@ class ProofExchange {
     required this.isVerified,
     required this.connectionId,
     required this.requestedAttributes,
+    required this.credentialType,
     required this.createdAt,
   });
 
@@ -87,6 +89,7 @@ class ProofExchange {
         connectionId: j['connectionId'] as String?,
         requestedAttributes:
             (j['requestedAttributes'] as List? ?? const []).map((e) => e.toString()).toList(),
+        credentialType: j['credentialType'] as String?,
         createdAt: _parseDate(j['createdAt']),
       );
 }

@@ -33,6 +33,18 @@ String _offerTitle(String? schemaId) {
   }
 }
 
+/// Prettifies a raw schema name (e.g. "Fuehrerschein") for display.
+String _prettyType(String? raw) {
+  if (raw == null || raw.isEmpty) return 'Credential';
+  switch (raw.toLowerCase()) {
+    case 'fuehrerschein':
+    case 'driverslicense':
+      return 'Führerschein';
+    default:
+      return raw;
+  }
+}
+
 enum _Filter { all, credentials, proofs }
 
 class InboxScreen extends StatefulWidget {
@@ -521,6 +533,33 @@ class _ProofRequestCardState extends State<_ProofRequestCard> {
               ],
             ),
             const SizedBox(height: 12),
+            if (p.credentialType != null) ...[
+              Text(
+                'CREDENTIAL',
+                style: TextStyle(
+                  color: wc.textTertiary,
+                  fontSize: 10,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: 1.2,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  Icon(Icons.directions_car_rounded, size: 16, color: color),
+                  const SizedBox(width: 6),
+                  Text(
+                    _prettyType(p.credentialType),
+                    style: TextStyle(
+                      color: wc.textPrimary,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+            ],
             Text(
               'REQUESTED ATTRIBUTES',
               style: TextStyle(

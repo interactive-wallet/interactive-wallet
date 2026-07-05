@@ -237,6 +237,7 @@ app.get("/proof-exchanges", async (_req, res) => {
     const result = await Promise.all(
       proofs.map(async (p) => {
         let requestedAttributes: string[] = [];
+        let credentialType: string | null = null;
         try {
           const formatData = await agent.modules.didcomm.proofs.getFormatData(
             p.id,
@@ -246,6 +247,22 @@ app.get("/proof-exchanges", async (_req, res) => {
             requestedAttributes = Object.values(req.requested_attributes)
               .map((a: any) => a.name ?? a.names)
               .flat();
+            // Derive the requested credential type from a restriction's
+            // schema_id (e.g. ".../SCHEMA/Fuehrerschein/1.1" -> "Fuehrerschein").
+            for (const group of Object.values(req.requested_attributes) as any[]) {
+              const schemaId = group.restrictions?.find(
+                (r: any) => r.schema_id,
+              )?.schema_id;
+              if (schemaId) {
+                const parts = String(schemaId).split("/");
+                const idx = parts.indexOf("SCHEMA");
+                credentialType =
+                  idx !== -1 && idx + 1 < parts.length
+                    ? parts[idx + 1]
+                    : String(schemaId);
+                break;
+              }
+            }
           }
         } catch {
           /* ignore */
@@ -256,6 +273,7 @@ app.get("/proof-exchanges", async (_req, res) => {
           isVerified: p.isVerified ?? null,
           connectionId: p.connectionId,
           requestedAttributes,
+          credentialType,
           createdAt: p.createdAt,
         };
       }),
