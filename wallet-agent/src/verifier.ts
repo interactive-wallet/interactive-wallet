@@ -32,16 +32,41 @@ export async function setUpVerifier(
   revocationRegistryDefinitionId: string;
   }
 
-  const issuerConfigResponse = await fetch(
-    `${ISSUER_API_URL}/public-credential-config`,
-  );
-
-  if (!issuerConfigResponse.ok) {
+  // The issuer's REST API may not be up yet when the verifier boots (compose
+  // only orders on rabbitmq). Retry instead of crashing on ECONNREFUSED so the
+  // start order between issuer and verifier no longer matters.
+  async function fetchIssuerConfig(
+    url: string,
+    attempts = 30,
+    delayMs = 2000,
+  ): Promise<Response> {
+    let lastError: unknown;
+    for (let attempt = 1; attempt <= attempts; attempt++) {
+      try {
+        const response = await fetch(url);
+        if (response.ok) return response;
+        lastError = new Error(
+          `HTTP ${response.status}: ${await response.text()}`,
+        );
+      } catch (error) {
+        lastError = error;
+      }
+      console.log(
+        `[Verifier] Issuer config not ready at ${url} ` +
+          `(attempt ${attempt}/${attempts}), retrying in ${delayMs}ms...`,
+      );
+      await new Promise((resolve) => setTimeout(resolve, delayMs));
+    }
     throw new Error(
-      `Issuer credential configuration could not be loaded: ` +
-        `${await issuerConfigResponse.text()}`,
+      `Issuer credential configuration could not be loaded after ` +
+        `${attempts} attempts: ` +
+        (lastError instanceof Error ? lastError.message : String(lastError)),
     );
   }
+
+  const issuerConfigResponse = await fetchIssuerConfig(
+    `${ISSUER_API_URL}/public-credential-config`,
+  );
 
   const issuerCredentialConfig =
     await issuerConfigResponse.json() as
