@@ -38,12 +38,14 @@ class StoredCredential {
 class PendingCredentialOffer {
   final String id;
   final String? credDefId;
+  final String? schemaId;
   final String? fromLabel;
   final DateTime createdAt;
 
   const PendingCredentialOffer({
     required this.id,
     required this.credDefId,
+    required this.schemaId,
     required this.fromLabel,
     required this.createdAt,
   });
@@ -52,6 +54,7 @@ class PendingCredentialOffer {
       PendingCredentialOffer(
         id: j['id'] as String,
         credDefId: j['credDefId'] as String?,
+        schemaId: j['schemaId'] as String?,
         fromLabel: j['fromLabel'] as String?,
         createdAt: _parseDate(j['createdAt']),
       );

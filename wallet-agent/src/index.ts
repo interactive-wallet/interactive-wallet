@@ -417,6 +417,7 @@ app.get("/pending-credentials", async (_req, res) => {
     const result = await Promise.all(
       pending.map(async (e) => {
         let credDefId: string | null = null;
+        let schemaId: string | null = null;
         let attributes: Record<string, string> = {};
         try {
           const formatData =
@@ -424,6 +425,7 @@ app.get("/pending-credentials", async (_req, res) => {
           const offer = (formatData.offer as any)?.anoncreds;
           if (offer) {
             credDefId = offer.cred_def_id ?? null;
+            schemaId = offer.schema_id ?? null;
           }
         } catch {
           /* ignore */
@@ -443,6 +445,7 @@ app.get("/pending-credentials", async (_req, res) => {
           id: e.id,
           state: e.state,
           credDefId,
+          schemaId,
           fromLabel,
           createdAt: e.createdAt,
         };

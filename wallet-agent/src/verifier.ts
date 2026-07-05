@@ -226,6 +226,39 @@ export async function setUpVerifier(
     );
   }
 
+  // Demo seed: a car-rental verifier realistically has many prior licence
+  // checks on file. When the store is empty, pre-populate it with a few fake
+  // Führerschein records so the "a revoked credential drops out of the verified
+  // list" narrative has context. These fake IDs never match a real revocation
+  // event, so they simply pad the list and are safe to ignore in the demo.
+  if (Object.keys(verifiedCredentials).length === 0) {
+    const seedIds = [
+      "a1f4c0de-1111-4a2b-8c3d-0000000000a1",
+      "b2e5d1ef-2222-4b3c-9d4e-0000000000b2",
+      "c3d6e2f0-3333-4c4d-ae5f-0000000000c3",
+    ];
+    const nowMs = Date.now();
+    seedIds.forEach((id, index) => {
+      const verifiedMs = nowMs - (index + 1) * 24 * 60 * 60 * 1000;
+      verifiedCredentials[id] = {
+        credentialId: id,
+        proofExchangeId: `seed-${id}`,
+        credentialDefinitionId:
+          issuerCredentialConfig.credentialDefinitionId,
+        schemaId: issuerCredentialConfig.schemaId,
+        revocationRegistryDefinitionId:
+          issuerCredentialConfig.revocationRegistryDefinitionId,
+        verifiedAt: new Date(verifiedMs).toISOString(),
+        nonRevocationTimestamp: Math.floor(verifiedMs / 1000),
+        status: "verified",
+      };
+    });
+    saveVerifiedCredentials();
+    console.log(
+      `[Verifier] Seeded ${seedIds.length} demo Führerschein records into the verified list`,
+    );
+  }
+
   interface VerifierState {
     verifierDid: string;
   }
@@ -241,7 +274,7 @@ export async function setUpVerifier(
 
   // TODO NYM
   const outOfBandRecord = await agent.modules.didcomm.oob.createInvitation({
-    label: "Verifier",
+    label: "CarGo Autovermietung",
     autoAcceptConnection: true,
     handshakeProtocols: [DidCommHandshakeProtocol.DidExchange],
   });
@@ -681,7 +714,7 @@ export async function setUpVerifier(
   app.get("/invitation", async (_req, res) => {
     try {
       const oobRecord = await agent.modules.didcomm.oob.createInvitation({
-        label: "Verifier",
+        label: "CarGo Autovermietung",
         handshakeProtocols: [DidCommHandshakeProtocol.Connections],
       });
       // Inject `from` so the wallet app can show "VERIFIED IDENTITY" for the ledger DID.

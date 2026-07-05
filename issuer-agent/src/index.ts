@@ -245,7 +245,7 @@ console.log("Issuer Agent and RabbitMQinitialized");
 
 // TODO NYM
 const outOfBandRecord = await agent.modules.didcomm.oob.createInvitation({
-  label: "Issuer",
+  label: "Führerscheinstelle",
   autoAcceptConnection: true,
   handshakeProtocols: [DidCommHandshakeProtocol.DidExchange],
 });
@@ -475,7 +475,7 @@ app.get("/health", (_req, res) => {
 app.get("/invitation", async (_req, res) => {
   try {
     const oobRecord = await agent.modules.didcomm.oob.createInvitation({
-      label: "Issuer",
+      label: "Führerscheinstelle",
       autoAcceptConnection: true,
       handshakeProtocols: [DidCommHandshakeProtocol.Connections],
     });

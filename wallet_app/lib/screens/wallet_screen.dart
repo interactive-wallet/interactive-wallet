@@ -20,8 +20,15 @@ String _schemaName(String? schemaId) {
   if (schemaId == null || schemaId.isEmpty) return 'Credential';
   final parts = schemaId.split('/');
   final idx = parts.indexOf('SCHEMA');
-  if (idx != -1 && idx + 1 < parts.length) return parts[idx + 1];
-  return schemaId.split(':').last;
+  final name =
+      (idx != -1 && idx + 1 < parts.length) ? parts[idx + 1] : schemaId.split(':').last;
+  switch (name.toLowerCase()) {
+    case 'fuehrerschein':
+    case 'driverslicense':
+      return 'Führerschein';
+    default:
+      return name;
+  }
 }
 
 String _issuerDidFromCredDef(String? credDefId) {
@@ -33,6 +40,7 @@ String _issuerDidFromCredDef(String? credDefId) {
 IconData _iconForSchema(String name) {
   switch (name.toLowerCase()) {
     case 'fuehrerschein':
+    case 'führerschein':
     case 'driverslicense':
       return Icons.directions_car_rounded;
     case 'universitydegree':

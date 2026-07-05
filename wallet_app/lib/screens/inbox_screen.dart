@@ -14,14 +14,23 @@ const _attrLabels = <String, String>{
   'ausstellungsdatum': 'Ausgestellt am',
 };
 
-String _credDefName(String? credDefId) {
-  if (credDefId == null || credDefId.isEmpty) return 'Credential Offer';
-  final parts = credDefId.split('/');
-  final idx = parts.indexOf('CLAIM_DEF');
-  if (idx > 0 && idx - 1 < parts.length) {
-    return parts[idx - 1].split(':').last;
+/// Derives a human title for a credential offer from its schema id — the
+/// cred-def id has no schema name (only `.../CLAIM_DEF/<seqNo>/<tag>`, which is
+/// why it used to read "v0"). Known schemas get a prettified label.
+String _offerTitle(String? schemaId) {
+  if (schemaId == null || schemaId.isEmpty) return 'Credential Offer';
+  final parts = schemaId.split('/');
+  final idx = parts.indexOf('SCHEMA');
+  final name = (idx != -1 && idx + 1 < parts.length)
+      ? parts[idx + 1]
+      : schemaId.split(':').last;
+  switch (name.toLowerCase()) {
+    case 'fuehrerschein':
+    case 'driverslicense':
+      return 'Führerschein';
+    default:
+      return name;
   }
-  return credDefId.split(':').last;
 }
 
 enum _Filter { all, credentials, proofs }
@@ -310,7 +319,7 @@ class _CredentialOfferCardState extends State<_CredentialOfferCard> {
     final wc = context.wc;
     final color = AppColors.success;
     final o = widget.offer;
-    final title = _credDefName(o.credDefId);
+    final title = _offerTitle(o.schemaId);
 
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
