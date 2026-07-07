@@ -516,6 +516,23 @@ app.post("/accept-proof/:id", async (req, res) => {
     res.json({ success: true, state: record.state });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err);
+
+    // Building the presentation failed — most commonly because the credential
+    // has been revoked, so no valid non-revocation proof can be produced. Tell
+    // the verifier via a problem report so its proof exchange fails right away
+    // (→ Abandoned) instead of hanging until its re-check timeout expires.
+    try {
+      await agent.modules.didcomm.proofs.sendProblemReport({
+        proofExchangeRecordId: req.params.id,
+        description: `Presentation could not be created: ${message}`,
+      });
+    } catch (reportErr) {
+      console.error(
+        "[wallet-agent] Failed to notify verifier after accept-proof failure",
+        reportErr,
+      );
+    }
+
     res.status(500).json({ error: message });
   }
 });

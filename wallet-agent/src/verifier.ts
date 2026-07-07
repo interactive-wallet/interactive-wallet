@@ -17,6 +17,7 @@ import {
 } from "./config.js";
 import {
   initializeVerifierConsumer,
+  type CredentialRevokedEvent,
 } from "./verifier-consumer.js";
 
 export async function setUpVerifier(
@@ -185,6 +186,7 @@ export async function setUpVerifier(
 
     status:
       | "verified"
+      | "revocation-check-pending"
       | "revoked-after-verification";
 
     revokedAt?: string;
@@ -525,6 +527,206 @@ export async function setUpVerifier(
   }
   
   
+  // ─── Revocation re-check ─────────────────────────────────────────────────
+  // A RabbitMQ revocation event is only a *trigger*, not proof. Instead of
+  // trusting the message bus, the verifier challenges the holder with a fresh
+  // proof request (pinned to this credential_id, non_revoked = now). A revoked
+  // credential can no longer produce a valid non-revocation proof, so the
+  // *result* of that request — not the event — decides. If the holder cannot be
+  // reached in time (they must approve the request manually), we fall back to
+  // trusting the event and treat the credential as revoked.
+  const RE_CHECK_TIMEOUT_MS = 60_000;
+
+  interface PendingReCheck {
+    credentialId: string;
+    event: CredentialRevokedEvent;
+    timeout: ReturnType<typeof setTimeout>;
+  }
+
+  // Keyed by the re-check proof exchange id.
+  const pendingReChecks = new Map<
+    string,
+    PendingReCheck
+  >();
+
+  function markRevoked(
+    credential: VerifiedCredentialRecord,
+    event: CredentialRevokedEvent,
+    reason: string,
+  ): void {
+    if (
+      credential.status ===
+      "revoked-after-verification"
+    ) {
+      return;
+    }
+
+    credential.status =
+      "revoked-after-verification";
+    credential.revokedAt =
+      event.occurredAt;
+    saveVerifiedCredentials();
+
+    // Surface only this relevant revocation to the verifier UI via SSE.
+    broadcast("revocation", {
+      state: "revoked",
+      credentialId: event.credentialId,
+    });
+
+    console.log(
+      "[Verifier] Credential als widerrufen bestätigt",
+      {
+        credentialId:
+          event.credentialId,
+        eventId: event.eventId,
+        revokedAt: event.occurredAt,
+        reason,
+      },
+    );
+  }
+
+  function resolveReCheck(
+    proofExchangeId: string,
+  ): PendingReCheck | undefined {
+    const pending = pendingReChecks.get(
+      proofExchangeId,
+    );
+    if (!pending) return undefined;
+    clearTimeout(pending.timeout);
+    pendingReChecks.delete(
+      proofExchangeId,
+    );
+    return pending;
+  }
+
+  async function sendRevocationReCheckProof(
+    connectionId: string,
+    credentialId: string,
+  ): Promise<string> {
+    const timestamp = Math.floor(
+      Date.now() / 1000,
+    );
+
+    const proofRecord =
+      await agent.modules.didcomm.proofs.requestProof(
+        {
+          connectionId,
+          protocolVersion: "v2",
+          proofFormats: {
+            anoncreds: {
+              name: "Führerschein Re-Verification (Revocation Check)",
+              version: "1.0",
+              requested_attributes: {
+                fuehrerschein_referent: {
+                  names: [
+                    "credential_id",
+                  ],
+                  restrictions: [
+                    {
+                      cred_def_id:
+                        issuerCredentialConfig.credentialDefinitionId,
+                      schema_id:
+                        issuerCredentialConfig.schemaId,
+                      // Pin the request to exactly the credential the event
+                      // names, so the holder can't answer with a different one.
+                      "attr::credential_id::value":
+                        credentialId,
+                    },
+                  ],
+                },
+              },
+              requested_predicates: {},
+              // Ask for non-revocation *now*: a revoked credential fails this.
+              non_revoked: {
+                to: timestamp,
+              },
+            },
+          },
+        },
+      );
+
+    return proofRecord.id;
+  }
+
+  async function startRevocationReCheck(
+    credential: VerifiedCredentialRecord,
+    event: CredentialRevokedEvent,
+  ): Promise<void> {
+    if (!credential.connectionId) {
+      // No live connection to challenge → fall back to trusting the event.
+      markRevoked(
+        credential,
+        event,
+        "kein Connection für Re-Check vorhanden",
+      );
+      return;
+    }
+
+    credential.status =
+      "revocation-check-pending";
+    saveVerifiedCredentials();
+
+    let proofExchangeId: string;
+    try {
+      proofExchangeId =
+        await sendRevocationReCheckProof(
+          credential.connectionId,
+          credential.credentialId,
+        );
+    } catch (error) {
+      console.error(
+        "[Verifier] Re-Check-Proof konnte nicht gesendet werden",
+        error,
+      );
+      // Can't even ask the holder → fall back to trusting the event.
+      markRevoked(
+        credential,
+        event,
+        "Re-Check-Proof konnte nicht gesendet werden",
+      );
+      return;
+    }
+
+    const timeout = setTimeout(() => {
+      pendingReChecks.delete(
+        proofExchangeId,
+      );
+      // Holder never answered (must approve manually) → trust the event.
+      markRevoked(
+        credential,
+        event,
+        "Re-Check-Timeout: keine Antwort vom Holder",
+      );
+    }, RE_CHECK_TIMEOUT_MS);
+
+    // Don't let a pending re-check keep the process alive on shutdown.
+    if (
+      typeof timeout.unref === "function"
+    ) {
+      timeout.unref();
+    }
+
+    pendingReChecks.set(
+      proofExchangeId,
+      {
+        credentialId:
+          credential.credentialId,
+        event,
+        timeout,
+      },
+    );
+
+    console.log(
+      "[Verifier] Revocation-Event erhalten — Re-Check beim Holder gestartet",
+      {
+        credentialId:
+          credential.credentialId,
+        eventId: event.eventId,
+        proofExchangeId,
+      },
+    );
+  }
+
   // ─── proof event logging ───────────────────────────────────────
   agent.events.on(
     DidCommProofEventTypes
@@ -537,6 +739,65 @@ export async function setUpVerifier(
       console.log(
         `[Verifier] Proof state: ${record.state}`,
       );
+
+      // Is this the answer to a revocation re-check we sent? Only terminal
+      // states carry a verdict; route them here instead of the normal
+      // verified-credential registration path.
+      const pendingReCheck =
+        record.state ===
+          DidCommProofState.Done ||
+        record.state ===
+          DidCommProofState.Abandoned
+          ? resolveReCheck(record.id)
+          : undefined;
+
+      if (pendingReCheck) {
+        const credential =
+          verifiedCredentials[
+            pendingReCheck.credentialId
+          ];
+
+        if (!credential) {
+          return;
+        }
+
+        const provedNonRevocation =
+          record.state ===
+            DidCommProofState.Done &&
+          record.isVerified === true;
+
+        if (provedNonRevocation) {
+          // Holder proved the credential is still valid → the event was
+          // premature (e.g. ledger not yet updated). Keep it verified.
+          credential.status = "verified";
+          saveVerifiedCredentials();
+
+          console.warn(
+            "[Verifier] Re-Check widerspricht dem Revocation-Event: " +
+              "Holder konnte Non-Revocation beweisen — Credential bleibt gültig",
+            {
+              credentialId:
+                credential.credentialId,
+              eventId:
+                pendingReCheck.event.eventId,
+              proofExchangeId: record.id,
+            },
+          );
+        } else {
+          // Presentation failed / non-revocation proof invalid / abandoned →
+          // the holder could not prove otherwise, so the revocation is real.
+          markRevoked(
+            credential,
+            pendingReCheck.event,
+            record.state ===
+              DidCommProofState.Abandoned
+              ? "Re-Check: Holder lieferte keinen gültigen Proof (abandoned)"
+              : "Re-Check: Non-Revocation-Proof ungültig",
+          );
+        }
+
+        return;
+      }
 
       if (
         record.state ===
@@ -675,32 +936,30 @@ export async function setUpVerifier(
         return;
       }
 
-      verifiedCredential.status =
-        "revoked-after-verification";
+      if (
+        verifiedCredential.status ===
+        "revocation-check-pending"
+      ) {
+        console.log(
+          "[Verifier] Re-Check für dieses Credential läuft bereits",
+          {
+            credentialId:
+              event.credentialId,
 
-      verifiedCredential.revokedAt =
-        event.occurredAt;
+            eventId:
+              event.eventId,
+          },
+        );
 
-      saveVerifiedCredentials();
+        return;
+      }
 
-      // Surface only this relevant revocation to the verifier UI via SSE.
-      broadcast("revocation", {
-        state: "revoked",
-        credentialId: event.credentialId,
-      });
-
-      console.log(
-        "[Verifier] Verifiziertes Credential wurde nachträglich widerrufen",
-        {
-          credentialId:
-            event.credentialId,
-
-          eventId:
-            event.eventId,
-
-          revokedAt:
-            event.occurredAt,
-        },
+      // Don't trust the event outright: challenge the holder with a fresh
+      // proof request. The result of that request decides (see
+      // startRevocationReCheck / the ProofStateChanged handler above).
+      await startRevocationReCheck(
+        verifiedCredential,
+        event,
       );
     },
 });
