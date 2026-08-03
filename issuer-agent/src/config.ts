@@ -6,6 +6,9 @@ export const {
   ISSUER_DOMAIN = "localhost",
   VON_URL = "http://127.0.0.1:9000",
   INDY_NAMESPACE = "local:test",
+
+  ISSUER_ROUTING_ID = "fuehrerscheinstelle",
+  CREDENTIAL_TYPE = "drivers-license",
 } = process.env;
 
 if (ISSUER_SEED.length !== 32) {
@@ -14,3 +17,4 @@ if (ISSUER_SEED.length !== 32) {
 }
 
 export const ISSUER_HTTP_ENDPOINT = `http://${ISSUER_DOMAIN}:${ISSUER_HTTP_PORT}`;
+

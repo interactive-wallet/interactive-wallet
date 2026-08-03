@@ -42,7 +42,7 @@ echo ""
 
 # ── 2. Credential-Offer senden ───────────────────────────────────────────────
 echo -e "${CYN}Credential-Angebot senden…${NC}"
-curl -sf -X POST "$ISSUER/issue" \
+ISSUE_RESP=$(curl -sf -X POST "$ISSUER/issue" \
   -H "Content-Type: application/json" \
   -d "{
     \"connectionId\": \"$CONN\",
@@ -51,7 +51,21 @@ curl -sf -X POST "$ISSUER/issue" \
     \"geburtsdatum\": \"$GEBURTSDATUM\",
     \"fuehrerscheinklasse\": \"$KLASSE\",
     \"ausstellungsdatum\": \"$AUSSTELLUNGSDATUM\"
-  }" > /dev/null
+  }")
+if [ -z "$ISSUE_RESP" ]; then
+  echo -e "  ${RED}✗ Issuer lieferte keine Antwort auf /issue${NC}"; exit 1
+fi
+# Credential-Zuordnung speichern, damit revoke.sh sie findet (Antwort per argv, nicht stdin)
+python3 - "$(dirname "$0")/.last-issued-credential.json" "$ISSUE_RESP" <<'PY'
+import json, sys
+path, resp = sys.argv[1], sys.argv[2]
+data = json.loads(resp)
+with open(path, "w", encoding="utf-8") as f:
+    json.dump({
+        "credentialExchangeId": data.get("credentialExchangeId", ""),
+        "credentialId": data.get("credentialId", ""),
+    }, f, indent=2)
+PY
 echo -e "  ${GRN}✓${NC} Angebot gesendet"
 echo ""
 

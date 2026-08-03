@@ -38,12 +38,14 @@ class StoredCredential {
 class PendingCredentialOffer {
   final String id;
   final String? credDefId;
+  final String? schemaId;
   final String? fromLabel;
   final DateTime createdAt;
 
   const PendingCredentialOffer({
     required this.id,
     required this.credDefId,
+    required this.schemaId,
     required this.fromLabel,
     required this.createdAt,
   });
@@ -52,6 +54,7 @@ class PendingCredentialOffer {
       PendingCredentialOffer(
         id: j['id'] as String,
         credDefId: j['credDefId'] as String?,
+        schemaId: j['schemaId'] as String?,
         fromLabel: j['fromLabel'] as String?,
         createdAt: _parseDate(j['createdAt']),
       );
@@ -64,6 +67,7 @@ class ProofExchange {
   final bool? isVerified;
   final String? connectionId;
   final List<String> requestedAttributes;
+  final String? credentialType;
   final DateTime createdAt;
 
   const ProofExchange({
@@ -72,6 +76,7 @@ class ProofExchange {
     required this.isVerified,
     required this.connectionId,
     required this.requestedAttributes,
+    required this.credentialType,
     required this.createdAt,
   });
 
@@ -84,6 +89,7 @@ class ProofExchange {
         connectionId: j['connectionId'] as String?,
         requestedAttributes:
             (j['requestedAttributes'] as List? ?? const []).map((e) => e.toString()).toList(),
+        credentialType: j['credentialType'] as String?,
         createdAt: _parseDate(j['createdAt']),
       );
 }
@@ -118,7 +124,7 @@ class WalletConnection {
 
 /// A single live event from SSE (/events).
 class WalletEvent {
-  /// One of: 'system', 'connection', 'credential', 'proof'.
+  /// One of: 'system', 'connection', 'credential', 'proof', 'revocation'.
   final String type;
 
   /// Protocol state at the time the event fired, e.g. 'offer-received', 'done'.
@@ -130,6 +136,9 @@ class WalletEvent {
   /// Proof verification result, when applicable.
   final bool? isVerified;
 
+  /// UUID of the credential (credential and revocation events).
+  final String? credentialId;
+
   final DateTime timestamp;
   final Map<String, dynamic> raw;
 
@@ -138,6 +147,7 @@ class WalletEvent {
     required this.state,
     required this.theirLabel,
     required this.isVerified,
+    this.credentialId,
     required this.timestamp,
     required this.raw,
   });
@@ -147,6 +157,7 @@ class WalletEvent {
         state: j['state'] as String?,
         theirLabel: j['theirLabel'] as String?,
         isVerified: j['isVerified'] as bool?,
+        credentialId: j['credentialId'] as String?,
         timestamp: _parseDate(j['ts']),
         raw: j,
       );

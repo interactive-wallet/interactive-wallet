@@ -77,15 +77,21 @@ echo ""
 
 echo -e "${CYN}[3/3] Warte auf Proof-Präsentation in der UI…${NC}"
 for i in $(seq 1 120); do
-  RESULT=$(curl -sf "$VERIFIER/proofs/$PROOF_ID" 2>/dev/null || echo '{"state":"error"}')
-  STATE=$(echo "$RESULT" | python3 -c "import sys,json; print(json.load(sys.stdin)['state'])" 2>/dev/null || echo "unknown")
+  # Es gibt keinen /proofs/:id Endpunkt — den Proof per id aus /proof-exchanges suchen.
+  STATE_VER=$(curl -sf "$VERIFIER/proof-exchanges" 2>/dev/null | python3 -c "
+import sys, json
+d = json.load(sys.stdin)
+p = next((x for x in d if x.get('id') == sys.argv[1]), None)
+print(p.get('state') if p else 'unknown', p.get('isVerified') if p else None)
+" "$PROOF_ID" 2>/dev/null || echo "error None")
+  STATE=$(echo "$STATE_VER" | awk '{print $1}')
+  IS_VER=$(echo "$STATE_VER" | awk '{print $2}')
   if [ "$STATE" = "done" ]; then
-    IS_VER=$(echo "$RESULT" | python3 -c "import sys,json; print(json.load(sys.stdin).get('isVerified','null'))" 2>/dev/null)
     echo ""
     if [ "$IS_VER" = "True" ]; then
       echo -e "  ${GRN}${BLD}✓ isVerified: true — Führerschein gültig!${NC}"
     else
-      echo -e "  ${RED}✗ isVerified: $IS_VER${NC}"
+      echo -e "  ${RED}✗ isVerified: $IS_VER (Credential evtl. widerrufen?)${NC}"
     fi
     break
   fi

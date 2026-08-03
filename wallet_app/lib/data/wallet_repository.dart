@@ -23,6 +23,11 @@ class WalletRepository extends ChangeNotifier {
   /// Log of WalletEvents in chronological order (most recent first when shown).
   final List<WalletEvent> log = [];
 
+  /// App-level credential_id values that the backend reported as revoked via SSE.
+  /// The wallet still physically holds these credentials; this only tracks the
+  /// revocation status the UI should surface.
+  final Set<String> revokedCredentialIds = {};
+
   /// True once the live stream has confirmed connectivity.
   bool isLive = false;
 
@@ -34,6 +39,11 @@ class WalletRepository extends ChangeNotifier {
         _events = events ?? WalletEventStream();
 
   String get baseUrl => _api.baseUrl;
+
+  /// True when this window is bound to the verifier agent (:3004). Used to
+  /// relabel the credential view ("Checked Credentials") since the verifier
+  /// holds no AnonCreds itself — it lists what it has verified.
+  bool get isVerifier => _api.baseUrl.contains(':3004');
 
   Future<void> start() async {
     _eventSub = _events.stream.listen(_onEvent);
@@ -83,8 +93,25 @@ class WalletRepository extends ChangeNotifier {
         _safeUnawaited(
             () async => proofExchanges = await _api.proofExchanges());
         break;
+      case 'revocation':
+        // The backend only broadcasts revocations for credentials this wallet
+        // actually holds, so we can mark it revoked without further filtering.
+        if (ev.credentialId != null && ev.credentialId!.isNotEmpty) {
+          revokedCredentialIds.add(ev.credentialId!);
+        }
+        break;
     }
     notifyListeners();
+  }
+
+  /// Whether the given stored credential has been revoked (matched via the
+  /// issuer-stamped `credential_id` attribute against SSE revocation events).
+  bool isCredentialRevoked(StoredCredential c) {
+    // Verifier view: revocation is persisted on the record itself, so it
+    // survives a refresh/restart even without a live SSE event.
+    if (c.attributes.containsKey('widerrufen_am')) return true;
+    final appId = c.attributes['credential_id'];
+    return appId != null && revokedCredentialIds.contains(appId);
   }
 
   void clearLog() {

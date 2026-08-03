@@ -36,12 +36,13 @@ import { indyVdr } from "@hyperledger/indy-vdr-shared";
 import "@openwallet-foundation/askar-nodejs";
 import { NativeAskar } from "@openwallet-foundation/askar-shared";
 import {
+  AGENT_ENDPOINT,
+  AGENT_ROLE,
+  INBOUND_PORT,
   INDY_NAMESPACE,
-  VERIFIER_HTTP_ENDPOINT,
-  VERIFIER_HTTP_PORT,
   VON_URL,
   WALLET_ID,
-  WALLET_SEED,
+  WALLET_KEY,
 } from "./config.js";
 
 const genesisTransactions = await fetch(`${VON_URL}/genesis`).then((res) =>
@@ -57,7 +58,7 @@ export function createAgent() {
         askar: NativeAskar.instance,
         store: {
           id: WALLET_ID,
-          key: WALLET_SEED,
+          key: WALLET_KEY,
         },
       }),
       indyVdr: new IndyVdrModule({
@@ -85,11 +86,20 @@ export function createAgent() {
         tailsFileService: new BasicTailsFileService(),
       }),
       didcomm: new DidCommModule({
-        endpoints: VERIFIER_HTTP_PORT ? [VERIFIER_HTTP_ENDPOINT] : [],
-        transports: {
-          inbound: VERIFIER_HTTP_PORT
-            ? [new DidCommHttpInboundTransport({ port: +VERIFIER_HTTP_PORT })]
+        endpoints:
+          AGENT_ROLE === "verifier"
+            ? [AGENT_ENDPOINT]
             : [],
+
+        transports: {
+          inbound:
+            AGENT_ROLE === "verifier"
+              ? [
+                  new DidCommHttpInboundTransport({
+                    port: +INBOUND_PORT,
+                  }),
+                ]
+              : [],
           outbound: [
             new DidCommHttpOutboundTransport(),
             new DidCommWsOutboundTransport(),
@@ -109,7 +119,15 @@ export function createAgent() {
           ],
         },
         proofs: {
-          autoAcceptProofs: DidCommAutoAcceptProof.Never,
+          // Holder keeps manual control (explicit "Share Proof" in the UI).
+          // The verifier has no human-approval step for an incoming
+          // presentation — it must auto-acknowledge it so the exchange reaches
+          // `done` (otherwise it sticks at `presentation-received`, and the
+          // verified-credential registration + revocation matching never run).
+          autoAcceptProofs:
+            AGENT_ROLE === "verifier"
+              ? DidCommAutoAcceptProof.Always
+              : DidCommAutoAcceptProof.Never,
           proofProtocols: [
             new DidCommProofV2Protocol({
               proofFormats: [new AnonCredsDidCommProofFormatService()],

@@ -5,7 +5,8 @@ import cors from "cors";
 import "dotenv/config";
 import express, { type Response } from "express";
 import path from "path";
-import { MEDIATOR_API_URL, VERIFIER_HTTP_PORT, WALLET_API_PORT, WALLET_DOMAIN } from "./config.js";
+import { AGENT_ROLE, EFFECTIVE_WALLET_API_PORT, MEDIATOR_API_URL, WALLET_DOMAIN } from "./config.js";
+import { initializeHolderConsumer } from "./holder-consumer.js";
 
 // Native modules MUST be registered before @credo-ts/* modules are loaded.
 const {
@@ -146,15 +147,58 @@ agent.events.on(
   },
 );
 
+// ─── Holder revocation consumer (HOLDER role only) ───────────────────────
+// Mirror of the verifier's consumer, but filtered on wallet membership: only
+// revocations of credentials THIS wallet actually holds are surfaced to the
+// UI. The verifier has its own validating consumer in verifier.ts that filters
+// on "did I verify this?" instead.
+async function setupHolderRevocationConsumer(): Promise<void> {
+  try {
+    await initializeHolderConsumer({
+      onCredentialRevoked: async (event) => {
+        const credentials = await agent.modules.anoncreds.getCredentials({});
+        // The issuer stamps the app-level credential_id as a credential attribute,
+        // which is exactly what the revocation event carries as credentialId.
+        const held = credentials.find(
+          (c: any) => c.attributes?.credential_id === event.credentialId,
+        );
+
+        if (!held) {
+          console.log(
+            `[wallet-agent] Revocation ignored — credential not in this wallet: ${event.credentialId}`,
+          );
+          return;
+        }
+
+        broadcast("revocation", {
+          state: "revoked",
+          credentialId: event.credentialId,
+        });
+        console.log(
+          `[wallet-agent] Revocation SSE broadcast for held credential — credentialId: ${event.credentialId}`,
+        );
+      },
+    });
+  } catch (err) {
+    console.warn(
+      "[wallet-agent] Holder revocation consumer setup failed (continuing without):",
+      err instanceof Error ? err.message : err,
+    );
+  }
+}
+
 const app = express();
 app.use(cors());
 app.use(express.json());
 app.use(express.static(path.join(import.meta.dirname, "..", "public")));
 
-if (VERIFIER_HTTP_PORT) {
-  await setUpVerifier(app, agent);
+if (AGENT_ROLE === "verifier") {
+  // The verifier's own consumer broadcasts only revocations of verified credentials.
+  await setUpVerifier(app, agent, broadcast);
 } else {
   await setupMediator();
+  // Holder: surface revocations of its OWN credentials in the UI.
+  void setupHolderRevocationConsumer();
 }
 
 // ─── Health ───────────────────────────────────────────────────────────────
@@ -193,6 +237,7 @@ app.get("/proof-exchanges", async (_req, res) => {
     const result = await Promise.all(
       proofs.map(async (p) => {
         let requestedAttributes: string[] = [];
+        let credentialType: string | null = null;
         try {
           const formatData = await agent.modules.didcomm.proofs.getFormatData(
             p.id,
@@ -202,6 +247,22 @@ app.get("/proof-exchanges", async (_req, res) => {
             requestedAttributes = Object.values(req.requested_attributes)
               .map((a: any) => a.name ?? a.names)
               .flat();
+            // Derive the requested credential type from a restriction's
+            // schema_id (e.g. ".../SCHEMA/Fuehrerschein/1.1" -> "Fuehrerschein").
+            for (const group of Object.values(req.requested_attributes) as any[]) {
+              const schemaId = group.restrictions?.find(
+                (r: any) => r.schema_id,
+              )?.schema_id;
+              if (schemaId) {
+                const parts = String(schemaId).split("/");
+                const idx = parts.indexOf("SCHEMA");
+                credentialType =
+                  idx !== -1 && idx + 1 < parts.length
+                    ? parts[idx + 1]
+                    : String(schemaId);
+                break;
+              }
+            }
           }
         } catch {
           /* ignore */
@@ -212,6 +273,7 @@ app.get("/proof-exchanges", async (_req, res) => {
           isVerified: p.isVerified ?? null,
           connectionId: p.connectionId,
           requestedAttributes,
+          credentialType,
           createdAt: p.createdAt,
         };
       }),
@@ -373,6 +435,7 @@ app.get("/pending-credentials", async (_req, res) => {
     const result = await Promise.all(
       pending.map(async (e) => {
         let credDefId: string | null = null;
+        let schemaId: string | null = null;
         let attributes: Record<string, string> = {};
         try {
           const formatData =
@@ -380,6 +443,7 @@ app.get("/pending-credentials", async (_req, res) => {
           const offer = (formatData.offer as any)?.anoncreds;
           if (offer) {
             credDefId = offer.cred_def_id ?? null;
+            schemaId = offer.schema_id ?? null;
           }
         } catch {
           /* ignore */
@@ -399,6 +463,7 @@ app.get("/pending-credentials", async (_req, res) => {
           id: e.id,
           state: e.state,
           credDefId,
+          schemaId,
           fromLabel,
           createdAt: e.createdAt,
         };
@@ -451,6 +516,23 @@ app.post("/accept-proof/:id", async (req, res) => {
     res.json({ success: true, state: record.state });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err);
+
+    // Building the presentation failed — most commonly because the credential
+    // has been revoked, so no valid non-revocation proof can be produced. Tell
+    // the verifier via a problem report so its proof exchange fails right away
+    // (→ Abandoned) instead of hanging until its re-check timeout expires.
+    try {
+      await agent.modules.didcomm.proofs.sendProblemReport({
+        proofExchangeRecordId: req.params.id,
+        description: `Presentation could not be created: ${message}`,
+      });
+    } catch (reportErr) {
+      console.error(
+        "[wallet-agent] Failed to notify verifier after accept-proof failure",
+        reportErr,
+      );
+    }
+
     res.status(500).json({ error: message });
   }
 });
@@ -468,6 +550,12 @@ app.post("/decline-proof/:id", async (req, res) => {
   }
 });
 
-app.listen(+WALLET_API_PORT, '0.0.0.0', () => {
-  console.log(`REST API running on http://${WALLET_DOMAIN}:${WALLET_API_PORT}`);
-});
+app.listen(
+  +EFFECTIVE_WALLET_API_PORT,
+  "0.0.0.0",
+  () => {
+    console.log(
+      `REST API running on http://${WALLET_DOMAIN}:${EFFECTIVE_WALLET_API_PORT}`,
+    );
+  },
+);

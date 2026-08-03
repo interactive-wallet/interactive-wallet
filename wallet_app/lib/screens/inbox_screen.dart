@@ -14,14 +14,35 @@ const _attrLabels = <String, String>{
   'ausstellungsdatum': 'Ausgestellt am',
 };
 
-String _credDefName(String? credDefId) {
-  if (credDefId == null || credDefId.isEmpty) return 'Credential Offer';
-  final parts = credDefId.split('/');
-  final idx = parts.indexOf('CLAIM_DEF');
-  if (idx > 0 && idx - 1 < parts.length) {
-    return parts[idx - 1].split(':').last;
+/// Derives a human title for a credential offer from its schema id — the
+/// cred-def id has no schema name (only `.../CLAIM_DEF/<seqNo>/<tag>`, which is
+/// why it used to read "v0"). Known schemas get a prettified label.
+String _offerTitle(String? schemaId) {
+  if (schemaId == null || schemaId.isEmpty) return 'Credential Offer';
+  final parts = schemaId.split('/');
+  final idx = parts.indexOf('SCHEMA');
+  final name = (idx != -1 && idx + 1 < parts.length)
+      ? parts[idx + 1]
+      : schemaId.split(':').last;
+  switch (name.toLowerCase()) {
+    case 'fuehrerschein':
+    case 'driverslicense':
+      return 'Führerschein';
+    default:
+      return name;
   }
-  return credDefId.split(':').last;
+}
+
+/// Prettifies a raw schema name (e.g. "Fuehrerschein") for display.
+String _prettyType(String? raw) {
+  if (raw == null || raw.isEmpty) return 'Credential';
+  switch (raw.toLowerCase()) {
+    case 'fuehrerschein':
+    case 'driverslicense':
+      return 'Führerschein';
+    default:
+      return raw;
+  }
 }
 
 enum _Filter { all, credentials, proofs }
@@ -310,7 +331,7 @@ class _CredentialOfferCardState extends State<_CredentialOfferCard> {
     final wc = context.wc;
     final color = AppColors.success;
     final o = widget.offer;
-    final title = _credDefName(o.credDefId);
+    final title = _offerTitle(o.schemaId);
 
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
@@ -512,6 +533,33 @@ class _ProofRequestCardState extends State<_ProofRequestCard> {
               ],
             ),
             const SizedBox(height: 12),
+            if (p.credentialType != null) ...[
+              Text(
+                'CREDENTIAL',
+                style: TextStyle(
+                  color: wc.textTertiary,
+                  fontSize: 10,
+                  fontWeight: FontWeight.w600,
+                  letterSpacing: 1.2,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  Icon(Icons.directions_car_rounded, size: 16, color: color),
+                  const SizedBox(width: 6),
+                  Text(
+                    _prettyType(p.credentialType),
+                    style: TextStyle(
+                      color: wc.textPrimary,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+            ],
             Text(
               'REQUESTED ATTRIBUTES',
               style: TextStyle(

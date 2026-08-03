@@ -15,6 +15,7 @@ services:
       MEDIATOR_WS_PORT: 3008
       MEDIATOR_API_PORT: 3006
       VON_URL: http://host.docker.internal:9000
+      WALLET_API_URL: http://wallet:3000
 
     ports:
       - "127.0.0.1:3006:3006"
@@ -33,18 +34,27 @@ services:
         - DOCKER_BUILDKIT=1
 
     environment:
+      AGENT_ROLE: holder
       WALLET_DOMAIN: wallet # same as service name
       WALLET_ID: Wallet
-      WALLET_SEED: Wallet_0000000000000000000000000
+      WALLET_KEY: Wallet_0000000000000000000000000
       WALLET_API_PORT: 3000
       MEDIATOR_API_URL: http://mediator:3006
+      HOLDER_ID: wallet
+      ISSUER_ROUTING_ID: fuehrerscheinstelle
+      CREDENTIAL_TYPE: drivers-license
       VON_URL: http://host.docker.internal:9000
+      RABBITMQ_URL: amqp://rabbitmq_walletApp:1234@rabbitmq:5672/ssi
 
     ports:
       - "127.0.0.1:3000:3000"
 
     extra_hosts:
       - "host.docker.internal:host-gateway"
+
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
 
   verifier:
     image: wallet-agent
@@ -55,12 +65,20 @@ services:
         - DOCKER_BUILDKIT=1
 
     environment:
+      AGENT_ROLE: verifier
       WALLET_DOMAIN: verifier # same as service name
       WALLET_ID: Verifier
-      WALLET_SEED: Verifier_00000000000000000000000
+      WALLET_KEY: Verifier_00000000000000000000000
       WALLET_API_PORT: 3004
-      VERIFIER_HTTP_PORT: 3005
+      INBOUND_PORT: 3005
+      AGENT_ENDPOINT: http://verifier:3005
+      VERIFIER_SEED: Verifier_00000000000000000000000
+      VERIFIER_ID: autovermietung
+      ISSUER_API_URL: http://issuer:3002
+      ISSUER_ROUTING_ID: fuehrerscheinstelle
+      CREDENTIAL_TYPE: drivers-license
       VON_URL: http://host.docker.internal:9000
+      RABBITMQ_URL: amqp://rabbitmq_walletApp:1234@rabbitmq:5672/ssi
 
     ports:
       - "127.0.0.1:3004:3004"
@@ -68,6 +86,10 @@ services:
 
     extra_hosts:
       - "host.docker.internal:host-gateway"
+
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
 
   issuer:
     image: issuer-agent
@@ -83,7 +105,10 @@ services:
       ISSUER_SEED: Issuer_0000000000000000000000000
       ISSUER_HTTP_PORT: 3003
       ISSUER_API_PORT: 3002
+      ISSUER_ROUTING_ID: fuehrerscheinstelle
+      CREDENTIAL_TYPE: drivers-license
       VON_URL: http://host.docker.internal:9000
+      RABBITMQ_URL: amqp://rabbitmq_walletApp:1234@rabbitmq:5672/ssi
 
     ports:
       - "127.0.0.1:3002:3002"
@@ -91,6 +116,10 @@ services:
 
     extra_hosts:
       - "host.docker.internal:host-gateway"
+
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
 
   rabbitmq:
     image: rabbitmq:4-management

@@ -7,6 +7,7 @@ build/
 .vscode/
 .idea/
 scripts/.last-issued-credential.json
+verifier-agent/.verifier-state.json
 
 .AppleDouble
 .LSOverride
@@ -15,6 +16,10 @@ scripts/.last-issued-credential.json
 .~lock.*
 
 genesis.txn
+*.bak
+
+# graphify output — never commit
+graphify-out/
 
 # Flutter
 **/devtools_options.yaml
