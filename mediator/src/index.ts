@@ -5,6 +5,7 @@ import cors from "cors";
 import "dotenv/config";
 import express from "express";
 import { MEDIATOR_API_PORT, MEDIATOR_WS_ENDPOINT } from "./config.js";
+import { mountSwagger } from "./swagger.js";
 
 // Native modules MUST be registered before @credo-ts/* modules are loaded.
 const { DidCommEventTypes, DidCommForwardMessage, DidCommHandshakeProtocol } =
@@ -47,15 +48,71 @@ console.log("[mediator] Invitation URL:", invitationUrl);
 const app = express();
 app.use(cors());
 app.use(express.json());
+mountSwagger(app);
 
+/**
+ * @openapi
+ * /health:
+ *   get:
+ *     summary: Health check
+ *     tags: [Mediator]
+ *     responses:
+ *       200:
+ *         description: Service is up
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status: { type: string, example: ok }
+ */
 app.get("/health", (_req, res) => {
   res.json({ status: "ok" });
 });
 
+/**
+ * @openapi
+ * /invitation:
+ *   get:
+ *     summary: Get the mediator's out-of-band connection invitation
+ *     tags: [Mediator]
+ *     responses:
+ *       200:
+ *         description: Invitation URL for establishing a DIDComm connection to the mediator
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 invitationUrl: { type: string }
+ */
 app.get("/invitation", (_req, res) => {
   res.json({ invitationUrl });
 });
 
+/**
+ * @openapi
+ * /connections:
+ *   get:
+ *     summary: List the mediator's DIDComm connections
+ *     tags: [Mediator]
+ *     responses:
+ *       200:
+ *         description: Array of connection summaries
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 type: object
+ *                 properties:
+ *                   id: { type: string }
+ *                   state: { type: string }
+ *                   theirLabel: { type: string, nullable: true }
+ *                   createdAt: { type: string, format: date-time }
+ *       500:
+ *         description: Failed to load connections
+ */
 app.get("/connections", async (_req, res) => {
   try {
     const connections = await agent.modules.didcomm.connections.getAll();

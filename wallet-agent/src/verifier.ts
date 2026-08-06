@@ -970,6 +970,26 @@ export async function setUpVerifier(
   // If /setup has run, the invitation carries the verifier's public did:indy
   // so that the holder wallet can resolve and verify it against the ledger
   // before connecting.
+  /**
+   * @openapi
+   * /invitation:
+   *   get:
+   *     summary: Create the verifier's out-of-band connection invitation
+   *     tags: [Verifier]
+   *     responses:
+   *       200:
+   *         description: A new OOB invitation carrying the verifier's ledger DID (once /setup has run)
+   *         content:
+   *           application/json:
+   *             schema:
+   *               type: object
+   *               properties:
+   *                 invitationUrl: { type: string }
+   *                 oobId: { type: string }
+   *                 invitationDid: { type: string, nullable: true }
+   *       500:
+   *         description: Failed to create invitation
+   */
   app.get("/invitation", async (_req, res) => {
     try {
       const oobRecord = await agent.modules.didcomm.oob.createInvitation({
@@ -1000,6 +1020,41 @@ export async function setUpVerifier(
   // Body: { connectionId, requestedAttributes?: string[] }
   // requestedAttributes: subset of Führerschein fields to request (default: all)
 
+  /**
+   * @openapi
+   * /request-proof:
+   *   post:
+   *     summary: Request a Führerschein proof presentation from a connection
+   *     tags: [Verifier]
+   *     requestBody:
+   *       required: true
+   *       content:
+   *         application/json:
+   *           schema:
+   *             type: object
+   *             required: [connectionId]
+   *             properties:
+   *               connectionId: { type: string }
+   *               requestedAttributes:
+   *                 type: array
+   *                 items: { type: string }
+   *                 description: "Subset of Führerschein fields to request (default: all)"
+   *     responses:
+   *       200:
+   *         description: Proof request sent
+   *         content:
+   *           application/json:
+   *             schema:
+   *               type: object
+   *               properties:
+   *                 proofExchangeId: { type: string }
+   *                 state: { type: string }
+   *                 nonRevocationTimestamp: { type: integer }
+   *       400:
+   *         description: Missing connectionId
+   *       500:
+   *         description: Requesting the proof failed
+   */
   app.post("/request-proof", async (req, res) => {
     try {
       const { connectionId, requestedAttributes } = req.body as {
@@ -1090,6 +1145,31 @@ export async function setUpVerifier(
   });
 
   // ─── Get all proof exchanges ──────────────────────────────────────────────
+  /**
+   * @openapi
+   * /proofs:
+   *   get:
+   *     summary: List all proof exchanges
+   *     tags: [Verifier]
+   *     responses:
+   *       200:
+   *         description: Array of proof exchange summaries
+   *         content:
+   *           application/json:
+   *             schema:
+   *               type: array
+   *               items:
+   *                 type: object
+   *                 properties:
+   *                   id: { type: string }
+   *                   state: { type: string }
+   *                   isVerified: { type: boolean, nullable: true }
+   *                   connectionId: { type: string, nullable: true }
+   *                   errorMessage: { type: string, nullable: true }
+   *                   createdAt: { type: string, format: date-time }
+   *       500:
+   *         description: Failed to load proof exchanges
+   */
   app.get("/proofs", async (_req, res) => {
     try {
       const proofs = await agent.modules.didcomm.proofs.getAll();
@@ -1117,6 +1197,29 @@ export async function setUpVerifier(
   // AGENT_ROLE=verifier. Revocation surfaces two ways: live via the SSE
   // `revocation` broadcast, and persistently via the `widerrufen_am` attribute
   // (set once status flips to "revoked-after-verification").
+  /**
+   * @openapi
+   * /credentials:
+   *   get:
+   *     summary: List credentials this verifier has checked (verifier role)
+   *     description: Overrides the generic /credentials route from index.ts when AGENT_ROLE=verifier. A credential revoked after verification carries a widerrufen_am attribute.
+   *     tags: [Verifier]
+   *     responses:
+   *       200:
+   *         description: Array of verified credentials
+   *         content:
+   *           application/json:
+   *             schema:
+   *               type: array
+   *               items:
+   *                 type: object
+   *                 properties:
+   *                   credentialId: { type: string }
+   *                   schemaId: { type: string }
+   *                   credentialDefinitionId: { type: string }
+   *                   attributes: { type: object }
+   *                   createdAt: { type: string, format: date-time }
+   */
   app.get("/credentials", (_req, res) => {
     const list = Object.values(verifiedCredentials).map((rec) => ({
       credentialId: rec.credentialId,
@@ -1135,6 +1238,36 @@ export async function setUpVerifier(
   });
 
   // ─── Get single proof exchange ────────────────────────────────────────────
+  /**
+   * @openapi
+   * /proofs/{id}:
+   *   get:
+   *     summary: Get a single proof exchange including its format data
+   *     tags: [Verifier]
+   *     parameters:
+   *       - in: path
+   *         name: id
+   *         required: true
+   *         schema: { type: string }
+   *         description: Proof exchange record ID
+   *     responses:
+   *       200:
+   *         description: Proof exchange detail
+   *         content:
+   *           application/json:
+   *             schema:
+   *               type: object
+   *               properties:
+   *                 id: { type: string }
+   *                 state: { type: string }
+   *                 isVerified: { type: boolean, nullable: true }
+   *                 connectionId: { type: string, nullable: true }
+   *                 errorMessage: { type: string, nullable: true }
+   *                 createdAt: { type: string, format: date-time }
+   *                 formatData: { type: object, nullable: true }
+   *       500:
+   *         description: Failed to load proof exchange
+   */
   app.get("/proofs/:id", async (req, res) => {
     try {
       const record = await agent.modules.didcomm.proofs.getById(req.params.id);

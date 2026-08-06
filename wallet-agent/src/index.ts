@@ -7,6 +7,7 @@ import express, { type Response } from "express";
 import path from "path";
 import { AGENT_ROLE, EFFECTIVE_WALLET_API_PORT, MEDIATOR_API_URL, WALLET_DOMAIN } from "./config.js";
 import { initializeHolderConsumer } from "./holder-consumer.js";
+import { mountSwagger } from "./swagger.js";
 
 // Native modules MUST be registered before @credo-ts/* modules are loaded.
 const {
@@ -191,6 +192,7 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 app.use(express.static(path.join(import.meta.dirname, "..", "public")));
+mountSwagger(app);
 
 if (AGENT_ROLE === "verifier") {
   // The verifier's own consumer broadcasts only revocations of verified credentials.
@@ -202,11 +204,40 @@ if (AGENT_ROLE === "verifier") {
 }
 
 // ─── Health ───────────────────────────────────────────────────────────────
+/**
+ * @openapi
+ * /health:
+ *   get:
+ *     summary: Health check
+ *     tags: [Wallet]
+ *     responses:
+ *       200:
+ *         description: Service is up
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status: { type: string, example: ok }
+ */
 app.get("/health", (_req, res) => {
   res.json({ status: "ok" });
 });
 
 // ─── SSE — live activity stream ───────────────────────────────────────────
+/**
+ * @openapi
+ * /events:
+ *   get:
+ *     summary: Server-sent events stream of live wallet activity (connections, credentials, proofs, revocations)
+ *     tags: [Wallet]
+ *     responses:
+ *       200:
+ *         description: text/event-stream of JSON-encoded events
+ *         content:
+ *           text/event-stream:
+ *             schema: { type: string }
+ */
 app.get("/events", (req, res) => {
   res.setHeader("Content-Type", "text/event-stream");
   res.setHeader("Cache-Control", "no-cache");
@@ -220,6 +251,24 @@ app.get("/events", (req, res) => {
 });
 
 // ─── Credentials ──────────────────────────────────────────────────────────
+/**
+ * @openapi
+ * /credentials:
+ *   get:
+ *     summary: List AnonCreds credentials held by this wallet (holder role)
+ *     description: In verifier role this route is overridden by verifier.ts to list verified credentials instead.
+ *     tags: [Wallet]
+ *     responses:
+ *       200:
+ *         description: Array of held credentials
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items: { type: object }
+ *       500:
+ *         description: Failed to load credentials
+ */
 app.get("/credentials", async (_req, res) => {
   try {
     const credentials = await agent.modules.anoncreds.getCredentials({});
@@ -231,6 +280,32 @@ app.get("/credentials", async (_req, res) => {
 });
 
 // ─── Proof exchanges (incoming proof requests) ────────────────────────────
+/**
+ * @openapi
+ * /proof-exchanges:
+ *   get:
+ *     summary: List incoming proof requests with derived requested attributes
+ *     tags: [Wallet]
+ *     responses:
+ *       200:
+ *         description: Array of proof exchange summaries
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 type: object
+ *                 properties:
+ *                   id: { type: string }
+ *                   state: { type: string }
+ *                   isVerified: { type: boolean, nullable: true }
+ *                   connectionId: { type: string, nullable: true }
+ *                   requestedAttributes: { type: array, items: { type: string } }
+ *                   credentialType: { type: string, nullable: true }
+ *                   createdAt: { type: string, format: date-time }
+ *       500:
+ *         description: Failed to load proof exchanges
+ */
 app.get("/proof-exchanges", async (_req, res) => {
   try {
     const proofs = await agent.modules.didcomm.proofs.getAll();
@@ -286,6 +361,34 @@ app.get("/proof-exchanges", async (_req, res) => {
 });
 
 // ─── Connections ──────────────────────────────────────────────────────────
+/**
+ * @openapi
+ * /connections:
+ *   get:
+ *     summary: List DIDComm connections
+ *     tags: [Wallet]
+ *     responses:
+ *       200:
+ *         description: Array of connection summaries
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 type: object
+ *                 properties:
+ *                   id: { type: string }
+ *                   state: { type: string }
+ *                   role: { type: string }
+ *                   theirLabel: { type: string, nullable: true }
+ *                   did: { type: string, nullable: true }
+ *                   theirDid: { type: string, nullable: true }
+ *                   invitationDid: { type: string, nullable: true }
+ *                   outOfBandId: { type: string, nullable: true }
+ *                   createdAt: { type: string, format: date-time }
+ *       500:
+ *         description: Failed to load connections
+ */
 app.get("/connections", async (_req, res) => {
   try {
     const connections = await agent.modules.didcomm.connections.getAll();
@@ -310,6 +413,30 @@ app.get("/connections", async (_req, res) => {
 });
 
 // ─── Credential exchanges ─────────────────────────────────────────────────
+/**
+ * @openapi
+ * /exchanges:
+ *   get:
+ *     summary: List credential exchange records
+ *     tags: [Wallet]
+ *     responses:
+ *       200:
+ *         description: Array of credential exchange summaries
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 type: object
+ *                 properties:
+ *                   id: { type: string }
+ *                   state: { type: string }
+ *                   role: { type: string }
+ *                   errorMessage: { type: string, nullable: true }
+ *                   createdAt: { type: string, format: date-time }
+ *       500:
+ *         description: Failed to load credential exchanges
+ */
 app.get("/exchanges", async (_req, res) => {
   try {
     const exchanges = await agent.modules.didcomm.credentials.getAll();
@@ -329,6 +456,37 @@ app.get("/exchanges", async (_req, res) => {
 });
 
 // ─── Receive invitation ───────────────────────────────────────────────────
+/**
+ * @openapi
+ * /receive-invitation:
+ *   post:
+ *     summary: Accept an out-of-band invitation and establish a connection
+ *     tags: [Wallet]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [invitationUrl]
+ *             properties:
+ *               invitationUrl: { type: string }
+ *     responses:
+ *       200:
+ *         description: Connection established (or in progress)
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 oobId: { type: string }
+ *                 connectionId: { type: string, nullable: true }
+ *                 connectionState: { type: string, nullable: true }
+ *       400:
+ *         description: Missing invitationUrl
+ *       500:
+ *         description: Failed to process invitation
+ */
 app.post("/receive-invitation", async (req, res) => {
   try {
     const { invitationUrl } = req.body as { invitationUrl: string };
@@ -387,6 +545,29 @@ app.post("/receive-invitation", async (req, res) => {
   }
 });
 
+/**
+ * @openapi
+ * /pickup-messages:
+ *   post:
+ *     summary: Trigger active message pickup from the mediator
+ *     tags: [Wallet]
+ *     responses:
+ *       200:
+ *         description: Pickup executed
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success: { type: boolean }
+ *                 message: { type: string }
+ *                 mediationRecordId: { type: string }
+ *                 mediationState: { type: string }
+ *                 mediationConnectionId: { type: string, nullable: true }
+ *                 actualConnectionId: { type: string }
+ *       500:
+ *         description: No default mediator configured or pickup failed
+ */
 app.post("/pickup-messages", async (_req, res) => {
   try {
     console.log("initiateMessagePickup");
@@ -428,6 +609,31 @@ app.post("/pickup-messages", async (_req, res) => {
 });
 
 // ─── Pending credential offers ────────────────────────────────────────────
+/**
+ * @openapi
+ * /pending-credentials:
+ *   get:
+ *     summary: List credential offers awaiting a holder decision
+ *     tags: [Wallet]
+ *     responses:
+ *       200:
+ *         description: Array of pending credential offers
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 type: object
+ *                 properties:
+ *                   id: { type: string }
+ *                   state: { type: string }
+ *                   credDefId: { type: string, nullable: true }
+ *                   schemaId: { type: string, nullable: true }
+ *                   fromLabel: { type: string, nullable: true }
+ *                   createdAt: { type: string, format: date-time }
+ *       500:
+ *         description: Failed to load pending offers
+ */
 app.get("/pending-credentials", async (_req, res) => {
   try {
     const exchanges = await agent.modules.didcomm.credentials.getAll();
@@ -477,6 +683,31 @@ app.get("/pending-credentials", async (_req, res) => {
 });
 
 // ─── Accept credential offer ──────────────────────────────────────────────
+/**
+ * @openapi
+ * /accept-credential/{id}:
+ *   post:
+ *     summary: Accept a credential offer
+ *     tags: [Wallet]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: string }
+ *         description: Credential exchange record ID
+ *     responses:
+ *       200:
+ *         description: Offer accepted
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success: { type: boolean }
+ *                 state: { type: string }
+ *       500:
+ *         description: Accepting the offer failed
+ */
 app.post("/accept-credential/:id", async (req, res) => {
   try {
     const record = await agent.modules.didcomm.credentials.acceptOffer({
@@ -490,6 +721,30 @@ app.post("/accept-credential/:id", async (req, res) => {
 });
 
 // ─── Decline credential offer ─────────────────────────────────────────────
+/**
+ * @openapi
+ * /decline-credential/{id}:
+ *   post:
+ *     summary: Decline a credential offer
+ *     tags: [Wallet]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: string }
+ *         description: Credential exchange record ID
+ *     responses:
+ *       200:
+ *         description: Offer declined
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success: { type: boolean }
+ *       500:
+ *         description: Declining the offer failed
+ */
 app.post("/decline-credential/:id", async (req, res) => {
   try {
     await agent.modules.didcomm.credentials.declineOffer({
@@ -503,6 +758,31 @@ app.post("/decline-credential/:id", async (req, res) => {
 });
 
 // ─── Accept proof request (auto-selects credentials) ─────────────────────
+/**
+ * @openapi
+ * /accept-proof/{id}:
+ *   post:
+ *     summary: Auto-select matching credentials and accept a proof request
+ *     tags: [Wallet]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: string }
+ *         description: Proof exchange record ID
+ *     responses:
+ *       200:
+ *         description: Proof accepted and presentation sent
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success: { type: boolean }
+ *                 state: { type: string }
+ *       500:
+ *         description: Building or sending the presentation failed (e.g. revoked credential)
+ */
 app.post("/accept-proof/:id", async (req, res) => {
   try {
     const selectedCredentials =
@@ -538,6 +818,30 @@ app.post("/accept-proof/:id", async (req, res) => {
 });
 
 // ─── Decline proof request ────────────────────────────────────────────────
+/**
+ * @openapi
+ * /decline-proof/{id}:
+ *   post:
+ *     summary: Decline a proof request
+ *     tags: [Wallet]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: string }
+ *         description: Proof exchange record ID
+ *     responses:
+ *       200:
+ *         description: Proof request declined
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success: { type: boolean }
+ *       500:
+ *         description: Declining the request failed
+ */
 app.post("/decline-proof/:id", async (req, res) => {
   try {
     await agent.modules.didcomm.proofs.declineRequest({

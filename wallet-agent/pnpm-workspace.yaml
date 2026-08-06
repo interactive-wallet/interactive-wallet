@@ -6,6 +6,7 @@ allowBuilds:
   '@hyperledger/aries-askar-nodejs': true
   '@hyperledger/indy-vdr-nodejs': true
   '@openwallet-foundation/askar-nodejs': true
+  '@scarf/scarf': false
   cbor-extract: true
   es5-ext: true
   esbuild: true

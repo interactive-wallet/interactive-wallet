@@ -121,6 +121,24 @@ services:
       rabbitmq:
         condition: service_healthy
 
+  docs-hub:
+    image: docs-hub
+    build:
+      context: ./docs-hub/
+      dockerfile: ../scripts/Dockerfile
+      args:
+        - DOCKER_BUILDKIT=1
+
+    environment:
+      DOCS_HUB_PORT: 3009
+      ISSUER_DOCS_URL: http://localhost:3002/docs.json
+      WALLET_DOCS_URL: http://localhost:3000/docs.json
+      VERIFIER_DOCS_URL: http://localhost:3004/docs.json
+      MEDIATOR_DOCS_URL: http://localhost:3006/docs.json
+
+    ports:
+      - "127.0.0.1:3009:3009"
+
   rabbitmq:
     image: rabbitmq:4-management
     container_name: ssi-rabbitmq

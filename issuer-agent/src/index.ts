@@ -26,6 +26,7 @@ import {
   initializeRabbitMq,
   publishCredentialRevoked,
 } from "./rabbitmq.js";
+import { mountSwagger } from "./swagger.js";
 
 // Native modules MUST be registered before @credo-ts/* modules are loaded.
 const { TypedArrayEncoder } = await import("@credo-ts/core");
@@ -257,6 +258,7 @@ console.log(invitationUrl);
 const app = express();
 app.use(cors());
 app.use(express.json());
+mountSwagger(app);
 
 // ─── Serve tails files ────────────────────────────────────────────────────
 // BasicTailsFileService stores files at ${cacheDir}/anoncreds/tails/<hash>
@@ -274,6 +276,23 @@ fs.mkdirSync(tailsDir, {
   recursive: true,
 });
 
+/**
+ * @openapi
+ * /tails/{hash}:
+ *   get:
+ *     summary: Download a tails file for the revocation registry
+ *     tags: [Issuer]
+ *     parameters:
+ *       - in: path
+ *         name: hash
+ *         required: true
+ *         schema: { type: string }
+ *     responses:
+ *       200:
+ *         description: Tails file contents
+ *       404:
+ *         description: File not found
+ */
 app.use(
   "/tails",
   express.static(tailsDir),
@@ -467,11 +486,49 @@ agent.events.on(DidCommProofEventTypes.ProofStateChanged, ({ payload }: any) => 
   console.log(`Proof state: ${record.state}`);
 });
 
+/**
+ * @openapi
+ * /health:
+ *   get:
+ *     summary: Health check
+ *     tags: [Issuer]
+ *     responses:
+ *       200:
+ *         description: Service status and whether one-time ledger setup has completed
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status: { type: string, example: ok }
+ *                 hasSetup: { type: boolean }
+ */
 app.get("/health", (_req, res) => {
   res.json({ status: "ok", hasSetup: state !== null });
 });
 
 // ─── Invitation ──────────────────────────────────────────────────────────
+/**
+ * @openapi
+ * /invitation:
+ *   get:
+ *     summary: Create an out-of-band connection invitation
+ *     tags: [Issuer]
+ *     responses:
+ *       200:
+ *         description: A new OOB invitation from the issuer
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 invitationUrl: { type: string }
+ *                 invitation: { type: object }
+ *                 oobId: { type: string }
+ *                 invitationDid: { type: string, nullable: true }
+ *       500:
+ *         description: Failed to create invitation
+ */
 app.get("/invitation", async (_req, res) => {
   try {
     const oobRecord = await agent.modules.didcomm.oob.createInvitation({
@@ -495,6 +552,34 @@ app.get("/invitation", async (_req, res) => {
 });
 
 // ─── Connections ──────────────────────────────────────────────────────────
+/**
+ * @openapi
+ * /connections:
+ *   get:
+ *     summary: List DIDComm connections
+ *     tags: [Issuer]
+ *     responses:
+ *       200:
+ *         description: Array of connection summaries
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 type: object
+ *                 properties:
+ *                   id: { type: string }
+ *                   state: { type: string }
+ *                   role: { type: string }
+ *                   theirLabel: { type: string, nullable: true }
+ *                   did: { type: string, nullable: true }
+ *                   theirDid: { type: string, nullable: true }
+ *                   invitationDid: { type: string, nullable: true }
+ *                   outOfBandId: { type: string, nullable: true }
+ *                   createdAt: { type: string, format: date-time }
+ *       500:
+ *         description: Failed to load connections
+ */
 app.get("/connections", async (_req, res) => {
   try {
     const connections = await agent.modules.didcomm.connections.getAll();
@@ -518,6 +603,45 @@ app.get("/connections", async (_req, res) => {
 });
 
 // ─── Issue Führerschein (AnonCreds) ──────────────────────────────────────
+/**
+ * @openapi
+ * /issue:
+ *   post:
+ *     summary: Issue a Führerschein (driving license) AnonCreds credential to a connection
+ *     tags: [Issuer]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [connectionId]
+ *             properties:
+ *               connectionId: { type: string }
+ *               vorname: { type: string, default: Anna }
+ *               nachname: { type: string, default: Schmidt }
+ *               geburtsdatum: { type: string, default: "1985-06-20" }
+ *               fuehrerscheinklasse: { type: string, default: A }
+ *               ausstellungsdatum: { type: string, default: "2023-01-10" }
+ *     responses:
+ *       200:
+ *         description: Credential offer sent
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success: { type: boolean }
+ *                 message: { type: string }
+ *                 credentialExchangeId: { type: string }
+ *                 revocationRegistryDefinitionId: { type: string }
+ *                 revocationRegistryIndex: { type: integer }
+ *                 credentialId: { type: string }
+ *       400:
+ *         description: Missing required fields or issuer not set up yet
+ *       500:
+ *         description: Issuance failed
+ */
 app.post("/issue", async (req, res) => {
   try {
     if (!state) {
@@ -649,6 +773,27 @@ app.post("/issue", async (req, res) => {
 
 // ─── Public Credential Config ────────────────────────────────────────────
 
+/**
+ * @openapi
+ * /public-credential-config:
+ *   get:
+ *     summary: Get the issuer's public credential configuration
+ *     tags: [Issuer]
+ *     responses:
+ *       200:
+ *         description: Issuer DID, schema, credential definition, and revocation registry IDs
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 issuerDid: { type: string }
+ *                 schemaId: { type: string }
+ *                 credentialDefinitionId: { type: string }
+ *                 revocationRegistryDefinitionId: { type: string }
+ *       503:
+ *         description: Issuer credential configuration is incomplete
+ */
 app.get("/public-credential-config", (_req, res) => {
   if (
     !state?.issuerDid ||
@@ -672,7 +817,43 @@ app.get("/public-credential-config", (_req, res) => {
 });
 
 // ─── Revoke credential ────────────────────────────────────────────────────
-// Body: { credentialExchangeId: string, credentialId: string }
+/**
+ * @openapi
+ * /revoke:
+ *   post:
+ *     summary: Revoke a previously issued credential
+ *     tags: [Issuer]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [credentialId]
+ *             properties:
+ *               credentialId: { type: string }
+ *     responses:
+ *       200:
+ *         description: Credential revoked and event published to RabbitMQ
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success: { type: boolean }
+ *                 revokedIndex: { type: integer }
+ *                 revocationRegistryId: { type: string }
+ *                 credentialExchangeId: { type: string }
+ *                 rabbitMqEventId: { type: string }
+ *       400:
+ *         description: Missing credentialId or no revocation registry configured
+ *       404:
+ *         description: Unknown credentialId
+ *       409:
+ *         description: Credential already revoked, not yet issued, or metadata mismatch
+ *       500:
+ *         description: Revocation failed
+ */
 app.post("/revoke", async (req, res) => {
   try {
     if (!state?.revocRegDefId) {
@@ -895,6 +1076,32 @@ app.post("/revoke", async (req, res) => {
 });
 
 // ─── List credential exchanges ────────────────────────────────────────────
+/**
+ * @openapi
+ * /credential-exchanges:
+ *   get:
+ *     summary: List credential exchange records
+ *     tags: [Issuer]
+ *     responses:
+ *       200:
+ *         description: Array of credential exchange summaries
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 type: object
+ *                 properties:
+ *                   id: { type: string }
+ *                   state: { type: string }
+ *                   role: { type: string }
+ *                   connectionId: { type: string, nullable: true }
+ *                   credentialRevocationId: { type: string, nullable: true }
+ *                   revocationRegistryId: { type: string, nullable: true }
+ *                   createdAt: { type: string, format: date-time }
+ *       500:
+ *         description: Failed to load credential exchanges
+ */
 app.get("/credential-exchanges", async (_req, res) => {
   try {
     const exchanges = await agent.modules.didcomm.credentials.getAll();
@@ -920,6 +1127,34 @@ app.get("/credential-exchanges", async (_req, res) => {
   }
 });
 
+/**
+ * @openapi
+ * /credential-exchanges/{id}/accept-request:
+ *   post:
+ *     summary: Accept a pending credential request
+ *     tags: [Issuer]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: string }
+ *         description: Credential exchange record ID
+ *     responses:
+ *       200:
+ *         description: Request accepted
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success: { type: boolean }
+ *                 credentialExchangeId: { type: string }
+ *                 state: { type: string }
+ *       400:
+ *         description: Credential exchange is not in state 'request-received'
+ *       500:
+ *         description: Accepting the request failed
+ */
 app.post(
   "/credential-exchanges/:id/accept-request",
   async (req, res) => {
