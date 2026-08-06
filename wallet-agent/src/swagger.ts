@@ -14,7 +14,7 @@ const spec = swaggerJsdoc({
     },
     servers: [{ url: `http://localhost:${EFFECTIVE_WALLET_API_PORT}` }],
   },
-  apis: ["./dist/index.js", "./dist/verifier.js"],
+  apis: ["./dist/index.js", "./dist/verifier.js", "./dist/verifier-routes.js"],
 });
 
 export function mountSwagger(app: Express): void {
