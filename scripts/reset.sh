@@ -1,8 +1,14 @@
 #!/bin/bash
-# Reset: wipes all agent wallets (Askar stores live INSIDE the containers) and the VON ledger.
+# Reset: wipes all agent wallets (Askar stores live INSIDE the containers), the VON ledger,
+# and the RabbitMQ state (rabbitmq-data volume — stale queues/bindings otherwise survive a reset).
 # Docker setup: agents store their Askar wallet in /root/.afj inside the container — there is no
 # volume mount, so recreating the containers wipes the wallet. The old host-side `rm -rf ~/.afj`
 # no longer applies.
+#
+# Rebuilds images as part of the reset (step 4) — do NOT run `docker compose build`/`up`
+# yourself afterwards. Rebuilding/recreating an agent container after it already registered
+# its schema/credDef on a fresh ledger wipes its local wallet (private key material) while
+# the ledger keeps the write, causing "RevocStatusList registration failed" on next boot.
 #
 # Usage:
 #   ./scripts/reset.sh            # full reset: all agents + ledger
@@ -24,8 +30,8 @@ if [ "$SCOPE" = "wallet" ]; then
   exit 0
 fi
 
-echo "=== 1. Stopping agents (wipes in-container Askar wallets) ==="
-docker compose down
+echo "=== 1. Stopping agents (wipes in-container Askar wallets + RabbitMQ state) ==="
+docker compose down -v
 
 echo ""
 echo "=== 2. Restarting VON network (wipes ledger) ==="
@@ -52,7 +58,8 @@ done
 rm -f "$ROOT/issuer-agent/issuer-state.json" "$ROOT/verifier-agent/verifier-state.json"
 
 echo ""
-echo "=== 4. Starting fresh agents ==="
+echo "=== 4. Building images and starting fresh agents ==="
+docker compose build
 docker compose up -d
 
 echo ""
