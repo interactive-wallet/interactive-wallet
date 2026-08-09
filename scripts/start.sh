@@ -53,12 +53,24 @@ docker compose up -d
 echo ""
 echo "=== 4. Baue Flutter-App ==="
 # Einmal bauen statt zweimal `flutter run` parallel zu starten: zwei gleichzeitige
-# Builds schreiben in dasselbe build/linux/x64/debug und lassen CMake/Ninja
-# ("failed recompaction") kollidieren.
+# Builds schreiben in dasselbe build/<platform>/... und lassen CMake/Ninja bzw.
+# Xcode ("failed recompaction") kollidieren.
 cd "$ROOT/wallet_app"
-flutter build linux --debug
 
-BUNDLE="$ROOT/wallet_app/build/linux/x64/debug/bundle/wallet_app"
+case "$(uname -s)" in
+  Darwin)
+    flutter build macos --debug
+    BUNDLE="$ROOT/wallet_app/build/macos/Build/Products/Debug/wallet_app.app/Contents/MacOS/wallet_app"
+    ;;
+  Linux)
+    flutter build linux --debug
+    BUNDLE="$ROOT/wallet_app/build/linux/x64/debug/bundle/wallet_app"
+    ;;
+  *)
+    echo "  FEHLER: Unbekanntes Betriebssystem $(uname -s) — nur Linux und macOS werden unterstützt."
+    exit 1
+    ;;
+esac
 
 echo ""
 echo "=== 5. Starte Flutter-Frontends (Holder + Verifier) ==="
