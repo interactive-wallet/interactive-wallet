@@ -31,12 +31,15 @@ Docker-Builds. Was auf dem Host installiert sein muss:
 | **Docker** + **Docker Compose** (v2-Plugin, `docker compose`, nicht das alte `docker-compose`) | baut/startet alle Agents, RabbitMQ, docs-hub |
 | **Git** | Klonen + Submodule (`von-network`) |
 | **Flutter SDK** | die Wallet-App |
-| **Linux-Build-Toolchain** für Flutter Desktop: `clang`, `cmake`, `ninja`, `pkg-config`, GTK-3-Header, Mesa | `flutter build linux` |
+| **Build-Toolchain** für Flutter Desktop — Linux: `clang`, `cmake`, `ninja`, `pkg-config`, GTK-3-Header, Mesa; macOS: Xcode-Kommandozeilentools | `flutter build linux` / `flutter build macos` |
 | **Python 3** | JSON-Parsing in `scripts/*.sh` (Setup/Issue/Verify/Reissue/Reverify/Revoke) |
 | **curl** | REST-Aufrufe in `scripts/*.sh` |
-| *(optional)* `wl-copy`, `xclip` oder `xsel` | Einladungs-URL wird automatisch in die Zwischenablage kopiert — ohne eines der drei einfach manuell aus der Terminal-Ausgabe kopieren |
+| *(optional)* Linux: `wl-copy`, `xclip` oder `xsel` | Einladungs-URL wird automatisch in die Zwischenablage kopiert — ohne eines der drei einfach manuell aus der Terminal-Ausgabe kopieren. Auf macOS übernimmt das systemeigene `pbcopy` das automatisch |
 
-Linux-Build-Toolchain installieren:
+`scripts/start.sh` erkennt das Betriebssystem (`Linux`/`Darwin`) automatisch und baut
+die Flutter-App für die passende Zielplattform.
+
+Build-Toolchain installieren:
 
 ```bash
 # Ubuntu
@@ -44,6 +47,9 @@ sudo apt install clang cmake ninja-build pkg-config libgtk-3-dev libstdc++-12-de
 
 # Arch
 sudo pacman -S --needed clang cmake ninja pkgconf gtk3 mesa
+
+# macOS
+xcode-select --install
 ```
 
 `scripts/start.sh` prüft Docker, Docker Compose, Flutter, Python 3 und curl beim Start
@@ -68,8 +74,9 @@ docker compose build mediator && docker compose build
 # Flutter-Pakete
 cd wallet_app && flutter pub get && cd ..
 
-# Einmalig: Linux Desktop als Flutter-Zielplattform aktivieren
-flutter config --enable-linux-desktop
+# Einmalig: Desktop als Flutter-Zielplattform aktivieren
+flutter config --enable-linux-desktop   # Linux
+flutter config --enable-macos-desktop   # macOS
 ```
 
 ## Starten
@@ -94,12 +101,12 @@ docker compose up
 
 # 3. Flutter Wallet App
 cd wallet_app
-flutter run -d linux
+flutter run -d linux   # oder: flutter run -d macos
 ```
 
 Es gibt **zwei austauschbare Frontends** auf demselben wallet-agent:
 
-- **Flutter App**: primäre UI mit Ledger-Identitätsanzeige, läuft nativ unter Linux
+- **Flutter App**: primäre UI mit Ledger-Identitätsanzeige, läuft nativ unter Linux und macOS
 - **HTML Referenz-UI** unter <http://localhost:3000>, direkt vom wallet-agent ausgeliefert, kein Flutter nötig, gleicher State
 
 ## Demo-Flow

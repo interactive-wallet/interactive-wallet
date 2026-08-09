@@ -65,7 +65,9 @@ echo -e "${YLW}└────────────────────�
 echo ""
 echo -e "${BLD}Einladungs-URL:${NC}"
 echo "$INV_URL"
-if command -v wl-copy >/dev/null 2>&1; then
+if command -v pbcopy >/dev/null 2>&1; then
+  printf '%s' "$INV_URL" | pbcopy 2>/dev/null && echo -e "  ${GRN}✓ In Zwischenablage kopiert${NC}"
+elif command -v wl-copy >/dev/null 2>&1; then
   printf '%s' "$INV_URL" | wl-copy 2>/dev/null && echo -e "  ${GRN}✓ In Zwischenablage kopiert${NC}"
 elif command -v xclip >/dev/null 2>&1; then
   printf '%s' "$INV_URL" | xclip -selection clipboard 2>/dev/null && echo -e "  ${GRN}✓ In Zwischenablage kopiert${NC}"
@@ -74,7 +76,8 @@ elif command -v xsel >/dev/null 2>&1; then
 fi
 echo ""
 if [ "${OPEN_BROWSER:-0}" = "1" ]; then
-  xdg-open "http://localhost:3000" 2>/dev/null || true
+  { command -v open >/dev/null 2>&1 && open "http://localhost:3000"; } \
+    || xdg-open "http://localhost:3000" 2>/dev/null || true
 fi
 
 echo -e "${CYN}Warte auf Verbindungsaufbau…${NC}"
