@@ -55,8 +55,8 @@ function reserveNextRevocationIndex(): number {
 
   if (index > MAXIMUM_CREDENTIAL_NUMBER) {
     throw new Error(
-      `Revocation Registry ist voll. ` +
-        `Maximal ${MAXIMUM_CREDENTIAL_NUMBER} Credentials möglich.`,
+      `Revocation registry is full. ` +
+        `Maximum of ${MAXIMUM_CREDENTIAL_NUMBER} credentials possible.`,
     );
   }
 

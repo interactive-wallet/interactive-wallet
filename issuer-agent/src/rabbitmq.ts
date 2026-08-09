@@ -50,7 +50,7 @@ export async function initializeRabbitMq(): Promise<void> {
 
   if (!url) {
     throw new Error(
-      "RABBITMQ_URL fehlt in der .env des Issuers",
+      "RABBITMQ_URL is missing from the issuer's .env",
     );
   }
 
@@ -58,14 +58,14 @@ export async function initializeRabbitMq(): Promise<void> {
 
   connection.on("error", (error: any) => {
     console.error(
-      "RabbitMQ-Verbindungsfehler:",
+      "RabbitMQ connection error:",
       error,
     );
   });
 
   connection.on("close", () => {
     console.warn(
-      "RabbitMQ-Verbindung wurde geschlossen",
+      "RabbitMQ connection closed",
     );
   });
 
@@ -101,7 +101,7 @@ export async function publishCredentialRevoked(
 ): Promise<CredentialRevokedEvent> {
   if (!channel) {
     throw new Error(
-      "RabbitMQ ist nicht initialisiert",
+      "RabbitMQ is not initialized",
     );
   }
 
@@ -198,7 +198,7 @@ export async function publishCredentialRevoked(
   await currentChannel.waitForConfirms();
 
   console.log(
-    "Revocation-Event an RabbitMQ übermittelt",
+    "Revocation event published to RabbitMQ",
     {
       eventId:
         event.eventId,

@@ -35,7 +35,7 @@ if (
   AGENT_ROLE !== "verifier"
 ) {
   throw new Error(
-    "AGENT_ROLE muss 'holder' oder 'verifier' sein",
+    "AGENT_ROLE must be 'holder' or 'verifier'",
   );
 }
 
@@ -54,8 +54,8 @@ function validateRoutingSegment(
 ): void {
   if (!/^[A-Za-z0-9_-]+$/.test(value)) {
     throw new Error(
-      `${name} enthält ungültige Zeichen: ${value}. ` +
-        "Erlaubt sind Buchstaben, Zahlen, _ und -.",
+      `${name} contains invalid characters: ${value}. ` +
+        "Allowed are letters, digits, _ and -.",
     );
   }
 }
@@ -80,10 +80,10 @@ validateRoutingSegment(
   VERIFIER_ID,
 );
 
-// Für bestehenden Code kompatibel lassen:
+// Kept for backward compatibility with existing code:
 export const VERIFIER_HTTP_ENDPOINT =
   AGENT_ENDPOINT;
 
-// ADMIN_PORT alias, falls dein index.ts noch WALLET_API_PORT nutzt:
+// ADMIN_PORT alias, in case index.ts still uses WALLET_API_PORT:
 export const EFFECTIVE_WALLET_API_PORT =
   ADMIN_PORT ?? WALLET_API_PORT;

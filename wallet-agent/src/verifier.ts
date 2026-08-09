@@ -455,8 +455,8 @@ export async function setUpVerifier(
         .revocationRegistryDefinitionId
     ) {
       throw new Error(
-        "Proof verwendet eine unerwartete " +
-          "Revocation Registry",
+        "Proof uses an unexpected " +
+          "revocation registry",
       );
     }
 
@@ -465,8 +465,8 @@ export async function setUpVerifier(
       "number"
     ) {
       throw new Error(
-        "Der Proof enthält keinen " +
-          "Non-Revocation-Timestamp",
+        "The proof does not contain a " +
+          "non-revocation timestamp",
       );
     }
 
@@ -578,7 +578,7 @@ export async function setUpVerifier(
     });
 
     console.log(
-      "[Verifier] Credential als widerrufen bestätigt",
+      "[Verifier] Credential confirmed as revoked",
       {
         credentialId:
           event.credentialId,
@@ -661,7 +661,7 @@ export async function setUpVerifier(
       markRevoked(
         credential,
         event,
-        "kein Connection für Re-Check vorhanden",
+        "no connection available for re-check",
       );
       return;
     }
@@ -679,14 +679,14 @@ export async function setUpVerifier(
         );
     } catch (error) {
       console.error(
-        "[Verifier] Re-Check-Proof konnte nicht gesendet werden",
+        "[Verifier] Re-check proof could not be sent",
         error,
       );
       // Can't even ask the holder → fall back to trusting the event.
       markRevoked(
         credential,
         event,
-        "Re-Check-Proof konnte nicht gesendet werden",
+        "Re-check proof could not be sent",
       );
       return;
     }
@@ -780,8 +780,8 @@ export async function setUpVerifier(
           saveVerifiedCredentials();
 
           console.warn(
-            "[Verifier] Re-Check widerspricht dem Revocation-Event: " +
-              "Holder konnte Non-Revocation beweisen — Credential bleibt gültig",
+            "[Verifier] Re-check contradicts the revocation event: " +
+              "holder proved non-revocation — credential remains valid",
             {
               credentialId:
                 credential.credentialId,
@@ -798,8 +798,8 @@ export async function setUpVerifier(
             pendingReCheck.event,
             record.state ===
               DidCommProofState.Abandoned
-              ? "Re-Check: Holder lieferte keinen gültigen Proof (abandoned)"
-              : "Re-Check: Non-Revocation-Proof ungültig",
+              ? "Re-check: holder did not deliver a valid proof (abandoned)"
+              : "Re-check: non-revocation proof invalid",
           );
         }
 
@@ -823,7 +823,7 @@ export async function setUpVerifier(
         )
       ) {
         console.log(
-          "[Verifier] Späte Re-Check-Antwort ignoriert (Timeout ist bereits abgelaufen und hat die Revocation bestätigt)",
+          "[Verifier] Ignoring late re-check response (timeout already elapsed and confirmed the revocation)",
           {
             proofExchangeId:
               record.id,
@@ -918,7 +918,7 @@ export async function setUpVerifier(
 
       if (!verifiedCredential) {
         console.log(
-          "[Verifier] Revocation ignoriert: Credential wurde von diesem Verifier nicht geprüft",
+          "[Verifier] Ignoring revocation: credential was not verified by this verifier",
           {
             credentialId:
               event.credentialId,
@@ -937,7 +937,7 @@ export async function setUpVerifier(
         event.credentialDefinitionId
       ) {
         throw new Error(
-          "Credential Definition stimmt nicht mit dem gespeicherten Proof überein",
+          "Credential definition does not match the stored proof",
         );
       }
 
@@ -948,7 +948,7 @@ export async function setUpVerifier(
           .revocationRegistryDefinitionId
       ) {
         throw new Error(
-          "Revocation Registry stimmt nicht mit dem gespeicherten Proof überein",
+          "Revocation registry does not match the stored proof",
         );
       }
 
@@ -957,7 +957,7 @@ export async function setUpVerifier(
         "revoked-after-verification"
       ) {
         console.log(
-          "[Verifier] Revocation wurde bereits verarbeitet",
+          "[Verifier] Revocation was already processed",
           {
             credentialId:
               event.credentialId,
@@ -975,7 +975,7 @@ export async function setUpVerifier(
         "revocation-check-pending"
       ) {
         console.log(
-          "[Verifier] Re-Check für dieses Credential läuft bereits",
+          "[Verifier] A re-check for this credential is already running",
           {
             credentialId:
               event.credentialId,

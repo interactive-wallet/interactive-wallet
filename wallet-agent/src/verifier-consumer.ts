@@ -114,7 +114,7 @@ function requireString(
     value.length === 0
   ) {
     throw new Error(
-      `Event-Feld '${property}' fehlt oder ist ungültig`,
+      `Event field '${property}' is missing or invalid`,
     );
   }
 
@@ -135,13 +135,13 @@ function parseCredentialRevokedEvent(
       );
   } catch {
     throw new Error(
-      "RabbitMQ-Nachricht enthält kein gültiges JSON",
+      "RabbitMQ message does not contain valid JSON",
     );
   }
 
   if (!isRecord(parsed)) {
     throw new Error(
-      "RabbitMQ-Event ist kein Objekt",
+      "RabbitMQ event is not an object",
     );
   }
 
@@ -204,7 +204,7 @@ function parseCredentialRevokedEvent(
     "credential.revoked"
   ) {
     throw new Error(
-      `Unerwarteter Eventtyp: ${String(
+      `Unexpected event type: ${String(
         parsed.type,
       )}`,
     );
@@ -212,7 +212,7 @@ function parseCredentialRevokedEvent(
 
   if (parsed.version !== 1) {
     throw new Error(
-      `Nicht unterstützte Eventversion: ${String(
+      `Unsupported event version: ${String(
         parsed.version,
       )}`,
     );
@@ -224,7 +224,7 @@ function parseCredentialRevokedEvent(
     )
   ) {
     throw new Error(
-      "occurredAt ist kein gültiger Zeitstempel",
+      "occurredAt is not a valid timestamp",
     );
   }
 
@@ -234,7 +234,7 @@ function parseCredentialRevokedEvent(
     )
   ) {
     throw new Error(
-      "credentialId enthält ungültige Zeichen",
+      "credentialId contains invalid characters",
     );
   }
 
@@ -280,7 +280,7 @@ function validateMessageConsistency(
     ISSUER_ROUTING_ID
   ) {
     throw new Error(
-      "issuerRoutingId im Event stimmt nicht mit der lokalen Konfiguration überein",
+      "issuerRoutingId in the event does not match the local configuration",
     );
   }
 
@@ -289,7 +289,7 @@ function validateMessageConsistency(
     CREDENTIAL_TYPE
   ) {
     throw new Error(
-      "credentialType im Event stimmt nicht mit der lokalen Konfiguration überein",
+      "credentialType in the event does not match the local configuration",
     );
   }
 
@@ -303,7 +303,7 @@ function validateMessageConsistency(
     expectedRoutingKey
   ) {
     throw new Error(
-      `Routing-Key stimmt nicht mit dem Event überein: ` +
+      `Routing key does not match the event: ` +
         `${message.fields.routingKey}`,
     );
   }
@@ -316,7 +316,7 @@ function validateMessageConsistency(
     messageType !== event.type
   ) {
     throw new Error(
-      "RabbitMQ type property stimmt nicht mit dem Eventtyp überein",
+      "RabbitMQ type property does not match the event type",
     );
   }
 
@@ -329,7 +329,7 @@ function validateMessageConsistency(
       event.credentialId
   ) {
     throw new Error(
-      "RabbitMQ correlationId stimmt nicht mit credentialId überein",
+      "RabbitMQ correlationId does not match credentialId",
     );
   }
 
@@ -341,7 +341,7 @@ function validateMessageConsistency(
     messageId !== event.eventId
   ) {
     throw new Error(
-      "RabbitMQ messageId stimmt nicht mit eventId überein",
+      "RabbitMQ messageId does not match eventId",
     );
   }
 }
@@ -355,7 +355,7 @@ function validateTrustedIssuer(
     options.trustedIssuerId
   ) {
     throw new Error(
-      "Revocation-Event stammt von einer unerwarteten Issuer-DID",
+      "Revocation event comes from an unexpected issuer DID",
     );
   }
 
@@ -365,7 +365,7 @@ function validateTrustedIssuer(
       .trustedCredentialDefinitionId
   ) {
     throw new Error(
-      "Revocation-Event verwendet eine unerwartete Credential Definition",
+      "Revocation event uses an unexpected credential definition",
     );
   }
 
@@ -376,7 +376,7 @@ function validateTrustedIssuer(
       .trustedRevocationRegistryDefinitionId
   ) {
     throw new Error(
-      "Revocation-Event verwendet eine unerwartete Revocation Registry",
+      "Revocation event uses an unexpected revocation registry",
     );
   }
 }
@@ -387,7 +387,7 @@ export async function initializeVerifierConsumer(
 ): Promise<void> {
   if (connection || channel) {
     throw new Error(
-      "Verifier RabbitMQ Consumer ist bereits initialisiert",
+      "Verifier RabbitMQ consumer is already initialized",
     );
   }
 
@@ -409,7 +409,7 @@ export async function initializeVerifierConsumer(
     "error",
     (error: unknown) => {
       console.error(
-        "[Verifier RabbitMQ] Verbindungsfehler",
+        "[Verifier RabbitMQ] connection error",
         error,
       );
     },
@@ -419,7 +419,7 @@ export async function initializeVerifierConsumer(
     "close",
     () => {
       console.warn(
-        "[Verifier RabbitMQ] Verbindung geschlossen",
+        "[Verifier RabbitMQ] connection closed",
       );
     },
   );
@@ -435,7 +435,7 @@ export async function initializeVerifierConsumer(
     "error",
     (error: unknown) => {
       console.error(
-        "[Verifier RabbitMQ] Channel-Fehler",
+        "[Verifier RabbitMQ] channel error",
         error,
       );
     },
@@ -445,7 +445,7 @@ export async function initializeVerifierConsumer(
     "close",
     () => {
       console.warn(
-        "[Verifier RabbitMQ] Channel geschlossen",
+        "[Verifier RabbitMQ] channel closed",
       );
     },
   );
@@ -506,7 +506,7 @@ export async function initializeVerifierConsumer(
         );
       } catch (error) {
         console.error(
-          "[Verifier RabbitMQ] Revocation-Event konnte nicht verarbeitet werden",
+          "[Verifier RabbitMQ] could not process revocation event",
           {
             queue:
               queueName,
@@ -535,7 +535,7 @@ export async function initializeVerifierConsumer(
   );
 
   console.log(
-    "[Verifier RabbitMQ] Consumer initialisiert",
+    "[Verifier RabbitMQ] consumer initialized",
     {
       exchange:
         EXCHANGE_NAME,

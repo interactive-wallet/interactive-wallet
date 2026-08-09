@@ -156,8 +156,8 @@ export function registerVerifierRoutes(
         },
       };
 
-      // RFC-0441: Non-Revocation wird für einen einzelnen
-      // Zeitpunkt angefragt, nicht für den Zeitraum 0 bis jetzt.
+      // RFC 0441: non-revocation is requested for a single point in time,
+      // not for the interval from 0 until now.
       const timestamp = Math.floor(Date.now() / 1000);
 
       const proofRecord = await agent.modules.didcomm.proofs.requestProof({

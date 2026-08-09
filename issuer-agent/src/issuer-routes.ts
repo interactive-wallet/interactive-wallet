@@ -415,7 +415,7 @@ export function registerIssuerRoutes(
 
       if (!revocableStates.includes(targetExchange.state) || targetExchange.role !== "issuer") {
         res.status(409).json({
-          error: "Credential wurde noch nicht ausgestellt",
+          error: "Credential has not been issued yet",
           state: targetExchange.state,
           role: targetExchange.role,
           allowedStates: revocableStates,
@@ -595,8 +595,8 @@ export function registerIssuerRoutes(
       if (record.state !== "request-received") {
         res.status(400).json({
           error:
-            `Credential Exchange hat Zustand '${record.state}', ` +
-            `erwartet wurde 'request-received'`,
+            `Credential exchange has state '${record.state}', ` +
+            `expected 'request-received'`,
         });
         return;
       }

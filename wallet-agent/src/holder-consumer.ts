@@ -58,7 +58,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 function requireString(object: Record<string, unknown>, property: string): string {
   const value = object[property];
   if (typeof value !== "string" || value.length === 0) {
-    throw new Error(`Event-Feld '${property}' fehlt oder ist ungültig`);
+    throw new Error(`Event field '${property}' is missing or invalid`);
   }
   return value;
 }
@@ -68,11 +68,11 @@ function parseCredentialRevokedEvent(message: ConsumeMessage): CredentialRevoked
   try {
     parsed = JSON.parse(message.content.toString("utf8"));
   } catch {
-    throw new Error("RabbitMQ-Nachricht enthält kein gültiges JSON");
+    throw new Error("RabbitMQ message does not contain valid JSON");
   }
 
   if (!isRecord(parsed)) {
-    throw new Error("RabbitMQ-Event ist kein Objekt");
+    throw new Error("RabbitMQ event is not an object");
   }
 
   const eventId = requireString(parsed, "eventId");
@@ -86,16 +86,16 @@ function parseCredentialRevokedEvent(message: ConsumeMessage): CredentialRevoked
   const credentialRevocationId = requireString(parsed, "credentialRevocationId");
 
   if (parsed.type !== "credential.revoked") {
-    throw new Error(`Unerwarteter Eventtyp: ${String(parsed.type)}`);
+    throw new Error(`Unexpected event type: ${String(parsed.type)}`);
   }
   if (parsed.version !== 1) {
-    throw new Error(`Nicht unterstützte Eventversion: ${String(parsed.version)}`);
+    throw new Error(`Unsupported event version: ${String(parsed.version)}`);
   }
   if (Number.isNaN(Date.parse(occurredAt))) {
-    throw new Error("occurredAt ist kein gültiger Zeitstempel");
+    throw new Error("occurredAt is not a valid timestamp");
   }
   if (!/^[A-Za-z0-9_-]+$/.test(credentialId)) {
-    throw new Error("credentialId enthält ungültige Zeichen");
+    throw new Error("credentialId contains invalid characters");
   }
 
   const event: CredentialRevokedEvent = {
@@ -118,32 +118,32 @@ function parseCredentialRevokedEvent(message: ConsumeMessage): CredentialRevoked
 
 function validateMessageConsistency(message: ConsumeMessage, event: CredentialRevokedEvent): void {
   if (event.issuerRoutingId !== ISSUER_ROUTING_ID) {
-    throw new Error("issuerRoutingId im Event stimmt nicht mit der lokalen Konfiguration überein");
+    throw new Error("issuerRoutingId in the event does not match the local configuration");
   }
   if (event.credentialType !== CREDENTIAL_TYPE) {
-    throw new Error("credentialType im Event stimmt nicht mit der lokalen Konfiguration überein");
+    throw new Error("credentialType in the event does not match the local configuration");
   }
   const expectedRoutingKey = getExactRevocationRoutingKey(event.credentialId);
   if (message.fields.routingKey !== expectedRoutingKey) {
-    throw new Error(`Routing-Key stimmt nicht mit dem Event überein: ${message.fields.routingKey}`);
+    throw new Error(`Routing key does not match the event: ${message.fields.routingKey}`);
   }
   const messageType = message.properties.type;
   if (messageType && messageType !== event.type) {
-    throw new Error("RabbitMQ type property stimmt nicht mit dem Eventtyp überein");
+    throw new Error("RabbitMQ type property does not match the event type");
   }
   const correlationId = message.properties.correlationId;
   if (correlationId && correlationId !== event.credentialId) {
-    throw new Error("RabbitMQ correlationId stimmt nicht mit credentialId überein");
+    throw new Error("RabbitMQ correlationId does not match credentialId");
   }
   const messageId = message.properties.messageId;
   if (messageId && messageId !== event.eventId) {
-    throw new Error("RabbitMQ messageId stimmt nicht mit eventId überein");
+    throw new Error("RabbitMQ messageId does not match eventId");
   }
 }
 
 export async function initializeHolderConsumer(options: HolderConsumerOptions): Promise<void> {
   if (connection || channel) {
-    throw new Error("Holder RabbitMQ Consumer ist bereits initialisiert");
+    throw new Error("Holder RabbitMQ consumer is already initialized");
   }
 
   const queueName = getHolderQueueName();
@@ -153,20 +153,20 @@ export async function initializeHolderConsumer(options: HolderConsumerOptions): 
   connection = currentConnection;
 
   currentConnection.on("error", (error: unknown) => {
-    console.error("[Holder RabbitMQ] Verbindungsfehler", error);
+    console.error("[Holder RabbitMQ] connection error", error);
   });
   currentConnection.on("close", () => {
-    console.warn("[Holder RabbitMQ] Verbindung geschlossen");
+    console.warn("[Holder RabbitMQ] connection closed");
   });
 
   const currentChannel = await currentConnection.createChannel();
   channel = currentChannel;
 
   currentChannel.on("error", (error: unknown) => {
-    console.error("[Holder RabbitMQ] Channel-Fehler", error);
+    console.error("[Holder RabbitMQ] channel error", error);
   });
   currentChannel.on("close", () => {
-    console.warn("[Holder RabbitMQ] Channel geschlossen");
+    console.warn("[Holder RabbitMQ] channel closed");
   });
 
   await currentChannel.assertExchange(EXCHANGE_NAME, "topic", { durable: true });
@@ -183,7 +183,7 @@ export async function initializeHolderConsumer(options: HolderConsumerOptions): 
         await options.onCredentialRevoked(event);
         currentChannel.ack(message);
       } catch (error) {
-        console.error("[Holder RabbitMQ] Revocation-Event konnte nicht verarbeitet werden", {
+        console.error("[Holder RabbitMQ] could not process revocation event", {
           queue: queueName,
           routingKey: message.fields.routingKey,
           messageId: message.properties.messageId,
@@ -195,7 +195,7 @@ export async function initializeHolderConsumer(options: HolderConsumerOptions): 
     { noAck: false },
   );
 
-  console.log("[Holder RabbitMQ] Consumer initialisiert", {
+  console.log("[Holder RabbitMQ] consumer initialized", {
     exchange: EXCHANGE_NAME,
     queue: queueName,
     binding: bindingKey,
