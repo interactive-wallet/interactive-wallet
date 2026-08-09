@@ -30,6 +30,35 @@ if (linkSecretIds.length === 0) {
   console.log("[wallet-agent] Created default link secret");
 }
 
+// The mediator's REST API may not be up yet when the wallet boots (compose starts
+// both in parallel, and the mediator first has to register its DID on the ledger).
+// Retry instead of giving up after one attempt so the start order no longer matters.
+async function fetchMediatorInvitation(
+  url: string,
+  attempts = 30,
+  delayMs = 2000,
+): Promise<{ invitationUrl: string }> {
+  let lastError: unknown;
+  for (let attempt = 1; attempt <= attempts; attempt++) {
+    try {
+      const response = await fetch(url);
+      if (response.ok) return (await response.json()) as { invitationUrl: string };
+      lastError = new Error(`HTTP ${response.status}: ${await response.text()}`);
+    } catch (error) {
+      lastError = error;
+    }
+    console.log(
+      `[wallet-agent] Mediator not ready at ${url} ` +
+        `(attempt ${attempt}/${attempts}), retrying in ${delayMs}ms...`,
+    );
+    await new Promise((resolve) => setTimeout(resolve, delayMs));
+  }
+  throw new Error(
+    `Mediator invitation could not be fetched after ${attempts} attempts: ` +
+      (lastError instanceof Error ? lastError.message : String(lastError)),
+  );
+}
+
 // Auto-connect to mediator on startup so all subsequent connections use mediator routing.
 // The mediator is required because the wallet has no public endpoint (mobile architecture).
 async function setupMediator() {
@@ -42,12 +71,7 @@ async function setupMediator() {
     }
 
     console.log(`[wallet-agent] Fetching mediator invitation from ${MEDIATOR_API_URL}...`);
-    const resp = await fetch(`${MEDIATOR_API_URL}/invitation`);
-    if (!resp.ok) {
-      console.warn(`[wallet-agent] Mediator not reachable (${resp.status}), continuing without mediator`);
-      return;
-    }
-    const { invitationUrl } = await resp.json() as { invitationUrl: string };
+    const { invitationUrl } = await fetchMediatorInvitation(`${MEDIATOR_API_URL}/invitation`);
 
     const { outOfBandRecord, connectionRecord } =
       await agent.modules.didcomm.oob.receiveInvitationFromUrl(invitationUrl, {
@@ -134,6 +158,25 @@ agent.events.on(
       role: e.role,
       credentialId: e.id,
     });
+
+    // autoAcceptCredentials is Never so the user keeps manual control over the
+    // *offer* (accept/decline in the UI). But once that decision is made and
+    // the credential itself arrives, there is no second decision left to make —
+    // without an explicit acceptCredential() call here the exchange sticks at
+    // `credential-received` and never reaches `done`, same class of issue as
+    // the verifier's presentation-received case below. The credential is
+    // already stored in the wallet at this point; this just sends the ack so
+    // the exchange (and the SSE event the UI waits on) completes promptly.
+    if (e.role === "holder" && e.state === "credential-received") {
+      agent.modules.didcomm.credentials
+        .acceptCredential({ credentialExchangeRecordId: e.id })
+        .catch((err: unknown) =>
+          console.warn(
+            "[wallet-agent] Failed to auto-ack received credential:",
+            err instanceof Error ? err.message : err,
+          ),
+        );
+    }
   },
 );
 
