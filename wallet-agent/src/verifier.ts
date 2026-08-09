@@ -545,6 +545,15 @@ export async function setUpVerifier(
     PendingReCheck
   >();
 
+  // Every proofExchangeId ever created for a re-check, kept around after
+  // the entry leaves pendingReChecks (resolved or timed out). autoAcceptProofs
+  // is Never on the holder, so a manual "Share Proof" can easily land after
+  // RE_CHECK_TIMEOUT_MS already ran the timeout fallback — without this set,
+  // that late response falls through to the normal verified-credential
+  // registration path below and silently resets an already-confirmed
+  // revocation back to "verified".
+  const reCheckProofExchangeIds = new Set<string>();
+
   function markRevoked(
     credential: VerifiedCredentialRecord,
     event: CredentialRevokedEvent,
@@ -711,6 +720,9 @@ export async function setUpVerifier(
         timeout,
       },
     );
+    reCheckProofExchangeIds.add(
+      proofExchangeId,
+    );
 
     console.log(
       "[Verifier] Revocation-Event erhalten — Re-Check beim Holder gestartet",
@@ -791,6 +803,33 @@ export async function setUpVerifier(
               : "Re-Check: Non-Revocation-Proof ungültig",
           );
         }
+
+        return;
+      }
+
+      // A re-check whose pendingReChecks entry is already gone (timeout
+      // fallback already ran markRevoked) but whose proofExchangeId we still
+      // recognize: this is a late manual "Share Proof" from the holder,
+      // arriving after we already trusted the revocation event. It must not
+      // fall through to the normal verified-credential registration below —
+      // that would silently reset the confirmed revocation back to
+      // "verified".
+      if (
+        (record.state ===
+          DidCommProofState.Done ||
+          record.state ===
+            DidCommProofState.Abandoned) &&
+        reCheckProofExchangeIds.has(
+          record.id,
+        )
+      ) {
+        console.log(
+          "[Verifier] Späte Re-Check-Antwort ignoriert (Timeout ist bereits abgelaufen und hat die Revocation bestätigt)",
+          {
+            proofExchangeId:
+              record.id,
+          },
+        );
 
         return;
       }
