@@ -23,15 +23,16 @@ Can run on a normal laptop. Keep in mind that VON Network and every agent run as
 
 ### Software Requirements
 
-1. **OS:** We tested on Arch Linux (kernel 7.0.12) and Ubuntu 24.04. Other modern Linux distributions should work too. Windows and macOS are not supported because of how VON Network and the DIDComm agents work.
-2. **OS packages (only needed for the Flutter UI):** `clang`, `cmake`, `ninja`, `pkg-config`, GTK 3 headers, Mesa.
+1. **OS:** We tested on Arch Linux (kernel 7.0.12) and Ubuntu 24.04; other modern Linux distributions should work too. macOS is also supported (`scripts/start.sh` detects the OS and builds the Flutter app accordingly). Windows is not supported because of how VON Network and the DIDComm agents work.
+2. **OS packages (only needed for the Flutter UI):** Linux: `clang`, `cmake`, `ninja`, `pkg-config`, GTK 3 headers, Mesa. macOS: Xcode command line tools.
    - Ubuntu: `sudo apt install clang cmake ninja-build pkg-config libgtk-3-dev libstdc++-12-dev`
    - Arch: `sudo pacman -S --needed clang cmake ninja pkgconf gtk3 mesa`
+   - macOS: `xcode-select --install`
 3. **Docker + Docker Compose (v2 plugin):** 29.6.0 — every agent (mediator, wallet, verifier, issuer), docs-hub, RabbitMQ and VON Network run as containers. No Node.js/pnpm needed on the host — dependency installs happen inside the Docker builds.
 4. **Python 3** and **curl** — used by `scripts/*.sh` (setup/issue/verify/reissue/reverify/revoke) to parse JSON responses and drive the agents' REST APIs.
 5. No ML models needed.
 6. No datasets needed.
-7. **Flutter (optional):** The wallet also has an HTML reference UI, so Flutter is not strictly required. If you want the Flutter app, you need Flutter 3.x with `flutter config --enable-linux-desktop`.
+7. **Flutter (optional):** The wallet also has an HTML reference UI, so Flutter is not strictly required. If you want the Flutter app, you need Flutter 3.x with `flutter config --enable-linux-desktop` (Linux) or `flutter config --enable-macos-desktop` (macOS).
 
 ### Estimated Time and Storage Consumption
 
@@ -95,7 +96,7 @@ All should return `{"status":"ok"}`. Then run:
 ./scripts/setup.sh
 ```
 
-If it completes all 6 steps and a Führerschein credential shows up in the wallet at `http://localhost:3000`, everything is working.
+If it completes all 5 steps and a Führerschein credential shows up in the wallet at `http://localhost:3000`, everything is working.
 
 ## Artifact Evaluation
 
@@ -120,7 +121,7 @@ Verification uses AnonCreds zero-knowledge proofs. The verifier only sees what w
 ./scripts/setup.sh
 ```
 
-The script sets up a connection between wallet and issuer, sends a Führerschein credential offer, and waits for the holder to accept it in the UI at `http://localhost:3000`. Once accepted, the holder gets notified. Supports [Main Result 1](#main-result-1-automatic-notifications-for-credential-events).
+The script sets up a connection between wallet and issuer, sends a Führerschein credential offer, and waits for the holder to accept it in the UI at `http://localhost:3000`. Once accepted, the holder gets notified. Supports [Main Result 1](#main-result-1-a-wallet-that-shows-its-work).
 
 #### Experiment 2: Verification with Selective Disclosure
 - Time: ~3 human-minutes + ~1 compute-minute
@@ -138,7 +139,7 @@ The verifier requests specific attributes (e.g. `fuehrerscheinklasse`) and gets 
 ./scripts/revoke.sh
 ```
 
-The credential is revoked on the ledger and a revocation event is pushed to RabbitMQ. The verifier gets notified automatically. Supports [Main Result 1](#main-result-1-automatic-notifications-for-credential-events).
+The credential is revoked on the ledger and a revocation event is pushed to RabbitMQ. The verifier gets notified automatically. Supports [Main Result 1](#main-result-1-a-wallet-that-shows-its-work).
 
 <!-- TODO: add notification latency numbers once we have measured them -->
 

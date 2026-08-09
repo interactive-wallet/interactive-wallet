@@ -17,7 +17,7 @@ echo -e "${BLD}└────────────────────�
 echo ""
 
 # ── 1. Issuer bereit warten ──────────────────────────────────────────────────
-echo -e "${CYN}[1/6] Warte auf Issuer-Agent…${NC}"
+echo -e "${CYN}[1/5] Warte auf Issuer-Agent…${NC}"
 for i in $(seq 1 30); do
   if curl -sf "$ISSUER/health" -o /dev/null 2>&1; then break; fi
   printf "\r  … warte (${i}s)"
@@ -34,7 +34,7 @@ echo -e "  ${GRN}✓${NC} CredDef: $CRED_DEF"
 echo ""
 
 # ── 2. Verifier bereit warten ─────────────────────────────────────────────────
-echo -e "${CYN}[2/6] Warte auf Verifier-Agent…${NC}"
+echo -e "${CYN}[2/5] Warte auf Verifier-Agent…${NC}"
 for i in $(seq 1 30); do
   if curl -sf "$VERIFIER/health" -o /dev/null 2>&1; then break; fi
   printf "\r  … warte (${i}s)"
@@ -94,7 +94,7 @@ for i in $(seq 1 90); do
 done
 echo ""
 
-# ── 5. Credential ausstellen ─────────────────────────────────────────────────
+# ── 4. Credential ausstellen ─────────────────────────────────────────────────
 echo -e "${CYN}[4/5] Führerschein-Angebot senden…${NC}"
 CONN=$(curl -sf "$ISSUER/connections" \
   | python3 -c "import sys,json; d=sorted([c for c in json.load(sys.stdin) if c['state']=='completed'], key=lambda x:x['createdAt'], reverse=True); print(d[0]['id'])")
@@ -126,7 +126,7 @@ PY
 echo -e "  ${GRN}✓${NC} Angebot gesendet"
 echo ""
 
-# ── 6. Warten bis User in UI akzeptiert ──────────────────────────────────────
+# ── 5. Warten bis User in UI akzeptiert ──────────────────────────────────────
 echo -e "${YLW}┌─────────────────────────────────────────────────────────┐${NC}"
 echo -e "${YLW}│  👉 AKTION: Wallet-UI → 'Credential-Angebote'           │${NC}"
 echo -e "${YLW}│     Klicke auf Annehmen                                 │${NC}"
