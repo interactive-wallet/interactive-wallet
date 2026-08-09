@@ -1,5 +1,5 @@
 #!/bin/bash
-# Neues Credential ausstellen (Issuer bereits eingerichtet, neue Verbindung)
+# Issue a new credential (issuer already set up, fresh connection)
 set -e
 
 GRN='\033[0;32m'; YLW='\033[1;33m'; CYN='\033[0;36m'; RED='\033[0;31m'; BLD='\033[1m'; NC='\033[0m'
@@ -10,7 +10,7 @@ WALLET="http://localhost:3000"
 SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 CREDENTIAL_STATE_FILE="$SCRIPT_DIR/.last-issued-credential.json"
 
-# Optionale Parameter: ./issue.sh "Anna" "Schmidt" "1985-06-20" "A" "2023-01-10"
+# Optional parameters: ./issue.sh "Anna" "Schmidt" "1985-06-20" "A" "2023-01-10"
 VORNAME="${1:-Max}"
 NACHNAME="${2:-Mustermann}"
 GEBURTSDATUM="${3:-1990-01-15}"
@@ -21,29 +21,29 @@ echo -e "${BLD}┌────────────────────�
 echo -e "${BLD}│   Interactive Wallet — Issue          │${NC}"
 echo -e "${BLD}└─────────────────────────────────────┘${NC}"
 echo ""
-echo -e "  Ausstellen für: ${BLD}$VORNAME $NACHNAME${NC}, Klasse ${BLD}$KLASSE${NC}"
+echo -e "  Issuing for: ${BLD}$VORNAME $NACHNAME${NC}, class ${BLD}$KLASSE${NC}"
 echo ""
 
-# ── 1. Neue Einladung holen ───────────────────────────────────────────────────
-echo -e "${CYN}[1/3] Neue Verbindung zum Issuer herstellen…${NC}"
+# ── 1. Get new invitation ─────────────────────────────────────────────────
+echo -e "${CYN}[1/3] Establishing a new connection to the issuer…${NC}"
 INV_URL=$(curl -sf "$ISSUER/invitation" | python3 -c "import sys,json; print(json.load(sys.stdin)['invitationUrl'])")
 
 echo ""
 echo -e "${YLW}┌─────────────────────────────────────────────────────────┐${NC}"
-echo -e "${YLW}│  👉 AKTION: Wallet-UI → URL einfügen → Verbinden         │${NC}"
+echo -e "${YLW}│  👉 ACTION: Wallet UI → paste URL → Connect              │${NC}"
 echo -e "${YLW}│     http://localhost:3000                                │${NC}"
 echo -e "${YLW}└─────────────────────────────────────────────────────────┘${NC}"
 echo ""
-echo -e "${BLD}Einladungs-URL:${NC}"
+echo -e "${BLD}Invitation URL:${NC}"
 echo "$INV_URL"
 if command -v pbcopy >/dev/null 2>&1; then
-  printf '%s' "$INV_URL" | pbcopy 2>/dev/null && echo -e "  ${GRN}✓ In Zwischenablage kopiert${NC}"
+  printf '%s' "$INV_URL" | pbcopy 2>/dev/null && echo -e "  ${GRN}✓ Copied to clipboard${NC}"
 elif command -v wl-copy >/dev/null 2>&1; then
-  printf '%s' "$INV_URL" | wl-copy 2>/dev/null && echo -e "  ${GRN}✓ In Zwischenablage kopiert${NC}"
+  printf '%s' "$INV_URL" | wl-copy 2>/dev/null && echo -e "  ${GRN}✓ Copied to clipboard${NC}"
 elif command -v xclip >/dev/null 2>&1; then
-  printf '%s' "$INV_URL" | xclip -selection clipboard 2>/dev/null && echo -e "  ${GRN}✓ In Zwischenablage kopiert${NC}"
+  printf '%s' "$INV_URL" | xclip -selection clipboard 2>/dev/null && echo -e "  ${GRN}✓ Copied to clipboard${NC}"
 elif command -v xsel >/dev/null 2>&1; then
-  printf '%s' "$INV_URL" | xsel --clipboard --input 2>/dev/null && echo -e "  ${GRN}✓ In Zwischenablage kopiert${NC}"
+  printf '%s' "$INV_URL" | xsel --clipboard --input 2>/dev/null && echo -e "  ${GRN}✓ Copied to clipboard${NC}"
 fi
 echo ""
 if [ "${OPEN_BROWSER:-0}" = "1" ]; then
@@ -54,20 +54,20 @@ fi
 CONN_COUNT_BEFORE=$(curl -sf "$ISSUER/connections" \
   | python3 -c "import sys,json; print(len([c for c in json.load(sys.stdin) if c['state']=='completed']))" 2>/dev/null || echo "0")
 
-echo -e "${CYN}Warte auf Verbindungsaufbau…${NC}"
+echo -e "${CYN}Waiting for connection…${NC}"
 for i in $(seq 1 90); do
   COMPLETED=$(curl -sf "$ISSUER/connections" \
     | python3 -c "import sys,json; print(len([c for c in json.load(sys.stdin) if c['state']=='completed']))" 2>/dev/null || echo "0")
   if [ "$COMPLETED" -gt "$CONN_COUNT_BEFORE" ] 2>/dev/null; then
-    echo -e "\r  ${GRN}✓ Verbindung aufgebaut${NC}          "; break
+    echo -e "\r  ${GRN}✓ Connection established${NC}          "; break
   fi
-  printf "\r  … warte (${i}s)"; sleep 1
+  printf "\r  … waiting (${i}s)"; sleep 1
   [ "$i" = "90" ] && echo -e "\n  ${RED}✗ Timeout${NC}" && exit 1
 done
 echo ""
 
-# ── 2. Credential ausstellen ─────────────────────────────────────────────────
-echo -e "${CYN}[2/3] Führerschein-Angebot senden…${NC}"
+# ── 2. Issue credential ───────────────────────────────────────────────────
+echo -e "${CYN}[2/3] Sending Führerschein offer…${NC}"
 CONN=$(curl -sf "$ISSUER/connections" \
   | python3 -c "import sys,json; d=sorted([c for c in json.load(sys.stdin) if c['state']=='completed'], key=lambda x:x['createdAt'], reverse=True); print(d[0]['id'])")
 ISSUE_RESP=$(curl -sf -X POST "$ISSUER/issue" \
@@ -96,14 +96,14 @@ print(data.get('credentialId', ''))
 ")
 
 if [ -z "$CREDENTIAL_EXCHANGE_ID" ] || [ -z "$CREDENTIAL_ID" ]; then
-  echo -e "  ${RED}✗ Issuer hat nicht beide Credential-IDs zurückgegeben${NC}"
+  echo -e "  ${RED}✗ Issuer did not return both credential IDs${NC}"
   echo "$ISSUE_RESP"
   exit 1
 fi
 
-echo -e "  ${GRN}✓${NC} Angebot gesendet"
-echo -e "  Exchange-ID:   ${BLD}$CREDENTIAL_EXCHANGE_ID${NC}"
-echo -e "  Credential-ID: ${BLD}$CREDENTIAL_ID${NC}"
+echo -e "  ${GRN}✓${NC} Offer sent"
+echo -e "  Exchange ID:   ${BLD}$CREDENTIAL_EXCHANGE_ID${NC}"
+echo -e "  Credential ID: ${BLD}$CREDENTIAL_ID${NC}"
 echo ""
 
 python3 - \
@@ -129,17 +129,17 @@ with open(state_file, "w", encoding="utf-8") as file:
     file.write("\n")
 PY
 
-echo -e "  ${GRN}✓ Credential-Zuordnung gespeichert${NC}"
+echo -e "  ${GRN}✓ Credential mapping saved${NC}"
 echo -e "    $CREDENTIAL_STATE_FILE"
 echo ""
 
-# ── 3. Warten bis UI akzeptiert ──────────────────────────────────────────────
+# ── 3. Wait for the UI to accept ──────────────────────────────────────────
 echo -e "${YLW}┌─────────────────────────────────────────────────────────┐${NC}"
-echo -e "${YLW}│  👉 AKTION: Wallet-UI → 'Credential-Angebote' → Annehmen │${NC}"
+echo -e "${YLW}│  👉 ACTION: Wallet UI → 'Credential offers' → Accept     │${NC}"
 echo -e "${YLW}└─────────────────────────────────────────────────────────┘${NC}"
 echo ""
 
-echo -e "${CYN}[3/3] Warte auf Annahme in der UI…${NC}"
+echo -e "${CYN}[3/3] Waiting for acceptance in the UI…${NC}"
 
 for i in $(seq 1 120); do
   EXCHANGE_STATE=$(curl -sf "$ISSUER/credential-exchanges" |
@@ -159,25 +159,25 @@ print(record.get('state', 'not-found') if record else 'not-found')
 
   if [ "$EXCHANGE_STATE" = "done" ] ||
     [ "$EXCHANGE_STATE" = "credential-issued" ]; then
-    echo -e "\r  ${GRN}✓ Credential ausgestellt!${NC}                     "
+    echo -e "\r  ${GRN}✓ Credential issued!${NC}                     "
     break
   fi
 
   if [ "$EXCHANGE_STATE" = "abandoned" ]; then
     echo ""
-    echo -e "  ${RED}✗ Credential-Austausch wurde abgebrochen${NC}"
+    echo -e "  ${RED}✗ Credential exchange was abandoned${NC}"
     exit 1
   fi
 
-  printf "\r  … Status: %-25s (%ss)" "$EXCHANGE_STATE" "$i"
+  printf "\r  … status: %-25s (%ss)" "$EXCHANGE_STATE" "$i"
   sleep 1
 
   if [ "$i" = "120" ]; then
     echo ""
-    echo -e "  ${YLW}⚠ Timeout — letzter Status: $EXCHANGE_STATE${NC}"
+    echo -e "  ${YLW}⚠ Timeout — last status: $EXCHANGE_STATE${NC}"
     exit 1
   fi
 done
 
 echo ""
-echo -e "${GRN}${BLD}✓ Credential für $VORNAME $NACHNAME ausgestellt.${NC}"
+echo -e "${GRN}${BLD}✓ Credential issued for $VORNAME $NACHNAME.${NC}"

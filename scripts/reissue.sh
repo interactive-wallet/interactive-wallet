@@ -1,7 +1,7 @@
 #!/bin/bash
-# Neues Credential auf bestehender Issuer-Connection (kein OOB-Handshake)
+# Issue a new credential on an existing issuer connection (no OOB handshake)
 #
-# Optionale Parameter: ./reissue.sh "Anna" "Schmidt" "1985-06-20" "A" "2023-01-10"
+# Optional parameters: ./reissue.sh "Anna" "Schmidt" "1985-06-20" "A" "2023-01-10"
 set -e
 
 GRN='\033[0;32m'; YLW='\033[1;33m'; CYN='\033[0;36m'; RED='\033[0;31m'; BLD='\033[1m'; NC='\033[0m'
@@ -19,10 +19,10 @@ echo -e "${BLD}┌────────────────────�
 echo -e "${BLD}│   Interactive Wallet — Re-Issue      │${NC}"
 echo -e "${BLD}└─────────────────────────────────────┘${NC}"
 echo ""
-echo -e "  Ausstellen für: ${BLD}$VORNAME $NACHNAME${NC}, Klasse ${BLD}$KLASSE${NC}"
+echo -e "  Issuing for: ${BLD}$VORNAME $NACHNAME${NC}, class ${BLD}$KLASSE${NC}"
 echo ""
 
-# ── 1. Letzte vollständige Issuer-Connection finden ──────────────────────────
+# ── 1. Find the most recent completed issuer connection ──────────────────
 CONN=$(curl -sf "$ISSUER/connections" \
   | python3 -c "
 import sys, json
@@ -32,16 +32,16 @@ print(done[0]['id'] if done else '')
 " 2>/dev/null || echo "")
 
 if [ -z "$CONN" ]; then
-  echo -e "  ${RED}✗ Keine fertige Issuer-Connection gefunden.${NC}"
-  echo -e "  ${YLW}Tipp:${NC} erst ${BLD}bash scripts/issue.sh${NC} ausführen, dann reissue."
+  echo -e "  ${RED}✗ No completed issuer connection found.${NC}"
+  echo -e "  ${YLW}Tip:${NC} run ${BLD}bash scripts/issue.sh${NC} first, then reissue."
   exit 1
 fi
 
-echo -e "${CYN}Verwende Connection:${NC} $CONN"
+echo -e "${CYN}Using connection:${NC} $CONN"
 echo ""
 
-# ── 2. Credential-Offer senden ───────────────────────────────────────────────
-echo -e "${CYN}Credential-Angebot senden…${NC}"
+# ── 2. Send credential offer ──────────────────────────────────────────────
+echo -e "${CYN}Sending credential offer…${NC}"
 ISSUE_RESP=$(curl -sf -X POST "$ISSUER/issue" \
   -H "Content-Type: application/json" \
   -d "{
@@ -53,9 +53,9 @@ ISSUE_RESP=$(curl -sf -X POST "$ISSUER/issue" \
     \"ausstellungsdatum\": \"$AUSSTELLUNGSDATUM\"
   }")
 if [ -z "$ISSUE_RESP" ]; then
-  echo -e "  ${RED}✗ Issuer lieferte keine Antwort auf /issue${NC}"; exit 1
+  echo -e "  ${RED}✗ Issuer returned no response for /issue${NC}"; exit 1
 fi
-# Credential-Zuordnung speichern, damit revoke.sh sie findet (Antwort per argv, nicht stdin)
+# Save the credential mapping so revoke.sh can find it (response via argv, not stdin)
 python3 - "$(dirname "$0")/.last-issued-credential.json" "$ISSUE_RESP" <<'PY'
 import json, sys
 path, resp = sys.argv[1], sys.argv[2]
@@ -66,27 +66,27 @@ with open(path, "w", encoding="utf-8") as f:
         "credentialId": data.get("credentialId", ""),
     }, f, indent=2)
 PY
-echo -e "  ${GRN}✓${NC} Angebot gesendet"
+echo -e "  ${GRN}✓${NC} Offer sent"
 echo ""
 
-# ── 3. Warten bis UI akzeptiert ──────────────────────────────────────────────
+# ── 3. Wait for the UI to accept ──────────────────────────────────────────
 echo -e "${YLW}┌─────────────────────────────────────────────────────────┐${NC}"
-echo -e "${YLW}│  👉 AKTION: Wallet → Inbox → Annehmen                    │${NC}"
+echo -e "${YLW}│  👉 ACTION: Wallet → Inbox → Accept                      │${NC}"
 echo -e "${YLW}└─────────────────────────────────────────────────────────┘${NC}"
 echo ""
 
 COUNT_BEFORE=$(curl -sf "$WALLET/credentials" \
   | python3 -c "import sys,json; print(len(json.load(sys.stdin)))" 2>/dev/null || echo "0")
 
-echo -e "${CYN}Warte auf Annahme…${NC}"
+echo -e "${CYN}Waiting for acceptance…${NC}"
 for i in $(seq 1 90); do
   COUNT_NOW=$(curl -sf "$WALLET/credentials" \
     | python3 -c "import sys,json; print(len(json.load(sys.stdin)))" 2>/dev/null || echo "0")
   if [ "$COUNT_NOW" -gt "$COUNT_BEFORE" ] 2>/dev/null; then
-    echo -e "\r  ${GRN}✓ Credential gespeichert${NC}          "
+    echo -e "\r  ${GRN}✓ Credential stored${NC}          "
     exit 0
   fi
-  printf "\r  … warte (${i}s)"
+  printf "\r  … waiting (${i}s)"
   sleep 1
 done
 

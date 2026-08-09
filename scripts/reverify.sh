@@ -1,10 +1,10 @@
 #!/bin/bash
-# Neue Proof-Anfrage auf bestehender Verifier-Connection (kein OOB-Handshake)
+# New proof request on an existing verifier connection (no OOB handshake)
 #
-# Optionale Parameter: Attribute, die abgefragt werden sollen
-#   ./reverify.sh                          # alle Attribute
-#   ./reverify.sh fuehrerscheinklasse      # nur die Klasse
-#   ./reverify.sh vorname nachname         # nur Name
+# Optional parameters: attributes to request
+#   ./reverify.sh                          # all attributes
+#   ./reverify.sh fuehrerscheinklasse      # class only
+#   ./reverify.sh vorname nachname         # name only
 set -e
 
 GRN='\033[0;32m'; YLW='\033[1;33m'; CYN='\033[0;36m'; RED='\033[0;31m'; BLD='\033[1m'; NC='\033[0m'
@@ -16,7 +16,7 @@ echo -e "${BLD}│   Interactive Wallet — Re-Verify     │${NC}"
 echo -e "${BLD}└─────────────────────────────────────┘${NC}"
 echo ""
 
-# ── 1. Letzte vollständige Verifier-Connection finden ────────────────────────
+# ── 1. Find the most recent completed verifier connection ────────────────
 CONN=$(curl -sf "$VERIFIER/connections" \
   | python3 -c "
 import sys, json
@@ -26,41 +26,41 @@ print(done[0]['id'] if done else '')
 " 2>/dev/null || echo "")
 
 if [ -z "$CONN" ]; then
-  echo -e "  ${RED}✗ Keine fertige Verifier-Connection gefunden.${NC}"
-  echo -e "  ${YLW}Tipp:${NC} erst ${BLD}bash scripts/verify.sh${NC} ausführen, dann reverify."
+  echo -e "  ${RED}✗ No completed verifier connection found.${NC}"
+  echo -e "  ${YLW}Tip:${NC} run ${BLD}bash scripts/verify.sh${NC} first, then reverify."
   exit 1
 fi
 
-echo -e "${CYN}Verwende Connection:${NC} $CONN"
+echo -e "${CYN}Using connection:${NC} $CONN"
 echo ""
 
-# ── 2. Proof-Request bauen ───────────────────────────────────────────────────
+# ── 2. Build the proof request ────────────────────────────────────────────
 if [ $# -eq 0 ]; then
   ATTRS='["vorname","nachname","geburtsdatum","fuehrerscheinklasse","ausstellungsdatum"]'
-  echo -e "${CYN}Abgefragte Attribute:${NC} alle"
+  echo -e "${CYN}Requested attributes:${NC} all"
 else
   ATTRS=$(python3 -c "import json,sys; print(json.dumps(sys.argv[1:]))" "$@")
-  echo -e "${CYN}Abgefragte Attribute:${NC} $*"
+  echo -e "${CYN}Requested attributes:${NC} $*"
 fi
 echo ""
 
-# ── 3. Anfrage absenden ──────────────────────────────────────────────────────
-echo -e "${CYN}Proof-Anfrage senden…${NC}"
+# ── 3. Send the request ───────────────────────────────────────────────────
+echo -e "${CYN}Sending proof request…${NC}"
 RESP=$(curl -sf -X POST "$VERIFIER/request-proof" \
   -H "Content-Type: application/json" \
   -d "{\"connectionId\": \"$CONN\", \"requestedAttributes\": $ATTRS}")
 
 PROOF_ID=$(echo "$RESP" | python3 -c "import sys,json; print(json.load(sys.stdin).get('proofExchangeId',''))")
-echo -e "  ${GRN}✓${NC} Anfrage gesendet (proof exchange: $PROOF_ID)"
+echo -e "  ${GRN}✓${NC} Request sent (proof exchange: $PROOF_ID)"
 echo ""
 
-# ── 4. Auf Ergebnis warten ───────────────────────────────────────────────────
+# ── 4. Wait for the result ────────────────────────────────────────────────
 echo -e "${YLW}┌─────────────────────────────────────────────────────────┐${NC}"
-echo -e "${YLW}│  👉 AKTION: Wallet → Inbox → Proof teilen                │${NC}"
+echo -e "${YLW}│  👉 ACTION: Wallet → Inbox → Share proof                 │${NC}"
 echo -e "${YLW}└─────────────────────────────────────────────────────────┘${NC}"
 echo ""
 
-echo -e "${CYN}Warte auf Verifikation…${NC}"
+echo -e "${CYN}Waiting for verification…${NC}"
 for i in $(seq 1 90); do
   STATE=$(curl -sf "$VERIFIER/proofs" \
     | python3 -c "
@@ -72,17 +72,17 @@ for p in json.load(sys.stdin):
 " 2>/dev/null || echo "")
   if echo "$STATE" | grep -q "done"; then
     if echo "$STATE" | grep -q "True"; then
-      echo -e "\r  ${GRN}✓ Verifiziert (isVerified: true)${NC}          "
+      echo -e "\r  ${GRN}✓ Verified (isVerified: true)${NC}          "
     else
-      echo -e "\r  ${RED}✗ Verifikation fehlgeschlagen${NC}          "
+      echo -e "\r  ${RED}✗ Verification failed${NC}          "
     fi
     exit 0
   fi
   if echo "$STATE" | grep -q "abandoned\|declined"; then
-    echo -e "\r  ${RED}✗ Vom Holder abgelehnt/abgebrochen${NC}          "
+    echo -e "\r  ${RED}✗ Declined/abandoned by the holder${NC}          "
     exit 1
   fi
-  printf "\r  … warte (${i}s)"
+  printf "\r  … waiting (${i}s)"
   sleep 1
 done
 
