@@ -13,7 +13,7 @@ const spec = swaggerJsdoc({
     },
     servers: [{ url: `http://localhost:${ISSUER_API_PORT}` }],
   },
-  apis: ["./dist/index.js"],
+  apis: ["./dist/index.js", "./dist/issuer-routes.js"],
 });
 
 export function mountSwagger(app: Express): void {

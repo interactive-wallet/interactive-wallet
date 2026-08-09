@@ -2,3 +2,4 @@ node_modules/
 dist/
 .env
 issuer-state.json
+src/indexOriginal.ts
