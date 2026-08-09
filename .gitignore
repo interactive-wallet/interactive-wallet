@@ -37,3 +37,5 @@ documentation/260809_content-04-evaluation-DRAFT.tex
 documentation/260809_content-05-discussion-DRAFT.tex
 documentation/260809_appendix-requirements-traceability-DRAFT.tex
 documentation/260809_appendix-FULL-DRAFT.tex
+scripts/start_lennard.sh
+scripts/start_adrian.sh
