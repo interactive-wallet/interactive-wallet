@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../data/wallet_repository.dart';
 import '../models/api_models.dart';
 import '../theme/app_theme.dart';
+import '../widgets/new_item_highlight.dart';
 
 const _attrLabels = <String, String>{
   'vorname': 'Vorname',
@@ -97,9 +98,15 @@ class WalletScreen extends StatelessWidget {
                 context: context,
               ),
               const SizedBox(height: 12),
-              ...credentials.map((c) => _CredentialCard(
-                    credential: c,
-                    revoked: repo.isCredentialRevoked(c),
+              ...credentials.map((c) => NewItemHighlight(
+                    key: ValueKey('cred-${c.credentialId}'),
+                    isNew: repo.consumeRecentlyChanged(c.credentialId),
+                    color: AppColors.warning,
+                    borderRadius: BorderRadius.circular(18),
+                    child: _CredentialCard(
+                      credential: c,
+                      revoked: repo.isCredentialRevoked(c),
+                    ),
                   )),
             ],
           ],

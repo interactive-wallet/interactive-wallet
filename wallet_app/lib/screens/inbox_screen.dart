@@ -5,6 +5,7 @@ import 'package:timeago/timeago.dart' as timeago;
 import '../data/wallet_repository.dart';
 import '../models/api_models.dart';
 import '../theme/app_theme.dart';
+import '../widgets/new_item_highlight.dart';
 
 const _attrLabels = <String, String>{
   'vorname': 'Vorname',
@@ -123,18 +124,30 @@ class _InboxScreenState extends State<InboxScreen> {
                       children: [
                         if (showCreds)
                           ...pendingCreds.map(
-                            (c) => _CredentialOfferCard(
-                              offer: c,
-                              onAccept: () => repo.acceptCredential(c.id),
-                              onDecline: () => repo.declineCredential(c.id),
+                            (c) => NewItemHighlight(
+                              key: ValueKey('cred-offer-${c.id}'),
+                              isNew: repo.consumeRecentlyChanged(c.id),
+                              color: AppColors.warning,
+                              borderRadius: BorderRadius.circular(16),
+                              child: _CredentialOfferCard(
+                                offer: c,
+                                onAccept: () => repo.acceptCredential(c.id),
+                                onDecline: () => repo.declineCredential(c.id),
+                              ),
                             ),
                           ),
                         if (showProofs)
                           ...pendingProofs.map(
-                            (p) => _ProofRequestCard(
-                              proof: p,
-                              onAccept: () => repo.acceptProof(p.id),
-                              onDecline: () => repo.declineProof(p.id),
+                            (p) => NewItemHighlight(
+                              key: ValueKey('proof-req-${p.id}'),
+                              isNew: repo.consumeRecentlyChanged(p.id),
+                              color: AppColors.warning,
+                              borderRadius: BorderRadius.circular(16),
+                              child: _ProofRequestCard(
+                                proof: p,
+                                onAccept: () => repo.acceptProof(p.id),
+                                onDecline: () => repo.declineProof(p.id),
+                              ),
                             ),
                           ),
                       ],
