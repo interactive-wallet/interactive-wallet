@@ -27,9 +27,23 @@ class _MainShellState extends State<MainShell> {
   ];
 
   @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) context.read<WalletRepository>().setVisibleTab(_selectedIndex);
+    });
+  }
+
+  void _selectTab(int i) {
+    setState(() => _selectedIndex = i);
+    context.read<WalletRepository>().setVisibleTab(i);
+  }
+
+  @override
   Widget build(BuildContext context) {
     final wc = context.wc;
-    final isVerifier = context.watch<WalletRepository>().isVerifier;
+    final repo = context.watch<WalletRepository>();
+    final isVerifier = repo.isVerifier;
     return Scaffold(
       body: Column(
         children: [
@@ -48,30 +62,50 @@ class _MainShellState extends State<MainShell> {
         ),
         child: BottomNavigationBar(
           currentIndex: _selectedIndex,
-          onTap: (i) => setState(() => _selectedIndex = i),
+          onTap: _selectTab,
           items: [
             const BottomNavigationBarItem(
               icon: Icon(Icons.dashboard_outlined),
               activeIcon: Icon(Icons.dashboard),
               label: 'Dashboard',
             ),
-            const BottomNavigationBarItem(
-              icon: Icon(Icons.mail_outline_rounded),
-              activeIcon: Icon(Icons.mail_rounded),
+            BottomNavigationBarItem(
+              icon: _NavIcon(
+                icon: Icons.mail_outline_rounded,
+                showDot: repo.unseenTabs.contains(WalletRepository.tabInbox),
+              ),
+              activeIcon: _NavIcon(
+                icon: Icons.mail_rounded,
+                showDot: repo.unseenTabs.contains(WalletRepository.tabInbox),
+              ),
               label: 'Inbox',
             ),
             BottomNavigationBarItem(
-              icon: Icon(isVerifier
-                  ? Icons.verified_user_outlined
-                  : Icons.account_balance_wallet_outlined),
-              activeIcon: Icon(isVerifier
-                  ? Icons.verified_user
-                  : Icons.account_balance_wallet),
+              icon: _NavIcon(
+                icon: isVerifier
+                    ? Icons.verified_user_outlined
+                    : Icons.account_balance_wallet_outlined,
+                showDot: repo.unseenTabs.contains(WalletRepository.tabWallet),
+              ),
+              activeIcon: _NavIcon(
+                icon: isVerifier
+                    ? Icons.verified_user
+                    : Icons.account_balance_wallet,
+                showDot: repo.unseenTabs.contains(WalletRepository.tabWallet),
+              ),
               label: isVerifier ? 'Verified' : 'Wallet',
             ),
-            const BottomNavigationBarItem(
-              icon: Icon(Icons.hub_outlined),
-              activeIcon: Icon(Icons.hub),
+            BottomNavigationBarItem(
+              icon: _NavIcon(
+                icon: Icons.hub_outlined,
+                showDot:
+                    repo.unseenTabs.contains(WalletRepository.tabConnections),
+              ),
+              activeIcon: _NavIcon(
+                icon: Icons.hub,
+                showDot:
+                    repo.unseenTabs.contains(WalletRepository.tabConnections),
+              ),
               label: 'Network',
             ),
             const BottomNavigationBarItem(
@@ -82,6 +116,24 @@ class _MainShellState extends State<MainShell> {
           ],
         ),
       ),
+    );
+  }
+}
+
+/// Small yellow dot overlaid on a nav icon when its tab has unseen activity.
+class _NavIcon extends StatelessWidget {
+  final IconData icon;
+  final bool showDot;
+
+  const _NavIcon({required this.icon, required this.showDot});
+
+  @override
+  Widget build(BuildContext context) {
+    return Badge(
+      isLabelVisible: showDot,
+      backgroundColor: AppColors.warning,
+      smallSize: 9,
+      child: Icon(icon),
     );
   }
 }

@@ -17,7 +17,7 @@ This is a proof of concept. It is not hardened for production use and should not
 
 ### Hardware Requirements
 
-Can run on a normal laptop. Keep in mind that the VON Network runs several Docker containers, so a very weak machine might struggle.
+Can run on a normal laptop. Keep in mind that VON Network and every agent run as Docker containers, so a very weak machine might struggle.
 
 <!-- TODO: add specs of the machine we tested on for the "Reproduced" badge -->
 
@@ -27,18 +27,17 @@ Can run on a normal laptop. Keep in mind that the VON Network runs several Docke
 2. **OS packages (only needed for the Flutter UI):** `clang`, `cmake`, `ninja`, `pkg-config`, GTK 3 headers, Mesa.
    - Ubuntu: `sudo apt install clang cmake ninja-build pkg-config libgtk-3-dev libstdc++-12-dev`
    - Arch: `sudo pacman -S --needed clang cmake ninja pkgconf gtk3 mesa`
-3. **Docker:** 29.6.0 — needed for VON Network (the Indy ledger) and RabbitMQ.
-4. **Node.js:** 26.3.1 (at least version 18), pnpm 11.8.0.
-5. **Dependencies:** Each agent has its own `package.json`. Run `pnpm install` in each agent folder. Main dependencies are `@credo-ts/*` 0.7.0, `@hyperledger/anoncreds-nodejs` 0.4.0, `amqplib` 2.0.1.
-6. No ML models needed.
-7. No datasets needed.
-8. **Flutter (optional):** The wallet also has an HTML reference UI, so Flutter is not strictly required. If you want the Flutter app, you need Flutter 3.x with `flutter config --enable-linux-desktop`.
+3. **Docker + Docker Compose (v2 plugin):** 29.6.0 — every agent (mediator, wallet, verifier, issuer), docs-hub, RabbitMQ and VON Network run as containers. No Node.js/pnpm needed on the host — dependency installs happen inside the Docker builds.
+4. **Python 3** and **curl** — used by `scripts/*.sh` (setup/issue/verify/reissue/reverify/revoke) to parse JSON responses and drive the agents' REST APIs.
+5. No ML models needed.
+6. No datasets needed.
+7. **Flutter (optional):** The wallet also has an HTML reference UI, so Flutter is not strictly required. If you want the Flutter app, you need Flutter 3.x with `flutter config --enable-linux-desktop`.
 
 ### Estimated Time and Storage Consumption
 
 - **First-time setup:** about 10 minutes of your time, ~5 minutes for the VON Network Docker build (one-time).
 - **Per run:** ~5 minutes to get everything started and run through the demo.
-- **Disk space:** ~2GB for Docker images and Node.js dependencies.
+- **Disk space:** ~2GB for Docker images (dependency installs happen inside the builds, nothing extra on the host).
 
 ## Environment
 
@@ -53,28 +52,30 @@ cd interactive-wallet
 # Load submodules
 git submodule init && git submodule update
 
-# Install dependencies for all agents
-cd mediator       && pnpm install && cd ..
-cd wallet-agent   && pnpm install && cd ..
-cd issuer-agent   && pnpm install && cd ..
-cd verifier-agent && pnpm install && cd ..
-
 # Build VON Network — only needed once, takes ~5 minutes
 cd von-network && ./manage build && cd ..
+
+# Build agent images (mediator, wallet, verifier, issuer all live in
+# mediator/, wallet-agent/, issuer-agent/ — the verifier is a role of the
+# wallet-agent image, not a separate service)
+docker compose build mediator && docker compose build
 
 # Set up environment variables
 cp .env.example .env
 ```
 
-Start all services (mediator has to come first, each in its own terminal):
+Start everything with one command:
 
 ```bash
-docker compose up -d                          # RabbitMQ
+./scripts/start.sh
+```
+
+This brings up VON Network, all agents via Docker Compose, and the Flutter app.
+Equivalent step by step, if you want the pieces separately:
+
+```bash
 cd von-network && ./manage start              # Indy Ledger
-cd mediator       && pnpm start
-cd issuer-agent   && pnpm start
-cd verifier-agent && pnpm start
-cd wallet-agent   && pnpm start
+docker compose up -d                          # Mediator, Wallet, Verifier, Issuer, docs-hub, RabbitMQ
 ```
 
 ### Testing the Environment

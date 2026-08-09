@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 import '../data/wallet_repository.dart';
 import '../models/api_models.dart';
 import '../theme/app_theme.dart';
+import '../widgets/new_item_highlight.dart';
 
 bool _isActive(WalletConnection c) => c.state == 'completed';
 
@@ -65,6 +66,13 @@ class ConnectionsScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final repo = context.watch<WalletRepository>();
+    Widget wrap(WalletConnection c) => NewItemHighlight(
+          key: ValueKey('conn-${c.id}'),
+          isNew: repo.consumeRecentlyChanged(c.id),
+          color: AppColors.warning,
+          borderRadius: BorderRadius.circular(16),
+          child: _ConnectionCard(connection: c),
+        );
     final connections = repo.connections;
     final active = connections.where(_isActive).toList();
     final pending = connections.where((c) => !_isActive(c)).toList();
@@ -103,14 +111,14 @@ class ConnectionsScreen extends StatelessWidget {
                 _SectionLabel('Active Connections',
                     count: active.length, color: AppColors.success),
                 const SizedBox(height: 12),
-                ...active.map((c) => _ConnectionCard(connection: c)),
+                ...active.map(wrap),
               ],
               if (pending.isNotEmpty) ...[
                 const SizedBox(height: 20),
                 _SectionLabel('Pending / Inactive',
                     count: pending.length, color: wc.textTertiary),
                 const SizedBox(height: 12),
-                ...pending.map((c) => _ConnectionCard(connection: c)),
+                ...pending.map(wrap),
               ],
             ],
           ],

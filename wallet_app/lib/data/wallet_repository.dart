@@ -11,9 +11,19 @@ import 'event_stream.dart';
 /// Loads initial state via REST and stays in sync via SSE — mirrors the
 /// connectSSE() logic in wallet-agent/public/index.html.
 class WalletRepository extends ChangeNotifier {
+  // Bottom-nav tab indices, mirrored from MainShell's screen order — used to
+  // drive the "new activity" dot without MainShell needing to know how each
+  // list is diffed.
+  static const int tabDashboard = 0;
+  static const int tabInbox = 1;
+  static const int tabWallet = 2;
+  static const int tabConnections = 3;
+  static const int tabAudit = 4;
+
   final ApiClient _api;
   final WalletEventStream _events;
   StreamSubscription<WalletEvent>? _eventSub;
+  Timer? _pollTimer;
 
   List<StoredCredential> credentials = const [];
   List<PendingCredentialOffer> pendingCredentials = const [];
@@ -34,6 +44,32 @@ class WalletRepository extends ChangeNotifier {
   /// Most recent error from a backend call, displayed transiently by the UI.
   String? lastError;
 
+  // ── New-activity tracking ────────────────────────────────────────────────
+  //
+  // Diff-based rather than tied to SSE payload ids: the backend uses
+  // different id schemes for exchange records vs. stored credentials, so
+  // comparing "which ids are in the list now that weren't before" is the one
+  // approach that works uniformly for every list, whether it changed because
+  // of an SSE event or the fallback poll below.
+
+  final Set<String> _knownCredentialIds = {};
+  final Set<String> _knownPendingCredentialIds = {};
+  final Set<String> _knownPendingProofIds = {};
+  final Set<String> _knownConnectionIds = {};
+  bool _seeded = false;
+
+  /// Ids that appeared since the owning tab was last viewed — consumed once
+  /// by the card widget that renders them, to drive a one-shot fade-out
+  /// highlight border.
+  final Set<String> _recentlyChangedIds = {};
+
+  /// Tab indices with unseen changes — drives the navbar dot.
+  final Set<int> unseenTabs = {};
+
+  /// The tab currently on screen; changes there are highlighted but don't
+  /// set the dot, since the user is already looking at them.
+  int visibleTabIndex = tabDashboard;
+
   WalletRepository({ApiClient? api, WalletEventStream? events})
       : _api = api ?? ApiClient(),
         _events = events ?? WalletEventStream();
@@ -48,6 +84,10 @@ class WalletRepository extends ChangeNotifier {
   Future<void> start() async {
     _eventSub = _events.stream.listen(_onEvent);
     await refreshAll();
+    // Belt-and-suspenders: SSE should keep everything live, but a dropped
+    // connection that silently fails to reconnect shouldn't force a manual
+    // page reload before new data shows up.
+    _pollTimer = Timer.periodic(const Duration(seconds: 15), (_) => refreshAll());
   }
 
   Future<void> refreshAll() async {
@@ -57,7 +97,50 @@ class WalletRepository extends ChangeNotifier {
       _safe(() async => proofExchanges = await _api.proofExchanges()),
       _safe(() async => connections = await _api.connections()),
     ]);
+    _diffAndMark();
     notifyListeners();
+  }
+
+  void _diffAndMark() {
+    _diff(credentials.map((c) => c.credentialId).toSet(), _knownCredentialIds,
+        tabWallet);
+    _diff(pendingCredentials.map((c) => c.id).toSet(),
+        _knownPendingCredentialIds, tabInbox);
+    _diff(pendingProofs.map((p) => p.id).toSet(), _knownPendingProofIds,
+        tabInbox);
+    _diff(connections.map((c) => c.id).toSet(), _knownConnectionIds,
+        tabConnections);
+    // First pass just seeds the known-id sets — nothing was actually "new".
+    _seeded = true;
+  }
+
+  void _diff(Set<String> current, Set<String> known, int tabIndex) {
+    if (_seeded) {
+      final added = current.difference(known);
+      if (added.isNotEmpty) {
+        _recentlyChangedIds.addAll(added);
+        if (tabIndex != visibleTabIndex) unseenTabs.add(tabIndex);
+      }
+    }
+    known
+      ..clear()
+      ..addAll(current);
+  }
+
+  /// Called once by the card widget that renders [id] on its first build —
+  /// returns true exactly once per new item, to trigger the fade-out
+  /// highlight border without replaying it on subsequent rebuilds.
+  bool consumeRecentlyChanged(String id) => _recentlyChangedIds.remove(id);
+
+  /// Marks [tabIndex] as currently on screen: clears its dot and stops new
+  /// changes there from setting it again until the user navigates away.
+  void setVisibleTab(int tabIndex) {
+    visibleTabIndex = tabIndex;
+    markTabSeen(tabIndex);
+  }
+
+  void markTabSeen(int tabIndex) {
+    if (unseenTabs.remove(tabIndex)) notifyListeners();
   }
 
   // ── Reactions to live events ─────────────────────────────────────────────
@@ -90,15 +173,39 @@ class WalletRepository extends ChangeNotifier {
         }
         break;
       case 'proof':
-        _safeUnawaited(
-            () async => proofExchanges = await _api.proofExchanges());
+        _safeUnawaited(() async {
+          proofExchanges = await _api.proofExchanges();
+          // On the verifier, a verified presentation is what adds an entry to
+          // /credentials (there's no separate "credential" event for that
+          // role) — refetch so the Verified tab picks it up without a
+          // manual reload.
+          if (ev.isVerified == true) {
+            credentials = await _api.credentials();
+          }
+        });
         break;
       case 'revocation':
         // The backend only broadcasts revocations for credentials this wallet
-        // actually holds, so we can mark it revoked without further filtering.
-        if (ev.credentialId != null && ev.credentialId!.isNotEmpty) {
-          revokedCredentialIds.add(ev.credentialId!);
+        // actually holds (holder) or has verified (verifier), so we can mark
+        // it revoked without further filtering.
+        final appId = ev.credentialId;
+        if (appId != null && appId.isNotEmpty) {
+          revokedCredentialIds.add(appId);
         }
+        _safeUnawaited(() async {
+          // Verifier stores the revoked flag on the record itself
+          // (`widerrufen_am`), so its card only turns red once /credentials
+          // is refetched — do that for both roles rather than special-casing.
+          credentials = await _api.credentials();
+          if (appId != null) {
+            for (final c in credentials) {
+              if (c.attributes['credential_id'] == appId) {
+                _recentlyChangedIds.add(c.credentialId);
+                if (tabWallet != visibleTabIndex) unseenTabs.add(tabWallet);
+              }
+            }
+          }
+        });
         break;
     }
     notifyListeners();
@@ -183,11 +290,15 @@ class WalletRepository extends ChangeNotifier {
   }
 
   void _safeUnawaited(Future<void> Function() action) {
-    _safe(action).then((_) => notifyListeners());
+    _safe(action).then((_) {
+      _diffAndMark();
+      notifyListeners();
+    });
   }
 
   @override
   void dispose() {
+    _pollTimer?.cancel();
     _eventSub?.cancel();
     _events.close();
     _api.close();

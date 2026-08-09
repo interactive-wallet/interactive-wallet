@@ -20,6 +20,35 @@ Die Wallet hat keinen öffentlichen DIDComm-Endpoint (mobile Architektur). Alle 
 
 Credentials werden als **AnonCreds ZKP** ausgestellt. Der Verifier sieht nur die angefragten Attribute, kryptografisch verifizierbar ohne Rückfrage beim Issuer.
 
+## Voraussetzungen
+
+Alle Agents (Mediator, Issuer, Verifier, Wallet) laufen als Docker-Container — auf
+dem Host wird **kein** Node.js/pnpm gebraucht, das passiert komplett innerhalb der
+Docker-Builds. Was auf dem Host installiert sein muss:
+
+| Tool | Wofür |
+|---|---|
+| **Docker** + **Docker Compose** (v2-Plugin, `docker compose`, nicht das alte `docker-compose`) | baut/startet alle Agents, RabbitMQ, docs-hub |
+| **Git** | Klonen + Submodule (`von-network`) |
+| **Flutter SDK** | die Wallet-App |
+| **Linux-Build-Toolchain** für Flutter Desktop: `clang`, `cmake`, `ninja`, `pkg-config`, GTK-3-Header, Mesa | `flutter build linux` |
+| **Python 3** | JSON-Parsing in `scripts/*.sh` (Setup/Issue/Verify/Reissue/Reverify/Revoke) |
+| **curl** | REST-Aufrufe in `scripts/*.sh` |
+| *(optional)* `wl-copy`, `xclip` oder `xsel` | Einladungs-URL wird automatisch in die Zwischenablage kopiert — ohne eines der drei einfach manuell aus der Terminal-Ausgabe kopieren |
+
+Linux-Build-Toolchain installieren:
+
+```bash
+# Ubuntu
+sudo apt install clang cmake ninja-build pkg-config libgtk-3-dev libstdc++-12-dev
+
+# Arch
+sudo pacman -S --needed clang cmake ninja pkgconf gtk3 mesa
+```
+
+`scripts/start.sh` prüft Docker, Docker Compose, Flutter, Python 3 und curl beim Start
+selbst und bricht mit einer klaren Fehlermeldung ab, falls etwas fehlt.
+
 ## Ersteinrichtung
 
 Nach dem Klonen einmalig ausführen:
@@ -38,25 +67,23 @@ docker compose build mediator && docker compose build
 
 # Flutter-Pakete
 cd wallet_app && flutter pub get && cd ..
-```
 
-Für die Flutter-App unter Linux werden zusätzlich Build-Tools benötigt. Installiere `clang`, `cmake`, `ninja`, `pkg-config`, GTK 3 Headers und Mesa über deinen Paketmanager. Beispiele:
-
-```bash
-# Ubuntu
-sudo apt install clang cmake ninja-build pkg-config libgtk-3-dev libstdc++-12-dev
-
-# Arch
-sudo pacman -S --needed clang cmake ninja pkgconf gtk3 mesa
-```
-
-Dann einmalig:
-
-```bash
+# Einmalig: Linux Desktop als Flutter-Zielplattform aktivieren
 flutter config --enable-linux-desktop
 ```
 
 ## Starten
+
+```bash
+./scripts/start.sh
+```
+
+Startet VON-Network, alle Agents (Docker Compose) und baut + startet die Flutter-App
+zweimal (Holder-Fenster gegen `wallet-agent` :3000, Verifier-Fenster gegen den
+Verifier-Teil des `wallet-agent` :3004 — gleiches Binary, siehe `WALLET_BASE` in
+`wallet_app/lib/data/api_client.dart`).
+
+Alternativ manuell, z. B. um nur ein einzelnes Frontend zu starten:
 
 ```bash
 # 1. VON Network
