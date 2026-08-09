@@ -1,45 +1,45 @@
 # Interactive Wallet
 
-Internet of Services Lab 2026: Self-Sovereign Identity (SSI) Demo mit vier Akteuren:
+Internet of Services Lab 2026: Self-Sovereign Identity (SSI) demo with four actors:
 
-- **Mediator** (Port 3006/3007/3008): DIDComm-Mediator; routet Nachrichten an die Wallet, die keinen öffentlichen Endpoint hat (mobile Architektur)
-- **Issuer** (Port 3002/3003): registriert sich als `did:indy` auf dem Ledger, stellt Credentials aus (hier: Führerschein)
-- **Verifier** (Port 3004/3005): registriert sich als `did:indy` auf dem Ledger, prüft Credentials
-- **Holder / Wallet** (Port 3000): bleibt bewusst anonym (Peer-DIDs pro Verbindung, kein Ledger-Eintrag); verbindet sich beim Start automatisch mit dem Mediator
+- **Mediator** (port 3006/3007/3008): DIDComm mediator; routes messages to the wallet, which has no public endpoint (mobile architecture)
+- **Issuer** (port 3002/3003): registers as `did:indy` on the ledger, issues credentials (here: driving licence)
+- **Verifier** (port 3004/3005): registers as `did:indy` on the ledger, verifies credentials
+- **Holder / Wallet** (port 3000): stays deliberately anonymous (Peer-DIDs per connection, no ledger entry); connects to the mediator automatically on startup
 
-Issuer und Verifier haben je zwei Ports: einen Admin-Port (REST für die Scripts) und einen DIDComm-Port. Der Mediator hat drei: REST-API (3006), HTTP-DIDComm (3007) und WebSocket-DIDComm (3008).
+Issuer and Verifier each have two ports: an admin port (REST for the scripts) and a DIDComm port. The mediator has three: REST API (3006), HTTP DIDComm (3007), and WebSocket DIDComm (3008).
 
-## Architektur
+## Architecture
 
-Die Wallet hat keinen öffentlichen DIDComm-Endpoint (mobile Architektur). Alle eingehenden Nachrichten (Connection Responses, Credential Offers, Proof Requests) werden vom Mediator zwischengespeichert. Der Mediator benachrichtigt das Wallet, welchest die Nachrichten per PickUpV2-Protokoll abholt.
+The wallet has no public DIDComm endpoint (mobile architecture). All incoming messages (connection responses, credential offers, proof requests) are queued by the mediator. The mediator notifies the wallet, which picks the messages up via the PickUpV2 protocol.
 
-- **Wallet** speichert in Askar (verschlüsselte SQLite) Keys, Credentials, Link Secret. Frontends sind nur Anzeige.
-- **Issuer + Verifier** schreiben ihre `did:indy` auf das VON-Network. Schemas + CredDefs nur Issuer-seitig.
-- **Holder** schreibt nichts auf den Ledger (Privacy by Design, sonst Korrelation über Sessions hinweg).
-- **DIDComm-Verbindungen** sind asymmetrisch: Institution mit Public DID, Holder mit Peer-DID.
+- **Wallet** stores keys, credentials, and the link secret in Askar (encrypted SQLite). Frontends are display-only.
+- **Issuer + Verifier** write their `did:indy` to the VON network. Schemas + CredDefs are issuer-side only.
+- **Holder** writes nothing to the ledger (privacy by design, otherwise correlation across sessions would be possible).
+- **DIDComm connections** are asymmetric: the institution has a public DID, the holder has a Peer-DID.
 
-Credentials werden als **AnonCreds ZKP** ausgestellt. Der Verifier sieht nur die angefragten Attribute, kryptografisch verifizierbar ohne Rückfrage beim Issuer.
+Credentials are issued as **AnonCreds ZKPs**. The verifier only sees the requested attributes, cryptographically verifiable without contacting the issuer.
 
-## Voraussetzungen
+## Prerequisites
 
-Alle Agents (Mediator, Issuer, Verifier, Wallet) laufen als Docker-Container — auf
-dem Host wird **kein** Node.js/pnpm gebraucht, das passiert komplett innerhalb der
-Docker-Builds. Was auf dem Host installiert sein muss:
+All agents (mediator, issuer, verifier, wallet) run as Docker containers — the host
+needs **no** Node.js/pnpm, that all happens inside the Docker builds. What must be
+installed on the host:
 
-| Tool | Wofür |
+| Tool | What for |
 |---|---|
-| **Docker** + **Docker Compose** (v2-Plugin, `docker compose`, nicht das alte `docker-compose`) | baut/startet alle Agents, RabbitMQ, docs-hub |
-| **Git** | Klonen + Submodule (`von-network`) |
-| **Flutter SDK** | die Wallet-App |
-| **Build-Toolchain** für Flutter Desktop — Linux: `clang`, `cmake`, `ninja`, `pkg-config`, GTK-3-Header, Mesa; macOS: Xcode-Kommandozeilentools | `flutter build linux` / `flutter build macos` |
-| **Python 3** | JSON-Parsing in `scripts/*.sh` (Setup/Issue/Verify/Reissue/Reverify/Revoke) |
-| **curl** | REST-Aufrufe in `scripts/*.sh` |
-| *(optional)* Linux: `wl-copy`, `xclip` oder `xsel` | Einladungs-URL wird automatisch in die Zwischenablage kopiert — ohne eines der drei einfach manuell aus der Terminal-Ausgabe kopieren. Auf macOS übernimmt das systemeigene `pbcopy` das automatisch |
+| **Docker** + **Docker Compose** (v2 plugin, `docker compose`, not the old `docker-compose`) | builds/starts all agents, RabbitMQ, docs-hub |
+| **Git** | cloning + submodules (`von-network`) |
+| **Flutter SDK** | the wallet app |
+| **Build toolchain** for Flutter desktop — Linux: `clang`, `cmake`, `ninja`, `pkg-config`, GTK 3 headers, Mesa; macOS: Xcode command line tools | `flutter build linux` / `flutter build macos` |
+| **Python 3** | JSON parsing in `scripts/*.sh` (setup/issue/verify/reissue/reverify/revoke) |
+| **curl** | REST calls in `scripts/*.sh` |
+| *(optional)* Linux: `wl-copy`, `xclip`, or `xsel` | the invitation URL gets copied to the clipboard automatically — without one of these three, just copy it manually from the terminal output. On macOS, the built-in `pbcopy` handles this automatically |
 
-`scripts/start.sh` erkennt das Betriebssystem (`Linux`/`Darwin`) automatisch und baut
-die Flutter-App für die passende Zielplattform.
+`scripts/start.sh` detects the operating system (`Linux`/`Darwin`) automatically and
+builds the Flutter app for the matching target platform.
 
-Build-Toolchain installieren:
+Installing the build toolchain:
 
 ```bash
 # Ubuntu
@@ -52,45 +52,45 @@ sudo pacman -S --needed clang cmake ninja pkgconf gtk3 mesa
 xcode-select --install
 ```
 
-`scripts/start.sh` prüft Docker, Docker Compose, Flutter, Python 3 und curl beim Start
-selbst und bricht mit einer klaren Fehlermeldung ab, falls etwas fehlt.
+`scripts/start.sh` checks for Docker, Docker Compose, Flutter, Python 3, and curl
+itself on startup, and aborts with a clear error message if anything is missing.
 
-## Ersteinrichtung
+## Initial Setup
 
-Nach dem Klonen einmalig ausführen:
+Run once after cloning:
 
 ```bash
-# Submodules laden (von-network)
+# Load submodules (von-network)
 git submodule init
 git submodule update
 
-# VON Network bauen (Indy Ledger, einmalig)
+# Build VON Network (Indy ledger, one-time)
 cd von-network && ./manage build && cd ..
 
-# Agents bauen (Issuer, Mediator, Wallet, Verifier)
-# zuerst nur ein Service, um Dependencies zu cachen, dann alle anderen Services
+# Build agents (Issuer, Mediator, Wallet, Verifier)
+# build one service first to cache dependencies, then all the others
 docker compose build mediator && docker compose build
 
-# Flutter-Pakete
+# Flutter packages
 cd wallet_app && flutter pub get && cd ..
 
-# Einmalig: Desktop als Flutter-Zielplattform aktivieren
+# One-time: enable desktop as a Flutter target platform
 flutter config --enable-linux-desktop   # Linux
 flutter config --enable-macos-desktop   # macOS
 ```
 
-## Starten
+## Starting
 
 ```bash
 ./scripts/start.sh
 ```
 
-Startet VON-Network, alle Agents (Docker Compose) und baut + startet die Flutter-App
-zweimal (Holder-Fenster gegen `wallet-agent` :3000, Verifier-Fenster gegen den
-Verifier-Teil des `wallet-agent` :3004 — gleiches Binary, siehe `WALLET_BASE` in
+Starts VON Network, all agents (Docker Compose), and builds + starts the Flutter app
+twice (holder window against `wallet-agent` :3000, verifier window against the
+verifier role of the `wallet-agent` :3004 — same binary, see `WALLET_BASE` in
 `wallet_app/lib/data/api_client.dart`).
 
-Alternativ manuell, z. B. um nur ein einzelnes Frontend zu starten:
+Alternatively, step by step, e.g. to start only a single frontend:
 
 ```bash
 # 1. VON Network
@@ -99,106 +99,106 @@ cd von-network && ./manage start
 # 2. Agents
 docker compose up
 
-# 3. Flutter Wallet App
+# 3. Flutter wallet app
 cd wallet_app
-flutter run -d linux   # oder: flutter run -d macos
+flutter run -d linux   # or: flutter run -d macos
 ```
 
-Es gibt **zwei austauschbare Frontends** auf demselben wallet-agent:
+There are **two interchangeable frontends** against the same wallet-agent:
 
-- **Flutter App**: primäre UI mit Ledger-Identitätsanzeige, läuft nativ unter Linux und macOS
-- **HTML Referenz-UI** unter <http://localhost:3000>, direkt vom wallet-agent ausgeliefert, kein Flutter nötig, gleicher State
+- **Flutter app**: primary UI with ledger identity display, runs natively on Linux and macOS
+- **HTML reference UI** at <http://localhost:3000>, served directly by the wallet-agent, no Flutter needed, same state
 
-## Demo-Flow
+## Demo Flow
 
-### 1. `setup.sh`: Erstmalige Einrichtung (einmalig pro VON-Instanz)
+### 1. `setup.sh`: Initial setup (once per VON instance)
 
-Registriert Issuer **und** Verifier auf dem Ledger und stellt das erste Credential aus.
+Registers issuer **and** verifier on the ledger and issues the first credential.
 
 ```bash
 ./scripts/setup.sh
 ```
 
-**Was passiert:**
+**What happens:**
 
-1. Issuer registriert DID + Schema + CredDef auf dem Ledger
-2. Verifier registriert seine `did:indy` auf dem Ledger
-3. Script gibt eine OOB-URL aus und kopiert sie in die Zwischenablage → in der App unter **Network → 🔗** einfügen
-4. Im Connect-Dialog zeigt die Wallet **VERIFIED IDENTITY**, die DID wurde vom Ledger aufgelöst
-5. Script sendet ein Führerschein-Angebot, Wallet zeigt es in der **Inbox** → **Accept**
+1. Issuer registers DID + schema + CredDef on the ledger
+2. Verifier registers its `did:indy` on the ledger
+3. The script prints an OOB URL and copies it to the clipboard → paste it into the app under **Network → 🔗**
+4. In the connect dialog, the wallet shows **VERIFIED IDENTITY** — the DID was resolved from the ledger
+5. The script sends a driving-licence offer, the wallet shows it in the **Inbox** → **Accept**
 
-### 2. `verify.sh`: Verifikation
+### 2. `verify.sh`: Verification
 
-Setzt voraus, dass der Holder einen Führerschein hat.
+Requires the holder to already have a driving licence.
 
 ```bash
 ./scripts/verify.sh
 ```
 
-**Was passiert:**
+**What happens:**
 
-1. OOB-URL des Verifiers wird ausgegeben + kopiert → in der App einfügen
-2. Auch hier: **VERIFIED IDENTITY** im Preview-Dialog
-3. Verifier schickt Proof-Request → in der **Inbox** als gelbe Karte → **Share Proof**
-4. Script zeigt `isVerified: true/false` als Ergebnis
+1. The verifier's OOB URL is printed and copied → paste it into the app
+2. Again: **VERIFIED IDENTITY** in the preview dialog
+3. The verifier sends a proof request → shown as a yellow card in the **Inbox** → **Share Proof**
+4. The script prints `isVerified: true/false` as the result
 
-### 3. Wiederverwendung bestehender Verbindungen
+### 3. Reusing existing connections
 
-Ohne erneuten OOB-Handshake:
+Without a new OOB handshake:
 
 ```bash
-./scripts/reissue.sh                              # neues Credential (Defaults)
+./scripts/reissue.sh                              # new credential (defaults)
 ./scripts/reissue.sh "Anna" "Schmidt" "1985-06-20" "A" "2023-01-10"
 
-./scripts/reverify.sh                             # alle Attribute anfragen
-./scripts/reverify.sh fuehrerscheinklasse         # nur eine Klasse. Selective Disclosure Demo
+./scripts/reverify.sh                             # request all attributes
+./scripts/reverify.sh fuehrerscheinklasse         # only one class. Selective disclosure demo
 ```
 
-### 4. `issue.sh` / `verify.sh` (mit Handshake)
+### 4. `issue.sh` / `verify.sh` (with handshake)
 
-Wie `setup.sh`/`reverify.sh`, aber baut jeweils eine neue Verbindung auf. Praktisch wenn du parallel mehrere Sessions zeigen willst.
+Like `setup.sh`/`reverify.sh`, but each builds a fresh connection. Useful if you want to show several sessions in parallel.
 
 ```bash
 ./scripts/issue.sh
 ./scripts/verify.sh
 ```
 
-### Browser-Auto-Open
+### Auto-opening the browser
 
-Die Scripts öffnen standardmäßig **keinen** Browser. Für den HTML-Referenz-UI-Test:
+By default, the scripts do **not** open a browser. To test the HTML reference UI:
 
 ```bash
 OPEN_BROWSER=1 ./scripts/setup.sh
 ```
 
-## Verified-Identity-Badge in der Flutter-App
+## Verified-identity badge in the Flutter app
 
-An zwei Stellen sichtbar:
+Visible in two places:
 
-1. **Connect-Dialog (vor Verbindung)**: dekodiert die OOB und zeigt ob die Gegenseite eine Ledger-DID enthält
-2. **Connection-Liste (nach Verbindung)**: kleines ✓-Icon neben dem Label, sobald `theirDid` ein `did:indy` ist
+1. **Connect dialog (before connecting)**: decodes the OOB and shows whether the other party's invitation contains a ledger DID
+2. **Connection list (after connecting)**: small ✓ icon next to the label, as soon as `theirDid` is a `did:indy`
 
-Das Badge bedeutet: *"Diese Identität existiert auf einem Indy-Ledger und der DIDComm-Handshake hat gegen den dort registrierten Schlüssel funktioniert."*
+The badge means: *"This identity exists on an Indy ledger, and the DIDComm handshake succeeded against the key registered there."*
 
-## Stoppen / Zurücksetzen
+## Stopping / Resetting
 
 ```bash
-# Nur stoppen, Ledger-Daten und Wallet-State bleiben
+# Just stop, ledger data and wallet state stay
 cd von-network && ./manage stop
 
-# Komplett zurücksetzen (Ledger + alle Wallets)
+# Full reset (ledger + all wallets)
 ./scripts/reset.sh
-# danach Agents neustarten und ./scripts/setup.sh
+# then restart the agents and run ./scripts/setup.sh
 ```
 
-## Repository-Layout
+## Repository Layout
 
 ```
-mediator/            Credo-TS Mediator-Agent (REST :3006, HTTP-DIDComm :3007, WS :3008)
-wallet-agent/        Credo-TS Holder-Agent + REST/SSE + HTML-Referenz-UI; beinhaltet auch Verifier-Agent + DID-Registrierung + Proof-Verifikation
-issuer-agent/        Credo-TS Issuer-Agent + DID-Registrierung + Credential-Ausstellung
-wallet_app/          Flutter-App (Desktop/Android)
-scripts/             Bash-Helper für Setup, Issue, Verify, Reissue, Reverify, Reset
-von-network/         Submodule: Hyperledger Indy Test-Ledger
-documentation/       Slides, Skizzen, Whiteboard-Exporte
+mediator/            Credo-TS mediator agent (REST :3006, HTTP DIDComm :3007, WS :3008)
+wallet-agent/        Credo-TS holder agent + REST/SSE + HTML reference UI; also contains the verifier agent + DID registration + proof verification
+issuer-agent/        Credo-TS issuer agent + DID registration + credential issuance
+wallet_app/          Flutter app (desktop/Android)
+scripts/             Bash helpers for setup, issue, verify, reissue, reverify, reset
+von-network/         Submodule: Hyperledger Indy test ledger
+documentation/       Slides, sketches, whiteboard exports
 ```
