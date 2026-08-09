@@ -40,7 +40,7 @@ trap cleanup INT TERM
 
 # All other scripts/*.sh assume the containers this script starts are already
 # up, so checking host tooling here once covers them too — see README
-# "Voraussetzungen".
+# "Prerequisites".
 echo "=== 0. Checking prerequisites ==="
 missing=()
 command -v docker >/dev/null 2>&1 || missing+=("docker")
@@ -64,7 +64,7 @@ if [ "$OS" = "Darwin" ]; then
   fi
 fi
 if [ "${#missing[@]}" -gt 0 ]; then
-  echo "  ERROR: missing prerequisites — see README, section \"Voraussetzungen\":"
+  echo "  ERROR: missing prerequisites — see README, section \"Prerequisites\":"
   for m in "${missing[@]}"; do echo "    - $m"; done
   exit 1
 fi
