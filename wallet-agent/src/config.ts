@@ -40,10 +40,10 @@ if (
 }
 
 if (VERIFIER_SEED.length !== 32) {
-  console.log(
-    "VERIFIER_SEED must be 32 characters:",
-    VERIFIER_SEED,
-  );
+  // console.log(
+  //   "VERIFIER_SEED must be 32 characters:",
+  //   VERIFIER_SEED,
+  // );
 
   process.exit(1);
 }

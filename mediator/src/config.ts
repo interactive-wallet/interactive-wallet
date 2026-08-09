@@ -10,7 +10,7 @@ export const {
 } = process.env;
 
 if (MEDIATOR_SEED.length !== 32) {
-  console.log(`MEDIATOR_SEED must be 32 characters:`, MEDIATOR_SEED);
+  // console.log(`MEDIATOR_SEED must be 32 characters:`, MEDIATOR_SEED);
   process.exit(1);
 }
 

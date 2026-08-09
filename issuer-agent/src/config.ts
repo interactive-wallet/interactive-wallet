@@ -12,7 +12,7 @@ export const {
 } = process.env;
 
 if (ISSUER_SEED.length !== 32) {
-  console.log(`ISSUER_SEED must be 32 characters:`, ISSUER_SEED);
+  // console.log(`ISSUER_SEED must be 32 characters:`, ISSUER_SEED);
   process.exit(1);
 }
 

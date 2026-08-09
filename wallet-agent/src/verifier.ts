@@ -270,7 +270,6 @@ export async function setUpVerifier(
     fs.writeFileSync(STATE_FILE, JSON.stringify(state, null, 2));
   }
 
-  // TODO NYM
   const outOfBandRecord = await agent.modules.didcomm.oob.createInvitation({
     label: "CarGo Autovermietung",
     autoAcceptConnection: true,

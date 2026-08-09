@@ -95,7 +95,6 @@ export function createMediatorAgent() {
           autoAcceptConnections: true,
         },
       }),
-      // TODO redundant? needed for type inference?
       mediator: new DidCommMediatorModule({
         autoAcceptMediationRequests: true,
         messageForwardingStrategy:
